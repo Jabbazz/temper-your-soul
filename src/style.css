@@ -1,0 +1,315 @@
+:root {
+  --bg: #0e1015;
+  --text: #e6ddce;
+  --muted: #92949f;
+  --gold: #d4ac72;
+  --gold-hover: #f0cb93;
+  --panel: #121723d9;
+  --hud-panel: #141b26cc;
+  --hud-text: #d7c9e5;
+  --boss-text: #d5b88e;
+  --line: #34343c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+button {
+  background: var(--gold);
+  border: 0;
+  color: #211b17;
+  padding: 13px 22px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--gold-hover);
+}
+
+/* L'arena occupa tutta la finestra: il canvas ha risoluzione interna ridotta (vedi ZOOM) ed e' ingrandito a scatti. */
+main {
+  position: fixed;
+  inset: 0;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  background: #121720;
+  overflow: hidden;
+}
+
+canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  cursor: crosshair;
+  outline: none;
+}
+
+/* Interfaccia sovrapposta al canvas: mostra lo stato, non contiene regole di gioco. */
+.hud {
+  position: fixed;
+  z-index: 3;
+  pointer-events: none;
+  top: 16px;
+  left: 16px;
+  width: 165px;
+  padding: 12px;
+  font: 12px monospace;
+  color: var(--hud-text);
+  background: var(--hud-panel);
+}
+
+.bar {
+  height: 7px;
+  margin: 8px 0;
+  background: #422b39;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  background: #b879a0;
+}
+
+.hud-boss {
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, 34vw);
+  text-align: center;
+  color: var(--boss-text);
+}
+
+.hud-boss .bar i {
+  background: #ce986c;
+}
+
+.actions {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  padding: 9px 12px;
+  font-size: 11px;
+  color: #e7ca9c;
+  background: #171d29dc;
+  border: 1px solid #71604b;
+}
+
+.actions button:hover {
+  background: #232b3bdc;
+}
+
+.hint {
+  position: fixed;
+  left: 18px;
+  bottom: 103px;
+  z-index: 2;
+  pointer-events: none;
+  font: 11px monospace;
+  color: #b2a8bf;
+  text-shadow: 0 2px 4px #000;
+}
+
+.skills {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 24px));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  z-index: 3;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.skill {
+  position: relative;
+  overflow: hidden;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(4px);
+}
+
+.skill b {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.skill small {
+  font-size: 10px;
+}
+
+.key {
+  float: right;
+  padding: 4px 6px;
+  font: 10px monospace;
+  color: #e4bb7b;
+  border: 1px solid #514637;
+}
+
+.cool {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: #b999ed;
+}
+
+/* Schermate (menu, pausa, fine partita). */
+.veil {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #090b12b8;
+  backdrop-filter: blur(3px);
+}
+
+.hidden {
+  display: none;
+}
+
+.card {
+  max-width: 470px;
+  padding: 18px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--gold);
+}
+
+.card h3 {
+  margin: 17px 0;
+  font-family: Georgia, serif;
+  font-size: 32px;
+  font-weight: 400;
+}
+
+.card p {
+  line-height: 1.7;
+  color: #b7b7c0;
+  font-size: 14px;
+}
+
+@media (max-width: 750px) {
+  .hud {
+    width: 130px;
+    padding: 8px;
+    font-size: 10px;
+  }
+
+  .hud-boss {
+    top: 80px;
+    width: 220px;
+  }
+
+  .actions {
+    top: 12px;
+    right: 8px;
+  }
+
+  .actions button {
+    padding: 8px;
+    font-size: 9px;
+  }
+
+  .skills {
+    bottom: 8px;
+    gap: 4px;
+  }
+
+  .skill {
+    padding: 7px 5px;
+  }
+
+  .skill b {
+    clear: both;
+    padding-top: 4px;
+    font-size: 10px;
+  }
+
+  .skill small {
+    display: none;
+  }
+
+  .key {
+    float: none;
+    padding: 2px;
+    font-size: 9px;
+  }
+
+  .hint {
+    bottom: 78px;
+  }
+
+  .card {
+    max-width: 420px;
+  }
+
+  .card h3 {
+    font-size: 25px;
+  }
+
+  .card p {
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 450px) {
+  .hud-boss {
+    top: 12px;
+    width: 190px;
+  }
+
+  .hud {
+    font-size: 9px;
+  }
+
+  .skills {
+    bottom: 6px;
+  }
+
+  .skill small,
+  .hint {
+    display: none;
+  }
+}

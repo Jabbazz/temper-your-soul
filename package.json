@@ -1,0 +1,20 @@
+{
+  "name": "temper-your-soul",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Temper your soul: gioco d'azione 2D per browser, in TypeScript",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "tsc --noEmit && vitest run && vite build"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.8"
+  }
+}

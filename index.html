@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Temper your soul</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <main>
+      <div class="stage">
+        <canvas id="game" tabindex="0" aria-label="Arena di combattimento: muoviti con WASD e mira con il mouse"></canvas>
+      </div>
+
+      <section class="hud hud-player" aria-label="Stato del mago">
+        MAGO · LV. 1
+        <div class="bar"><i id="player-bar"></i></div>
+        <span id="player-text"></span>
+      </section>
+
+      <section class="hud hud-boss" aria-label="Stato del guardiano">
+        GUARDIANO DELLA CRIPTA
+        <div class="bar"><i id="boss-bar"></i></div>
+        <span id="boss-text"></span>
+      </section>
+
+      <div class="actions">
+        <button id="fullscreen-button" type="button">Schermo intero · F</button>
+        <button id="pause-button" type="button">Pausa · ESC</button>
+      </div>
+
+      <div class="hint">WASD · Muoviti &nbsp;|&nbsp; ESC · Pausa &nbsp;|&nbsp; R · Ricomincia &nbsp;|&nbsp; <span id="audio-state">Audio disattivato · M</span></div>
+
+      <ul class="skills" id="skills"></ul>
+
+      <div class="veil" id="overlay">
+        <div class="card">
+          <span class="eyebrow" id="overlay-tag"></span>
+          <h3 id="overlay-title"></h3>
+          <p id="overlay-text"></p>
+          <button id="overlay-button" type="button"></button>
+          <p><small>Mouse e tastiera richiesti · Audio attivabile con M</small></p>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

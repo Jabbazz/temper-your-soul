@@ -1,0 +1,13 @@
+# Node / TypeScript
+node_modules/
+dist/
+.tools/
+*.tsbuildinfo
+
+# Editor e sistema operativo
+.vscode/
+.idea/
+*.tmp
+Thumbs.db
+Desktop.ini
+.DS_Store
