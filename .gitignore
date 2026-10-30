@@ -1,6 +1,7 @@
 # Node / TypeScript
 node_modules/
 dist/
+.vite/
 .tools/
 *.tsbuildinfo
 
