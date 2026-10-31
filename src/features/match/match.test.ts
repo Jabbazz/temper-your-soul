@@ -545,6 +545,33 @@ describe('mappe con ostacoli e boss diversi', () => {
     }
   });
 
+  it('un pilastro tra il giocatore e il boss ferma il colpo ravvicinato; un boss che sporge dal pilastro si colpisce', () => {
+    const slash: SkillDefinition = {
+      id: 'test_slash',
+      name: 'Fendente',
+      description: 'prova',
+      cooldown: 0.1,
+      visual: 'test_slash',
+      effect: { kind: 'melee_arc', range: 60, arc: Math.PI / 2, damage: 40 },
+    };
+    const player = new Vec2(1600, 1350);
+    const boss = player.add(new Vec2(70, 0));
+    const cases: Array<[string, Vec2, number, boolean]> = [
+      ['pilastro in mezzo', new Vec2(1625, 1350), 8, false],
+      ['pilastro di lato, fuori dalla linea', new Vec2(1625, 1380), 8, true],
+      ['piccolo pilastro sotto il boss', boss, 15, true],
+    ];
+    for (const [label, pillar, radius, hit] of cases) {
+      const match = createQuietMatch(1, { dungeon: withPillar(pillar, radius), loadout: [slash, null, null, null] });
+      match.player.position = player;
+      match.boss.position = boss;
+      const events = recordEvents(match);
+      match.step(STEP, { move: Vec2.ZERO, aimOffset: new Vec2(100, 0), skills: [true, false, false, false] });
+      const damaged = eventsOfType(events, 'damage_dealt').some((event) => event.target === 'boss');
+      expect(damaged, label).toBe(hit);
+    }
+  });
+
   it('una zona del giocatore con rallentamento rallenta il boss colpito', () => {
     const nova: SkillDefinition = {
       id: 'test_nova',

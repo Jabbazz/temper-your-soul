@@ -146,3 +146,37 @@ Revisione successiva: l’utente conferma un miglioramento ma segnala offset e p
 L’utente conferma che la cooperativa funziona, ma segnala un lieve calo FPS; nessuna conferma ancora della versione ottimizzata. 403 test, tipi client/server e build superati. Stress deterministico quattro giocatori: −98,3% byte. Confronto due browser sul tunnel: −94,2% traffico, −15,4% tempo CPU principale, FPS circa 60 prima/dopo. Quattro browser/classi miste: circa 59,8 FPS. Prove automatiche e screenshot non equivalgono a conferma giocata; dettagli e comando ripetibile nel README.
 
 Ultima prova pubblica con rendering sospeso per un membro: vittoria condivisa, report identico e 100 XP salvati una sola volta per entrambi. Mutazione temporanea senza rimozioni dei proiettili rilevata dal test; sorgente ripristinato. Nessuna nuova decisione sulla progressione del personaggio inclusa in questo incremento.
+
+## Incremento motore audio e prompt di progetto (ramo `feature/lavoro-personale`, proposta)
+
+Implementati: motore audio a canali guidato dai dati (catalogo per materiale, regia pura, Web Audio con ripiego su `<audio>` per `file://`, dissolvenze, stereo e distanza, limite delle voci), impostazioni salvate a parte (`temper-your-soul:audio`), pannello **Audio** con volumi e crediti, suoni dell'interfaccia e degli esiti collegati. Registrazioni del primo lotto incluse subito dopo (vedi sotto). Aggiunti anche `docs/prompt-di-progetto.md` (visione, analisi, piano a incrementi, regole su risorse e licenze), `docs/risorse-libere.md`, le skill di progetto in `.claude/skills/` e `tools/cerca-risorse.mjs` (ricerca su Openverse con sole licenze ammesse).
+
+Verifiche: 400 test (17 nuovi per l'audio, ciascuno provato con una mutazione), tipi e build; prova nel browser automatica di pannello (apertura, ESC, M, cursori, salvataggio dopo il ricaricamento, 390 px), partita con audio acceso, vittoria con salita di livello e sconfitta, senza errori in console. **Prova manuale ancora da fare** (vedi sotto). Il giudizio sui suoni si potrà dare solo con le registrazioni (prossimo incremento, dopo il permesso di scaricarle).
+
+Checklist manuale:
+
+- [ ] Il pulsante **Audio** in alto a destra apre il pannello anche nei menu; ESC e la ✕ lo chiudono; aprirlo in partita mette in pausa.
+- [ ] La spunta "Audio attivo" e il tasto **M** si allineano a vicenda e con la scritta in basso a sinistra.
+- [ ] I cursori cambiano subito il volume dei suoni di riserva (canale effetti) e restano dopo il ricaricamento.
+- [ ] In partita, con l'audio acceso, i lanci e i colpi subiti suonano come prima; nessun nuovo suono sintetizzato.
+- [ ] Anche "Schermo intero" ora si preme dai menu (prima era coperto dalla schermata).
+
+## Registrazioni vere: primo lotto (ramo `feature/lavoro-personale`, proposta)
+
+48 file (circa 10,5 MB) da Freesound, IMSLP/Musopen, archive.org e Kenney, tutti CC0 o CC BY con crediti nel pannello Audio. Musiche: Bach nel menu, canto gregoriano nella cripta, violoncello nella palude, taiko nella fucina, Grieg nel ghiacciaio e nella furia dei boss. Più ambienti per ogni mappa ed effetti per lanci, scoppi, colpi, boss, interfaccia, vittoria e sconfitta. Audio acceso per impostazione (provvisorio). Elenco completo in `docs/game-design.md`, fonti e secondo lotto in `docs/risorse-libere.md`, script in `tools/audio/`.
+
+Verifiche: 402 test (anche esistenza, peso e crediti di ogni file, provati con mutazioni), tipi e build (41 file copiati, 7 incorporati). Prova automatica nel browser: decodifica di tutti gli effetti, musica del menu dopo il primo clic, passaggio a cripta e ambiente in partita, brano della furia sotto metà vita, vittoria, crediti nel pannello, nessun errore in console. **Nessun ascolto fatto da me: il giudizio sui suoni è dell'utente.**
+
+Riallineamento alla cooperativa (`a8c49ec`): i tre commit del ramo sono stati riportati sopra il main con un rebase; 430 test, tipi client/server e build verdi. In cooperativa il colpo subito suona solo per il giocatore del client, quelli degli alleati come impatti; il pannello Audio si apre sotto i comandi, spostati da Jabbaz sotto il pannello del party. **La cooperativa con l'audio non è stata provata in rete.**
+
+Checklist manuale (ascolto):
+
+- [ ] Menu: l'Aria parte al primo clic, a volume gradevole; dietro si sente appena l'ambiente del dungeon mostrato.
+- [ ] Ogni dungeon ha la sua musica e il suo ambiente; il cambio è sfumato, gli anelli ripartono senza scatti evidenti.
+- [ ] Sotto metà vita del boss: gong, poi Grieg; in pausa la musica si abbassa.
+- [ ] I lanci suonano per materiale (spade, frecce, fuoco, ghiaccio, vetro arcano, fruscio di natura) e non stancano con il dardo a raffica.
+- [ ] Gli scoppi delle zone, i colpi subiti e dati, lo schianto delle cariche e il teletrasporto del Custode si riconoscono.
+- [ ] Vittoria (fanfara), sconfitta (campana), bottino e salita di livello (campane), clic dei pulsanti.
+- [ ] Volumi relativi equilibrati; nessun suono troppo forte o fastidioso. Annotare quelli da sostituire.
+- [ ] Aprendo `dist/index.html` con doppio clic l'audio funziona (con elementi `<audio>` al posto di Web Audio).
+

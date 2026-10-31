@@ -40,7 +40,7 @@ Tutti i valori sono provvisori e modificabili: stanno in tabelle di dati con nom
 ### Impostazione e giocatore
 
 - Visuale dall'alto, camera centrata sul giocatore (zoom 1,5, nessun limite ai bordi). Movimento con WASD, mira con il mouse, si può lanciare mentre ci si muove. Vittoria: il boss arriva a 0 PV. Sconfitta: il giocatore arriva a 0 PV.
-- Grafica: pixel art disegnata dal codice (matrici di caratteri), particelle e ambiente procedurali, audio sintetizzato con Web Audio (spento all'avvio). Nessun asset esterno.
+- Grafica: pixel art disegnata dal codice (matrici di caratteri), particelle e ambiente procedurali. Audio: motore a canali guidato dai dati con registrazioni vere a licenza libera (vedi "Audio" sotto), acceso per impostazione.
 - **Giocatore** (`PLAYER_STATS`): vita 100, velocità 177/s (in diagonale non aumenta), 0,65 s di invulnerabilità dopo un colpo. Raggio di colpo 9, corpo contro i pilastri 10 (`combat/collision.ts`).
 - Ambientazione e testi del prototipo ("Ordine della Brace", "cripta", "guardiano") sono provvisori.
 
@@ -55,7 +55,7 @@ Tutti i valori sono provvisori e modificabili: stanno in tabelle di dati con nom
 
 I valori di ogni boss (`BossStats`: vita, velocità, raggio di colpo, danno da contatto e carica, intervalli) e di ogni schema (`ByPhase`: normale / furia) stanno in `features/boss/guardian.ts` e `features/dungeons/<id>/`. Regole comuni: seconda fase (furia) sotto il 50% di vita; un boss lancia i propri schemi in rotazione e non ne inizia uno nuovo finché carica e azioni programmate non sono finite; il boss **ignora i pilastri** (vola) e può teletrasportarsi (Custode).
 
-- **Pilastri**: bloccano il movimento del giocatore (che scivola lungo la superficie) e **assorbono i proiettili di entrambe le squadre**, quindi sono ripari. Non fermano le zone a terra.
+- **Pilastri**: bloccano il movimento del giocatore (che scivola lungo la superficie) e **assorbono i proiettili di entrambe le squadre**, quindi sono ripari. Fermano anche il colpo ravvicinato se tagliano la linea fino al bordo del boss. Non fermano le zone a terra.
 - Vincoli verificati dai test per ogni dungeon: mappa 2000-4000 di lato, partenze libere, nessuna fessura più stretta del corpo del giocatore, danno per colpo <= 30 (proiettili) / 40 (zone) / 30 (contatto) / 40 (carica), zone con avviso >= 0,5 s, almeno 3 schemi esclusivi per boss.
 
 ### Skill base del mago (`features/skills/mage-skills.ts`)
@@ -67,7 +67,7 @@ La dotazione iniziale (oggetti Comuni di base): corrisponde esattamente alle ski
 | 1 | Dardo arcano (`arcane_bolt`) | 0,2 s | proiettile, 19 danni, 440/s, raggio 4 |
 | 2 | Globo di gelo (`frost_orb`) | 2,4 s | proiettile, 100 danni, 310/s, raggio 8; rallenta il boss 2 s |
 | 3 | Meteora (`meteor`) | 5 s | zona di raggio 66 sul mirino, scoppia dopo 0,65 s, 210 danni |
-| 4 | Passo astrale (`astral_step`) | 3,5 s | scatto di 125 verso la mira, invulnerabile 0,55 s |
+| 4 | Passo astrale (`astral_step`) | 3,5 s | scatto di 125 verso la mira, invulnerabile 0,55 s (non accorcia un'invulnerabilità più lunga già in corso) |
 
 Tipi di effetto disponibili (`SkillEffect`): **proiettile** (anche a ventaglio con `count` e `spread`), **zona a terra** (sul mirino o attorno al lanciatore, con rallentamento opzionale), **scatto** e **colpo ravvicinato ad arco**. Ogni skill ha ricarica propria (nessuna ricarica globale).
 
@@ -99,6 +99,32 @@ Alternative per slot: Cripta = Arco del cacciatore, Grimorio del gelo, Egida di 
 
 **Salvataggio** (`features/character/`): chiave `temper-your-soul:save` in `localStorage`, versione **6**, raccolta con `format: character-roster`. Ogni profilo ha id stabile e dati separati; si conserva l’id attivo. Si salva alla creazione, selezione, rimozione, vittoria e modifica dell'equipaggiamento. I singoli personaggi v1–v5 vengono importati senza reset; alla prima scrittura della raccolta il vecchio testo viene conservato in `temper-your-soul:save:before-roster`. Dati illeggibili o futuri vengono copiati in `temper-your-soul:save:corrupt`; una raccolta con profili non validi non viene riparata scartandoli in silenzio. Se il browser non permette di salvare il gioco funziona in memoria e avvisa.
 
+### Audio (proposta del ramo `feature/lavoro-personale`, da approvare)
+
+Motore in `features/audio/`, separato in dati, regia e riproduzione. La simulazione non cambia: l'audio ascolta i `GameEvent`.
+
+- **Catalogo** (`audio-catalog.ts`): suoni brevi per **materiale** (lanci e scoppi arcano, gelo, fuoco, natura; arco, lama, scatto), colpi, eventi del boss (annuncio d'attacco, furia, teletrasporto, schianto della carica, sconfitta), interfaccia ed esiti (clic, bottino, livello, vittoria, sconfitta). Musiche: menu, una per dungeon, una per la furia. Ambienti in anello per tema. Ogni skill degli oggetti dichiara il proprio materiale in `SKILL_SOUNDS` (un test lo impone); le zone dei boss lo ricavano dal prefisso dell'aspetto (`forge_`, `glacier_`, `swamp_`, `void_`…).
+- **Regia** (`audio-director.ts`, funzioni pure): evento → suoni (in cooperativa il colpo subito solo per il giocatore del client, gli alleati colpiti come impatti); musica del menu fuori dalla partita, del dungeon in partita, della furia se esiste, abbassata in pausa, silenzio a fine partita; ambiente del dungeon anche dietro i menu, più basso; stereo e distanza rispetto al giocatore; limite di voci e intervallo minimo per suono.
+- **Motore** (`audio-player.ts`): effetti con Web Audio (stereo, piccole variazioni di velocità) quando i file si possono leggere, elementi `<audio>` aprendo il gioco da `file://`; musica e ambienti con dissolvenza incrociata di 1,5 s. Si avvia al primo clic o tasto, come chiedono i browser; tace a scheda nascosta.
+- **Impostazioni** (`audio-settings.ts`, chiave `temper-your-soul:audio`, separata dal salvataggio del personaggio): acceso/spento (tasto M) e volumi generale, musica, effetti, ambiente, interfaccia. Pannello **Audio** in alto a destra, con i crediti delle registrazioni.
+- **Registrazioni:** solo vere e con licenza libera (CC0, pubblico dominio, CC BY con crediti visibili), mai IA. Crediti in `audio-credits.ts`; i test rifiutano file senza credito o mancanti. Primo lotto (48 file, circa 10,5 MB):
+
+| Contesto | Registrazione | Licenza |
+| --- | --- | --- |
+| Menu | Bach, Aria delle *Goldberg*, Kimiko Ishizaka (pianoforte) | CC0 |
+| Cripta | Canto gregoriano binaurale, Suso_Ramallo; ambiente: grotta, Andy_Gardner | CC BY 4.0; CC0 |
+| Palude | Violoncello tenuto, carrieedick; ambiente: palude di notte, chris_dagorne | CC0 |
+| Fucina | Taiko dal vivo, whatsanickname4u (Dave Thayer); ambiente: fango che ribolle, Breviceps | CC BY 3.0; CC0 |
+| Ghiacciaio | Grieg, *La morte di Åse*, Czech National Symphony Orchestra (Musopen); ambiente: vento, moxobna | CC BY 3.0; CC0 |
+| Furia dei boss | Grieg, finale di *Nell'antro del re della montagna*, CNSO (Musopen), in anello; gong Paiste, JensZygar | CC BY 3.0; CC0 |
+| Vittoria / sconfitta | Fanfara per due trombe, tobyk; campana funebre, aoristos | CC BY 3.0; CC0 |
+| Lanci | Lama: spade, Fenodyrie · Arco: rilascio della freccia, calvarychurchatlanta · Fuoco: scoppiettio, TheWoodlandNomad · Gelo: ghiaccio che si crepa, northern87 · Arcano: vetro (Kenney) · Natura: fruscio d'erba (Kenney) | CC0 |
+| Scoppi, colpi, boss, interfaccia | Impatti, campane e clic di Kenney (Impact Sounds, UI Audio); gli scoppi uniscono un impatto Kenney alla registrazione del materiale | CC0 |
+
+Ancora senza registrazione (secondo lotto, vedi `docs/risorse-libere.md`): lo scatto, che conserva il tono del prototipo, e l'annuncio degli attacchi del boss, che resta muto.
+
+Valori provvisori: volumi, limiti di voci, dissolvenza, abbassamento in pausa (0,4), ambiente dietro i menu (0,35), stereo massimo (0,7), volume minimo dei suoni lontani (0,3), audio acceso per impostazione (nel prototipo era spento: c'erano solo toni sintetizzati).
+
 ## Differenze volute rispetto al prototipo originale
 
 Il porting della Fase 0 conservava regole e valori; restano queste differenze (tutte da confermare a mano):
@@ -113,7 +139,7 @@ Il porting della Fase 0 conservava regole e valori; restano queste differenze (t
 - **Progressione**: livelli ed esperienza, tier T1-T15 come in Ashen Realm (qui la potenza viene dalla rarità), sblocco dei dungeon (oggi sono tutti disponibili), difficoltà scalabile.
 - **Altri slot**: anello e collana come modificatori delle skill, ali sulla velocità, pantaloni, peso dell'armatura (come in Ashen Realm). Oggi gli slot sono 4, uno per skill.
 - **Oggetti**: capienza dell'inventario (oggi illimitata), vendita o riforgiatura, confronto tra oggetti, modificatori casuali, oggetti identici duplicati, eventuali oggetti unici con nome proprio.
-- **Salvataggio**: cloud, esportazione/importazione del salvataggio e cosa fare con due schede aperte contemporaneamente (oggi l'ultima che salva vince). Profili multipli e rimozione individuale sono implementati localmente.
+- **Salvataggio**: cloud, esportazione/importazione del salvataggio e due schede aperte contemporaneamente (oggi una scheda adotta i salvataggi dell'altra appena avvengono; due salvataggi quasi simultanei restano "l'ultimo vince"). Profili multipli e rimozione individuale sono implementati localmente.
 - Tutti i valori numerici (vita, danni, velocità, ricariche, pesi del bottino, scalatura delle rarità), da tarare con la prova manuale; equilibrio tra le famiglie e tra i dungeon.
 - Ambientazione e lore: nomi dei dungeon e dei boss, "Ordine della Brace", "Emberfall".
 - Raggi di collisione (oggi incoerenti di 1 tra proiettili e zone), perforazione e rimbalzo dei proiettili, pilastri distruttibili o che fermano anche le zone.

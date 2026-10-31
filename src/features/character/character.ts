@@ -132,6 +132,8 @@ export class Character {
     for (const roll of rolls) {
       if (familyById(roll.familyId) === undefined) continue;
       const level=cleanItemLevel(roll.level);
+      // Difesa contro salvataggi manomessi: un uid gia' presente non si riusa mai.
+      while (this.itemByUid(`i${this.nextItemNumber}`) !== undefined) this.nextItemNumber += 1;
       const item: Item = { uid: `i${this.nextItemNumber}`, familyId: roll.familyId, rarity: roll.rarity, ...(level>1?{level}:{}) };
       this.nextItemNumber += 1;
       this.inventory.push(item);

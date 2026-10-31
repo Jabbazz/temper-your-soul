@@ -22,7 +22,6 @@ Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti p
 - **Prova manuale della Fase 1 da eseguire** (menu, 4 dungeon, boss, oggetti, salvataggio): nulla e' confermato a mano; checklist in `docs/roadmap.md`. Equita' e leggibilita' degli attacchi dei 3 nuovi boss sono verificate solo da test automatici e fotogrammi, non giocate.
 - **Raggi di collisione incoerenti (ereditati).** I proiettili usano raggio + 9 sul giocatore e + 26 sul boss; le zone raggio + 8 e + 25 (`features/combat/collision.ts`). Da unificare con la prova manuale.
 - **Valori provvisori.** Tutti i valori di gioco sono quelli del prototipo e non sono tarati (vedi `docs/game-design.md`).
-- **Lo scatto puo' accorciare l'invulnerabilita'.** `Passo astrale` imposta l'invulnerabilita' a 0,55 s anche se dopo un colpo restavano piu' di 0,55 s dei 0,65 s (comportamento del prototipo, coperto da un test che lo documenta). Da decidere se tenere il valore maggiore.
 - **Camera senza limiti.** Vicino ai bordi dell'arena la camera mostra il vuoto scuro oltre il muro (come nel prototipo).
 - **Disegno senza interpolazione.** La simulazione gira a 60 Hz e il disegno usa l'ultimo stato: su schermi a frequenza maggiore il movimento puo' risultare lievemente a scatti.
 - **Differenze volute rispetto al prototipo da confermare a mano**: elenco in `docs/game-design.md` (passo fisso, tasti per posizione fisica, scossa dello schermo applicata, effetti che proseguono dopo la fine, traslazione di camera arrotondata, tocchi brevissimi non persi).
@@ -60,17 +59,13 @@ Non corrette, da decidere:
 
 Quattro revisori dovevano guardare salvataggio e bottino, flusso delle schermate, dungeon e boss, architettura e test, con uno scettico per ogni segnalazione. **La revisione si e' interrotta per il limite orario del servizio**: hanno finito le prospettive "salvataggio e bottino" e "flusso e interfaccia"; **non e' girata quella su dungeon, mappe e boss** (equita' degli attacchi, giocatore incastrato, schemi inevitabili) e solo in parte quella su architettura e test (alcune verifiche sono fallite). Gli esiti qui sotto sono quindi incompleti. Nessuna correzione e' stata applicata: sono tutte di gravita' bassa dopo la verifica e vanno decise.
 
-- **Due schede aperte si sovrascrivono il salvataggio** ("l'ultima che salva vince"): il bottino o i progressi dell'altra scheda vanno persi in silenzio. Gia' dichiarato nei punti aperti; mitigazione economica: ascoltare l'evento `storage` e ricaricare il personaggio.
 - **Salvataggio riparato in parte senza copia di sicurezza**: oggetti con famiglia o rarita' sconosciute, equipaggiamento verso uid scartati e record di dungeon sconosciuti vengono scartati e al primo salvataggio la perdita diventa definitiva, senza avviso. Succede solo con dati manomessi o dopo aver rinominato una famiglia senza alzare `SAVE_VERSION`. Proposta: far restituire a `deserializeCharacter` un flag "riparato" e copiare il testo originale in un backup.
 - **La copia `...:corrupt` puo' essere sovrascritta** da un nuovo salvataggio illeggibile (perdendo un backup valido, per esempio di una versione futura); una versione piu' recente del formato verrebbe sovrascritta alla prima vittoria. Da gestire quando si introduce la versione 2.
-- **`nextItemNumber` enorme (>= 2^53) nel salvataggio** produce uid duplicati e puo' far perdere oggetti: accettare solo interi sicuri sotto un tetto.
-- **La barra spaziatrice e' bloccata a livello globale** (`preventDefault` in `core/input.ts`): con il focus su un pulsante la tastiera non lo attiva. Il gioco non usa lo Spazio.
-- **La conferma dello scarto resta armata** se si esce dall'equipaggiamento e si rientra: il primo clic su "Scarta" dopo il rientro scarta davvero. Proposta: un metodo `open()` di `InventoryScreen` che azzera lo stato (non applicata).
-- **L'HUD tiene in memoria** le barre di ricarica di ogni partita (mappa `last`, crescita lenta): usare una `WeakMap`.
-
-Nessuna di queste e' stata riprodotta a mano.
+Nessuna di queste e' stata riprodotta a mano. Le altre segnalazioni di questa revisione sono state corrette: vedi "Correzioni rapide" in "Risolti".
 
 ## Risolti
+
+- **I pulsanti in alto a destra non si potevano premere nei menu** (rilevato nella prova browser dell'incremento audio): la schermata del menu (`.screen`, z-index 9) copriva `.actions` (z-index 4), quindi "Schermo intero" e il nuovo "Audio" erano visibili ma non cliccabili. Ora `.actions` ha z-index 31. Controllato nel browser a 1440 e 390 px; non coperto da test (DOM).
 
 - **Hover giallo sui profili, testo poco leggibile**, segnalato dall’utente. Il selettore di profilo ora sovrascrive l’hover globale dei pulsanti con un gradiente prugna scuro e testo crema smorzato; stesso trattamento sul focus tastiera. Colore controllato con hover reale nel browser.
 
@@ -84,6 +79,18 @@ Nessuna di queste e' stata riprodotta a mano.
 - **Ctrl+R e Ctrl+F intercettati** (revisione). Il gioco bloccava il comportamento del browser per tutti i tasti legati, anche con Ctrl/Meta/Alt (Ctrl+R riavviava la partita invece di ricaricare la pagina; Ctrl+F attivava lo schermo intero). Ora le scorciatoie con modificatori sono lasciate al browser (`isBrowserShortcut`). Il prototipo aveva lo stesso difetto per W/A/S/D/Q/E.
 - **Lacune dei test sui confini** (revisione). Mancavano prove per: contatto a 29, raggio di colpo sul boss (raggio + 26), margine delle zone sul boss (raggio + 25), soglia della carica (37), soglia di orbita (180), rinnovo del gelo senza somma, estremi della casualita' delle fratture, esito della morte simultanea (ora si asserisce `lost`, un solo `match_ended`, nessun `boss_defeated`). Aggiunte; ognuna fallisce con la mutazione corrispondente.
 - **Id dello schema non nell'evento `boss_attack`** e posa iniziale 0,5 s duplicata (revisione). Ora l'evento porta `patternId` (il test di rotazione confronta gli id stabili) e la posa e' `BOSS_STATS.attackPose`.
+
+### Correzioni rapide (proposta del ramo `feature/lavoro-personale`, 2026-10-31)
+
+Difetti gia' elencati qui sopra o rilevati leggendo il codice; nessuno riprodotto a mano. Ogni test nuovo e' stato provato con la mutazione corrispondente (togliendo la correzione il test fallisce). **Prova manuale ancora da fare.**
+
+- **La conferma dello scarto restava armata** uscendo dall'equipaggiamento con ESC (il pulsante "Indietro" la azzerava gia'): al rientro il primo clic su "Scarta" scartava davvero. Ora `Game.openInventory` chiama `InventoryScreen.reset()` prima di disegnare: selezione e conferma ripartono da zero. Non coperto da test (interfaccia in DOM).
+- **Il colpo ravvicinato colpiva attraverso i pilastri**, a differenza dei proiettili (rilevato leggendo il codice). Ora `strikeArc` controlla la linea di vista fino al bordo del boss piu' vicino (`pillarBetween` in `arena.ts`): un pilastro in mezzo ferma il colpo; un boss sopra un pilastro piu' piccolo di lui resta colpibile dove sporge. Test in `match.test.ts`.
+- **Lo scatto accorciava l'invulnerabilita'**: dopo un colpo (0,65 s) il Passo astrale la riportava a 0,55 s, come nel prototipo. Ora si tiene il valore maggiore. Il test che documentava il vecchio comportamento e' stato aggiornato; uno nuovo verifica che da un valore minore si arrivi a 0,55 s.
+- **La barra spaziatrice era bloccata a livello globale**: con il focus su un pulsante la tastiera non lo attivava (i campi di testo erano gia' esclusi). Ora lo Spazio non e' bloccato su pulsanti, collegamenti e `summary` (`blocksBrowserDefault` in `core/input.ts`, con test); fuori dai controlli resta bloccato per non far scorrere la pagina.
+- **Un `nextItemNumber` enorme nel salvataggio** (>= 2^53, o un uid come `i99999999999999999999`) produceva uid duplicati. Ora `deserializeCharacter` accetta solo valori fino a `MAX_ITEM_NUMBER` (1 000 000 000) e ignora gli uid oltre il tetto; inoltre `addRolls` salta qualunque uid gia' presente. Test in `character.test.ts`.
+- **Due schede aperte si sovrascrivevano il salvataggio** ("l'ultima che salva vince"). Ora `Game` ascolta l'evento `storage`: quando un'altra scheda salva, adotta la sua raccolta (`rosterFromExternalSave` in `save-store.ts`, con test), mantiene il proprio profilo attivo se esiste ancora, ridisegna la schermata aperta e avvisa. Limiti: due salvataggi quasi simultanei restano "l'ultimo vince"; durante la creazione di un personaggio il menu non si ridisegna (per non perdere il nome scritto); una partita in corso prosegue con le skill che aveva. Il collegamento in `Game` non e' coperto da test.
+- **L'HUD teneva in memoria le barre di ricarica di ogni partita**: gia' risolto nel commit `0a6e5f6` (`WeakMap`).
 
 ## Incremento livelli e mana
 Corretto il difetto segnalato dall'utente: i boss attraversavano i pilastri e diventavano difficili da colpire. Movimento a piccoli passi e cariche interrotte contro gli ostacoli; atterraggi dei teletrasporti risolti fuori dai pilastri. Da confermare a mano. Il movimento attuale non include una ricerca completa del percorso: un boss puo fermarsi contro un pilastro se il giocatore resta esattamente dietro.

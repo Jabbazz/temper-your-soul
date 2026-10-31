@@ -1,7 +1,7 @@
 import type { Rng } from '../../core/rng';
 import { Signal } from '../../core/signal';
 import { angleDifference, type Vec2 } from '../../core/vec2';
-import { isOutsideProjectileBounds, pillarAt, type ArenaDefinition } from '../arena/arena';
+import { isOutsideProjectileBounds, pillarAt, pillarBetween, type ArenaDefinition } from '../arena/arena';
 import { Boss } from '../boss/boss';
 import type { BossContext } from '../boss/boss-context';
 import { HIT_RADIUS, ZONE_EDGE_FORGIVENESS } from '../combat/collision';
@@ -160,13 +160,23 @@ export class Match {
     this.zones.push(new DangerZone(this.nextId++, spec, position));
   }
 
-  /** Colpo ravvicinato del giocatore: ferisce il boss se e' entro `range` dal suo bordo e nell'arco attorno a `angle`. */
+  /**
+   * Colpo ravvicinato del giocatore: ferisce il boss se e' entro `range` dal suo bordo, nell'arco attorno a `angle` e
+   * se nessun pilastro si mette in mezzo (come per i proiettili, che i pilastri assorbono).
+   */
   private strikeArc(origin: Vec2, angle: number, range: number, arc: number, damage: number): void {
     const offset = this.boss.position.sub(origin);
     const distance = offset.length();
-    if (distance > range + this.boss.stats.hitRadius) return;
+    const { hitRadius } = this.boss.stats;
+    if (distance > range + hitRadius) return;
     // Il boss addosso al giocatore (centri sovrapposti) viene colpito a prescindere dalla direzione.
     if (distance > 0 && Math.abs(angleDifference(angle, offset.angle())) > arc / 2) return;
+    // La linea di vista arriva al bordo del boss piu' vicino: un boss che vola sopra un pilastro piu' piccolo di lui
+    // resta colpibile dove sporge.
+    if (distance > hitRadius) {
+      const nearestEdge = origin.add(offset.mul((distance - hitRadius) / distance));
+      if (pillarBetween(this.arena, origin, nearestEdge) !== undefined) return;
+    }
     this.hitBoss(damage);
   }
 

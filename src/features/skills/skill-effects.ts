@@ -63,7 +63,8 @@ function executeSkill(skill: SkillDefinition, ctx: SkillContext): void {
       const raw = clampToArena(arena, origin.add(Vec2.fromAngle(angle, effect.distance)), arena.playerMargin);
       const destination = pushOutOfPillars(arena, raw, BODY_RADIUS.player);
       player.position = destination;
-      player.invulnerableFor = effect.invulnerability;
+      // Lo scatto non accorcia l'invulnerabilita' gia' in corso (per esempio quella dopo un colpo).
+      player.invulnerableFor = Math.max(player.invulnerableFor, effect.invulnerability);
       ctx.emit({ ...base, origin, destination });
       break;
     }

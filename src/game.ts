@@ -8,7 +8,7 @@ import { AudioPlayer } from './features/audio/audio-player';
 import { Character } from './features/character/character';
 import type { CharacterRoster } from './features/character/character-roster';
 import { renderCharacterProfiles } from './features/ui/character-profiles';
-import { browserStorage, SaveStore, type LoadStatus } from './features/character/save-store';
+import { browserStorage, rosterFromExternalSave, SaveStore, type LoadStatus } from './features/character/save-store';
 import { CRYPT } from './features/dungeons/crypt';
 import type { DungeonDefinition } from './features/dungeons/dungeon-definition';
 import { canEnterDungeon,minimumDungeonGearScore } from './features/dungeons/dungeon-access';
@@ -22,6 +22,7 @@ import { DungeonSelect } from './features/ui/dungeon-select';
 import { requireElement } from './features/ui/dom';
 import { FullscreenToggle } from './features/ui/fullscreen';
 import { Hud } from './features/ui/hud';
+import { AudioPanel } from './features/ui/audio-panel';
 import { InventoryScreen } from './features/ui/inventory-screen';
 import { renderLoot } from './features/ui/loot-view';
 import { MainMenu } from './features/ui/main-menu';
@@ -64,7 +65,8 @@ export class Game {
   private readonly camera = new Camera();
   private readonly effects = new Effects();
   private readonly poses = new ActorPoses();
-  private readonly audio = new AudioPlayer();
+  private readonly audio: AudioPlayer;
+  private readonly audioPanel: AudioPanel;
   private readonly hud = new Hud();
   private readonly overlay = new Overlay();
   private readonly screens = new Screens();
@@ -84,7 +86,7 @@ export class Game {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly saveStore: SaveStore;
 
-  private readonly roster:CharacterRoster;
+  private roster:CharacterRoster;
   private draft:Character|null=null;
   private get character():Character {return this.draft??this.roster.active?.character??this.newDraft();}
   private newDraft():Character {this.draft=Character.createStarter();return this.draft;}
@@ -110,6 +112,8 @@ export class Game {
 
     const storage = browserStorage();
     this.saveStore = new SaveStore(storage);
+    this.audio = new AudioPlayer(storage);
+    this.audioPanel = new AudioPanel(this.audio, { onOpen: () => this.pauseIfPlaying() });
     const loaded = this.saveStore.loadRoster();
     this.roster=loaded.roster;
     this.loadStatus = loaded.status;
@@ -141,8 +145,18 @@ export class Game {
       () => (this.screen === 'paused' ? this.togglePause() : this.startMatch()),
       () => this.showMenu(),
     );
+    window.addEventListener('storage', (event) => this.adoptExternalSave(event.key, event.newValue));
     window.addEventListener('blur', () => this.pauseIfPlaying());
+    // Il browser avvia l'audio solo dopo un gesto: ogni clic o tasto lo sblocca (le chiamate successive non costano).
+    window.addEventListener('pointerdown', () => this.audio.unlock());
+    window.addEventListener('keydown', () => this.audio.unlock());
+    document.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.closest('button') !== null) this.audio.play('ui_click');
+    });
+    this.audio.changed.connect((settings) => this.showAudioState(settings.enabled));
+    this.showAudioState(this.audio.enabled);
     document.addEventListener('visibilitychange', () => {
+      this.audio.setHidden(document.hidden);
       if (document.hidden) this.pauseIfPlaying();
     });
     new ResizeObserver(() => this.resize()).observe(this.canvas.parentElement ?? this.canvas);
@@ -193,6 +207,8 @@ export class Game {
     if(!this.character.created)return;
     this.screen = 'inventory';
     this.screens.show('inventory');
+    // Si riapre da capo: uno scarto chiesto prima di uscire (anche con ESC) non resta in attesa di conferma.
+    this.inventoryScreen.reset();
     this.inventoryScreen.render(this.character);
     this.updateParty();
   }
@@ -245,7 +261,8 @@ export class Game {
   }
 
   private onEscape(): void {
-    if (this.screen === 'dungeons' || this.screen === 'inventory') this.showMenu();
+    if (this.audioPanel.isOpen) this.audioPanel.close();
+    else if (this.screen === 'dungeons' || this.screen === 'inventory') this.showMenu();
     else this.togglePause();
   }
 
@@ -274,7 +291,10 @@ export class Game {
       // Il bottino si assegna e si salva PRIMA di mostrarlo: se la pagina si chiude ora, non si perde.
       const rolls = networkRolls ?? rollLoot(lootTableFor(match.dungeon.id), new SeededRng(Math.floor(Math.random() * 0x100000000)));
       const items = this.character.addRolls(rolls);
+      const levelBefore = levelProgress(this.character.totalXp).level;
       this.character.totalXp += PROGRESSION.rewards[match.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100;
+      if (items.length > 0) this.audio.play('loot');
+      if (levelProgress(this.character.totalXp).level > levelBefore) this.audio.play('level_up');
       const record = this.character.recordVictory(match.dungeon.id, match.time);
       const saved = this.persist();
       extra = renderLoot(items, { ...record, seconds: match.time }, saved,this.character.characterClass);
@@ -314,7 +334,7 @@ export class Game {
     }
     applySnapshot(this.match, snapshot);
     for (const event of snapshot.events) {
-      this.effects.handle(event); this.audio.handle(event);
+      this.effects.handle(event); this.audio.handle(event, this.party.client.playerId);
       if (!event.playerId || event.playerId === this.party.client.playerId) this.poses.handle(event);
       if (event.playerId) this.allyPoses.get(event.playerId)?.handle(event);
     }
@@ -324,6 +344,28 @@ export class Game {
       this.onMatchEnded(this.match, snapshot.status === 'won', snapshot.rewards[this.party.client.playerId] ?? []);
       showCombatReport(snapshot.report, this.battleMembers, snapshot.time, snapshot.status === 'won');
     }
+  }
+
+  /**
+   * Un'altra scheda ha salvato: si adotta la sua raccolta (con il profilo attivo di questa scheda, se esiste ancora) e
+   * si ridisegna la schermata aperta. Una partita in corso prosegue con le skill che aveva; il bottino va al personaggio
+   * aggiornato. Il personaggio in creazione (`draft`) non e' nella raccolta e resta com'e'.
+   */
+  private adoptExternalSave(key: string | null, newValue: string | null): void {
+    const roster = rosterFromExternalSave(key, newValue, this.roster.activeId);
+    if (roster === null) return;
+    this.roster = roster;
+    // Come dopo un salvataggio: l'aspetto disegnato e il pannello del party seguono il personaggio aggiornato.
+    this.renderAppearance = undefined;
+    this.updateParty();
+    // Durante la creazione non si ridisegna il menu: il nome che si sta scrivendo andrebbe perso.
+    if (this.screen === 'menu' && this.draft === null) this.showMenu();
+    else if (this.screen === 'dungeons') this.dungeonSelect.render(this.character);
+    else if (this.screen === 'inventory') {
+      this.inventoryScreen.reset();
+      this.inventoryScreen.render(this.character);
+    }
+    this.showToast('Progressi aggiornati da un\'altra scheda di questo browser.');
   }
 
   /** Salva il personaggio; se non riesce avvisa una volta sola. Restituisce se il salvataggio e' riuscito. */
@@ -369,7 +411,10 @@ export class Game {
   }
 
   private toggleAudio(): void {
-    const enabled = this.audio.toggle();
+    this.audio.toggle();
+  }
+
+  private showAudioState(enabled: boolean): void {
     requireElement('audio-state').textContent = enabled ? 'Audio attivo · M' : 'Audio disattivato · M';
   }
 
@@ -426,6 +471,9 @@ export class Game {
     this.camera.shakeOffset =
       this.screen === 'playing' || this.screen === 'ended' ? this.effects.shakeOffset() : Vec2.ZERO;
     this.hud.update(this.match, levelProgress(this.character.totalXp));
+    this.audio.setListener(this.match.player.position, this.camera.width / 2);
+    this.audio.setScene({ screen: this.screen, theme: this.dungeon.arena.theme, enraged: this.match.boss.isEnraged });
+    this.audio.update(delta);
     renderScene(this.ctx, {
       match: this.match,
       effects: this.effects,
