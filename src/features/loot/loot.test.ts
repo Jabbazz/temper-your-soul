@@ -1,200 +1,92 @@
-import { describe, expect, it } from 'vitest';
-import { SeededRng, type Rng } from '../../core/rng';
+import { describe,expect,it } from 'vitest';
+import { SeededRng,type Rng } from '../../core/rng';
 import { DUNGEONS } from '../dungeons/dungeons';
-import { familyById, ITEM_FAMILIES } from '../items/item-families';
-import { RARITIES, type Rarity } from '../items/rarity';
-import type { LootTable } from './loot-table';
-import { LOOT_TABLES, lootTableFor } from './loot-tables';
+import { ITEM_FAMILIES,familyById } from '../items/item-families';
+import { EQUIPMENT_SLOTS } from '../items/equipment-slot';
+import { RARITIES } from '../items/rarity';
+import { LOOT_TABLES,lootTableFor } from './loot-tables';
 import { rollLoot } from './roll-loot';
+import { lootOdds } from './loot-odds';
 
-/** Un Rng che restituisce una sequenza prefissata e lancia se se ne chiedono di piu' (per contare le estrazioni). */
-function scripted(values: number[]): Rng & { used: number } {
-  const rng = {
-    used: 0,
-    next(): number {
-      if (rng.used >= values.length) throw new Error('estrazione in piu\' del previsto');
-      return values[rng.used++]!;
-    },
-  };
-  return rng;
-}
-
-const CRYPT = lootTableFor('crypt');
-
-describe('tabelle di bottino', () => {
-  it('c\'e\' una tabella per ognuno dei 4 dungeon, e non altre', () => {
-    expect(Object.keys(LOOT_TABLES).sort()).toEqual(DUNGEONS.map((dungeon) => dungeon.id).sort());
-    for (const dungeon of DUNGEONS) {
-      expect(lootTableFor(dungeon.id).dungeonId).toBe(dungeon.id);
-      expect(LOOT_TABLES[dungeon.id]).toBe(lootTableFor(dungeon.id));
-    }
-    expect(() => lootTableFor('nope')).toThrow(/nope/);
-    expect(() => lootTableFor('toString')).toThrow();
-  });
-
-  it('valori provvisori attesi: un oggetto garantito, bonus 0,5, esclusiva 0,35 e pesi crescenti di qualita\'', () => {
-    const weights = (id: string) => RARITIES.map((rarity) => lootTableFor(id).rarityWeights[rarity]);
-    expect(weights('crypt')).toEqual([55, 28, 12, 4, 1]);
-    expect(weights('swamp')).toEqual([40, 30, 18, 9, 3]);
-    expect(weights('forge')).toEqual([30, 30, 22, 13, 5]);
-    expect(weights('glacier')).toEqual([20, 28, 27, 17, 8]);
-    for (const table of Object.values(LOOT_TABLES)) {
-      expect(table.guaranteedDrops).toBe(1);
-      expect(table.bonusDropChance).toBe(0.5);
-      expect(table.exclusiveChance).toBe(0.35);
-    }
-    // Piu' il dungeon e' pericoloso, piu' sono probabili Epico e Leggendario.
-    const order = ['crypt', 'swamp', 'forge', 'glacier'];
-    for (let i = 1; i < order.length; i++) {
-      expect(lootTableFor(order[i]!).rarityWeights.legendary).toBeGreaterThan(lootTableFor(order[i - 1]!).rarityWeights.legendary);
-      expect(lootTableFor(order[i]!).rarityWeights.common).toBeLessThan(lootTableFor(order[i - 1]!).rarityWeights.common);
-    }
-  });
-
-  it('pesi positivi e famiglie nei gruppi giusti: 2 esclusive del dungeon e le 9 generiche, tutte esistenti', () => {
-    for (const table of Object.values(LOOT_TABLES)) {
-      for (const rarity of RARITIES) expect(table.rarityWeights[rarity], `${table.dungeonId} ${rarity}`).toBeGreaterThan(0);
-      expect(table.exclusiveFamilyIds).toHaveLength(2);
-      expect(table.genericFamilyIds).toHaveLength(9);
-      for (const id of table.exclusiveFamilyIds) expect(familyById(id)?.exclusiveTo, id).toBe(table.dungeonId);
-      for (const id of table.genericFamilyIds) {
-        expect(familyById(id), id).toBeDefined();
-        expect(familyById(id)!.exclusiveTo, id).toBeUndefined();
+function scripted(values:readonly number[]):Rng {let i=0;return {next(){if(i>=values.length)throw Error('Estrazione inattesa');return values[i++]!;}};}
+describe('pool propri dei boss',()=>{
+  it('un set di quattro slot e una alternativa più debole per slot, senza bianco e senza filtro di classe',()=>{
+    expect(Object.keys(LOOT_TABLES).sort()).toEqual(DUNGEONS.map(d=>d.id).sort());
+    expect(()=>lootTableFor('toString')).toThrow();
+    const setIds=new Set<string>(),allIds=new Set<string>();
+    for(const table of Object.values(LOOT_TABLES)){
+      expect(table.entries).toHaveLength(8);expect(table.dropChance).toBeGreaterThan(0);expect(table.dropChance).toBeLessThan(1);
+      expect(new Set(table.entries.map(e=>e.familyId)).size).toBe(8);
+      for(const slot of EQUIPMENT_SLOTS){
+        const entries=table.entries.filter(e=>familyById(e.familyId)?.slot===slot);
+        expect(entries,table.dungeonId+' '+slot).toHaveLength(2);
+        const main=entries.find(e=>e.tier==='set')!,fallback=entries.find(e=>e.tier==='fallback')!;
+        expect(main).toBeDefined();expect(fallback).toBeDefined();
+        expect(RARITIES.indexOf(fallback.rarity)).toBeLessThan(RARITIES.indexOf(main.rarity));
+        expect(fallback.level).toBeLessThanOrEqual(main.level);
+        expect(setIds.has(main.familyId)).toBe(false);setIds.add(main.familyId);
       }
-      expect(table.bonusDropChance).toBeGreaterThanOrEqual(0);
-      expect(table.bonusDropChance).toBeLessThanOrEqual(1);
+      for(const entry of table.entries){
+        expect(familyById(entry.familyId)).toBeDefined();expect(entry.weight).toBeGreaterThan(0);expect(entry.rarity).not.toBe('common');allIds.add(entry.familyId);
+      }
     }
-    // Ogni famiglia del catalogo e' ottenibile da qualche dungeon.
-    const obtainable = new Set(Object.values(LOOT_TABLES).flatMap((t) => [...t.exclusiveFamilyIds, ...t.genericFamilyIds]));
-    expect(obtainable.size).toBe(ITEM_FAMILIES.length);
+    expect([...allIds].sort()).toEqual(ITEM_FAMILIES.map(f=>f.id).sort());
+    expect(lootTableFor('crypt').entries.every(e=>RARITIES.indexOf(e.rarity)<=2)).toBe(true);
   });
-});
-
-describe('rollLoot', () => {
-  it('e\' deterministico a parita\' di seme e cambia con un altro seme', () => {
-    const run = (seed: number) => {
-      const rng = new SeededRng(seed);
-      return Array.from({ length: 50 }, () => rollLoot(lootTableFor('forge'), rng));
-    };
-    expect(run(7)).toEqual(run(7));
-    expect(run(7)).not.toEqual(run(8));
+  it('il confine di drop è esclusivo e non può assegnare più di un oggetto',()=>{
+    const t=lootTableFor('crypt');expect(rollLoot(t,scripted([.25]))).toEqual([]);
+    expect(rollLoot(t,scripted([.2499,0,0]))).toEqual([{familyId:'guardian_blade',rarity:'rare',level:1}]);
+    expect(rollLoot(t,scripted([0,.99999,.99999]))).toEqual([{familyId:'wind_boots',rarity:'uncommon',level:1}]);
   });
-
-  it('da 1 oggetto (garantito) o 2 (con il bonus): il bonus dipende da un\'estrazione < bonusDropChance', () => {
-    expect(rollLoot(CRYPT, scripted([0.5, 0.9, 0, 0]))).toHaveLength(1);
-    expect(rollLoot(CRYPT, scripted([0.4999, 0.9, 0, 0, 0.9, 0, 0]))).toHaveLength(2);
-    const counts = new Set<number>();
-    const rng = new SeededRng(3);
-    for (let i = 0; i < 500; i++) counts.add(rollLoot(CRYPT, rng).length);
-    expect([...counts].sort()).toEqual([1, 2]);
-    const none: LootTable = { ...CRYPT, guaranteedDrops: 0, bonusDropChance: 0 };
-    expect(rollLoot(none, scripted([0.1]))).toEqual([]);
-    const sure: LootTable = { ...CRYPT, guaranteedDrops: 3, bonusDropChance: 1 };
-    expect(rollLoot(sure, new SeededRng(1))).toHaveLength(4);
+  it('selezione pesata ai confini e pesi zero esclusi',()=>{
+    const t=lootTableFor('crypt');
+    expect(rollLoot(t,scripted([0,1/3-1e-8,.249999]))[0]!.familyId).toBe('guardian_blade');
+    expect(rollLoot(t,scripted([0,0,.25]))[0]!.familyId).toBe('ossuary_lantern');
+    expect(rollLoot(t,scripted([0,1/3,0]))[0]!.familyId).toBe('hunter_bow');
+    const zero={...t,entries:t.entries.map((e,i)=>({...e,weight:i===0?0:e.weight}))};
+    expect(rollLoot(zero,scripted([0,0,0]))[0]!.familyId).toBe('ossuary_lantern');
+    expect(rollLoot({...t,entries:[]},scripted([0]))).toEqual([]);
   });
-
-  it('rispetta l\'ordine ESATTO delle estrazioni: bonus, poi per oggetto gruppo, famiglia, rarita\'', () => {
-    // Nessun bonus; gruppo esclusivo (0,1 < 0,35); famiglia: l'ultima delle 2 (0,99); rarita': prima (0).
-    const first = scripted([0.9, 0.1, 0.99, 0]);
-    expect(rollLoot(CRYPT, first)).toEqual([{ familyId: 'tomb_shroud', rarity: 'common' }]);
-    expect(first.used).toBe(4);
-
-    // Bonus; 1o oggetto: generico (0,5), famiglia 0 (arcane_staff), rarita' leggendaria (0,999);
-    // 2o oggetto: esclusivo (0,2), famiglia 0 (guardian_blade), rarita' 0,5 -> 50 < 55 = comune.
-    const both = scripted([0.1, 0.5, 0, 0.999, 0.2, 0, 0.5]);
-    expect(rollLoot(CRYPT, both)).toEqual([
-      { familyId: 'arcane_staff', rarity: 'legendary' },
-      { familyId: 'guardian_blade', rarity: 'common' },
-    ]);
-    expect(both.used).toBe(7);
-
-    // La famiglia e' uniforme nel gruppo: 9 generiche, 0,999 -> l'ultima; 0,5 -> la quinta (indice 4).
-    const last = rollLoot(CRYPT, scripted([0.9, 0.5, 0.999, 0]))[0]!;
-    expect(last.familyId).toBe(CRYPT.genericFamilyIds[8]);
-    expect(rollLoot(CRYPT, scripted([0.9, 0.5, 0.5, 0]))[0]!.familyId).toBe(CRYPT.genericFamilyIds[4]);
-  });
-
-  it('la rarita\' segue i pesi nell\'ordine di RARITIES, ai confini cumulativi', () => {
-    const rarityAt = (draw: number): Rarity => rollLoot(CRYPT, scripted([0.9, 0.5, 0, draw]))[0]!.rarity;
-    // Crypt: 55 / 28 / 12 / 4 / 1 su 100 -> confini a 0,55 / 0,83 / 0,95 / 0,99.
-    expect(rarityAt(0)).toBe('common');
-    expect(rarityAt(0.549)).toBe('common');
-    expect(rarityAt(0.551)).toBe('uncommon');
-    expect(rarityAt(0.829)).toBe('uncommon');
-    expect(rarityAt(0.831)).toBe('rare');
-    expect(rarityAt(0.951)).toBe('epic');
-    expect(rarityAt(0.991)).toBe('legendary');
-    expect(rarityAt(0.999999)).toBe('legendary');
-    // Una rarita' con peso 0 non esce mai.
-    const noCommon: LootTable = { ...CRYPT, rarityWeights: { ...CRYPT.rarityWeights, common: 0 } };
-    expect(rollLoot(noCommon, scripted([0.9, 0.5, 0, 0]))[0]!.rarity).toBe('uncommon');
-  });
-
-  it('la distribuzione su 20000 estrazioni e\' vicina a quella attesa (rarita\', gruppi, famiglie, numero di oggetti)', () => {
-    for (const dungeonId of ['crypt', 'glacier']) {
-      const table = lootTableFor(dungeonId);
-      const rng = new SeededRng(12345);
-      const rarityCount: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
-      const familyCount = new Map<string, number>();
-      let exclusive = 0;
-      let items = 0;
-      const draws = 20000;
-      for (let i = 0; i < draws; i++) {
-        for (const roll of rollLoot(table, rng)) {
-          rarityCount[roll.rarity]++;
-          familyCount.set(roll.familyId, (familyCount.get(roll.familyId) ?? 0) + 1);
-          if (table.exclusiveFamilyIds.includes(roll.familyId)) exclusive++;
-          items++;
+  it('dopo il drop: un terzo set, due terzi verdi, poi quattro pezzi equiprobabili',()=>{
+    for(const table of Object.values(LOOT_TABLES)){
+      const rows=lootOdds(table);
+      expect(rows.reduce((n,e)=>n+e.conditionalChance,0)).toBeCloseTo(1,12);
+      for(const tier of ['set','fallback'] as const){
+        const group=rows.filter(e=>e.tier===tier),share=tier==='set'?1/3:2/3;
+        expect(group.reduce((n,e)=>n+e.conditionalChance,0)).toBeCloseTo(share,12);
+        for(const entry of group){
+          expect(entry.conditionalChance).toBeCloseTo(share*.25,12);
+          expect(entry.chance).toBeCloseTo(.25*share*.25,12);
+          if(tier==='fallback')expect(entry.rarity).toBe('uncommon');
         }
       }
-      expect(items / draws, 'oggetti per vittoria').toBeCloseTo(1.5, 1);
-      const totalWeight = RARITIES.reduce((sum, rarity) => sum + table.rarityWeights[rarity], 0);
-      for (const rarity of RARITIES) {
-        expect(rarityCount[rarity] / items, `${dungeonId} ${rarity}`).toBeCloseTo(table.rarityWeights[rarity] / totalWeight, 1);
-        expect(Math.abs(rarityCount[rarity] / items - table.rarityWeights[rarity] / totalWeight)).toBeLessThan(0.015);
-      }
-      expect(Math.abs(exclusive / items - table.exclusiveChance)).toBeLessThan(0.015);
-      for (const id of table.exclusiveFamilyIds) {
-        expect(Math.abs((familyCount.get(id) ?? 0) / items - table.exclusiveChance / 2), id).toBeLessThan(0.015);
-      }
-      for (const id of table.genericFamilyIds) {
-        expect(Math.abs((familyCount.get(id) ?? 0) / items - (1 - table.exclusiveChance) / 9), id).toBeLessThan(0.015);
-      }
-      // Mai famiglie di altri dungeon.
-      for (const id of familyCount.keys()) expect(familyById(id)!.exclusiveTo ?? dungeonId).toBe(dungeonId);
     }
   });
-
-  it('con un gruppo vuoto usa l\'altro (e consuma comunque tre estrazioni per oggetto); con entrambi vuoti non da nulla', () => {
-    const noExclusive: LootTable = { ...CRYPT, exclusiveFamilyIds: [], exclusiveChance: 1 };
-    const a = scripted([0.9, 0.0, 0.0, 0]);
-    expect(rollLoot(noExclusive, a)).toEqual([{ familyId: CRYPT.genericFamilyIds[0], rarity: 'common' }]);
-    expect(a.used).toBe(4);
-    const noGeneric: LootTable = { ...CRYPT, genericFamilyIds: [], exclusiveChance: 0 };
-    expect(rollLoot(noGeneric, scripted([0.9, 0.9, 0.99, 0]))).toEqual([{ familyId: 'tomb_shroud', rarity: 'common' }]);
-    const empty: LootTable = { ...CRYPT, genericFamilyIds: [], exclusiveFamilyIds: [] };
-    expect(rollLoot(empty, scripted([0.1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]))).toEqual([]);
-    // Con exclusiveChance 0 non esce mai un'esclusiva, con 1 escono solo esclusive.
-    const rng = new SeededRng(9);
-    const never: LootTable = { ...CRYPT, exclusiveChance: 0 };
-    const always: LootTable = { ...CRYPT, exclusiveChance: 1 };
-    for (let i = 0; i < 200; i++) {
-      for (const roll of rollLoot(never, rng)) expect(familyById(roll.familyId)!.exclusiveTo).toBeUndefined();
-      for (const roll of rollLoot(always, rng)) expect(familyById(roll.familyId)!.exclusiveTo).toBe('crypt');
+  it('ogni boss dà solo le proprie combinazioni, deterministiche a parità di seme',()=>{
+    for(const table of Object.values(LOOT_TABLES)){
+      const run=(seed:number)=>{const rng=new SeededRng(seed);return Array.from({length:300},()=>rollLoot(table,rng));};
+      expect(run(1)).toEqual(run(1));expect(run(1)).not.toEqual(run(2));
+      for(const roll of run(3).flat())expect(table.entries.some(e=>e.familyId===roll.familyId&&e.rarity===roll.rarity&&e.level===roll.level)).toBe(true);
+    }
+    expect(lootTableFor('swamp').entries.filter(e=>e.tier==='set').map(e=>e.familyId)).toEqual(['thorn_bow','spore_fan','reed_mantle','bog_boots']);
+  });
+  it('probabilità pubblicate e distribuzione simulata coincidono, incluso nessun drop',()=>{
+    let previousLevel=0,previousReward=0;
+    for(const table of Object.values(LOOT_TABLES)){
+      const odds=lootOdds(table),rng=new SeededRng(12345),counts=new Map<string,number>(),trials=12000;let empty=0;
+      expect(odds.reduce((n,e)=>n+e.chance,0)).toBeCloseTo(table.dropChance,12);
+      const reward=odds.reduce((n,e)=>n+e.chance*(RARITIES.indexOf(e.rarity)*20+e.level),0);
+      expect(table.dropChance).toBe(.25);expect(table.itemLevel).toBeGreaterThan(previousLevel);expect(reward).toBeGreaterThan(previousReward);
+      previousLevel=table.itemLevel;previousReward=reward;
+      for(let i=0;i<trials;i++){const rolls=rollLoot(table,rng);if(!rolls.length)empty++;for(const r of rolls){const key=r.familyId+':'+r.rarity;counts.set(key,(counts.get(key)??0)+1);}}
+      expect(Math.abs(empty/trials-(1-table.dropChance))).toBeLessThan(.015);
+      for(const row of odds)expect(Math.abs((counts.get(row.familyId+':'+row.rarity)??0)/trials-row.chance)).toBeLessThan(.012);
+      expect(counts.size).toBe(8);
     }
   });
-
-  it('non modifica la tabella e non usa altra casualita\' (Math.random, Date)', () => {
-    const before = structuredClone(CRYPT);
-    const realRandom = Math.random;
-    Math.random = () => {
-      throw new Error('Math.random non va usato dalla simulazione');
-    };
-    try {
-      rollLoot(CRYPT, new SeededRng(1));
-    } finally {
-      Math.random = realRandom;
-    }
-    expect(CRYPT).toEqual(before);
+  it('non modifica i dati e non usa casualità esterna',()=>{
+    const table=lootTableFor('glacier'),before=structuredClone(table),random=Math.random;
+    Math.random=()=>{throw Error('Math.random');};try{rollLoot(table,new SeededRng(1));}finally{Math.random=random;}
+    expect(table).toEqual(before);
   });
 });

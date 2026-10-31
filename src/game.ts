@@ -1,12 +1,17 @@
+import { renderCharacterCreation } from './features/ui/character-creation';
+import { PROGRESSION, levelProgress } from './features/character/progression';
 import { Camera, ZOOM } from './core/camera';
 import { Input, SKILL_ACTIONS } from './core/input';
 import { SeededRng } from './core/rng';
 import { Vec2 } from './core/vec2';
 import { AudioPlayer } from './features/audio/audio-player';
-import type { Character } from './features/character/character';
+import { Character } from './features/character/character';
+import type { CharacterRoster } from './features/character/character-roster';
+import { renderCharacterProfiles } from './features/ui/character-profiles';
 import { browserStorage, SaveStore, type LoadStatus } from './features/character/save-store';
 import { CRYPT } from './features/dungeons/crypt';
 import type { DungeonDefinition } from './features/dungeons/dungeon-definition';
+import { canEnterDungeon,minimumDungeonGearScore } from './features/dungeons/dungeon-access';
 import { lootTableFor } from './features/loot/loot-tables';
 import { rollLoot } from './features/loot/roll-loot';
 import { Match, type PlayerIntent } from './features/match/match';
@@ -64,7 +69,10 @@ export class Game {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly saveStore: SaveStore;
 
-  private readonly character: Character;
+  private readonly roster:CharacterRoster;
+  private draft:Character|null=null;
+  private get character():Character {return this.draft??this.roster.active?.character??this.newDraft();}
+  private newDraft():Character {this.draft=Character.createStarter();return this.draft;}
   private readonly loadStatus: LoadStatus;
   private dungeon: DungeonDefinition = CRYPT;
   private match: Match;
@@ -83,8 +91,8 @@ export class Game {
 
     const storage = browserStorage();
     this.saveStore = new SaveStore(storage);
-    const loaded = this.saveStore.load();
-    this.character = loaded.character;
+    const loaded = this.saveStore.loadRoster();
+    this.roster=loaded.roster;
     this.loadStatus = loaded.status;
 
     this.menu = new MainMenu({ onDungeons: () => this.openDungeons(), onInventory: () => this.openInventory() });
@@ -109,6 +117,7 @@ export class Game {
       else if (action === 'toggle_fullscreen') void this.fullscreen.toggle();
     });
     requireElement('pause-button').addEventListener('click', () => this.togglePause());
+    requireElement('main-menu-button').addEventListener('click',()=>this.showMenu());
     this.overlay.onButtons(
       () => (this.screen === 'paused' ? this.togglePause() : this.startMatch()),
       () => this.showMenu(),
@@ -134,15 +143,32 @@ export class Game {
     this.overlay.hide();
     this.screens.show('menu');
     this.preview(this.dungeon);
+    const character=this.character;
+    requireElement('menu-profiles').replaceChildren(renderCharacterProfiles(this.roster,this.draft!==null,{
+      onNew:()=>{this.newDraft();this.inventoryScreen.reset();this.showMenu();},
+      onCancel:()=>{this.draft=null;this.showMenu();},
+      onSelect:id=>{if(this.roster.select(id)){this.draft=null;this.inventoryScreen.reset();this.persist();this.showMenu();}},
+      onRemove:id=>{if(this.roster.remove(id)){this.draft=null;this.inventoryScreen.reset();this.persist();this.showMenu();}},
+    }));
+    requireElement('menu-appearance').replaceChildren(renderCharacterCreation(character,(name,body,kind)=>{
+      if(character.completeCreation(name,body,kind)){
+        if(this.draft===character){this.roster.add(character);this.draft=null;}
+        this.persist();this.showMenu();
+      }
+    }));
+    (requireElement('menu-dungeons') as HTMLButtonElement).disabled = !this.character.created;
+    (requireElement('menu-inventory') as HTMLButtonElement).disabled = !this.character.created;
   }
 
   private openDungeons(): void {
+    if(!this.character.created) return;
     this.screen = 'dungeons';
     this.screens.show('dungeons');
     this.dungeonSelect.render(this.character);
   }
 
   private openInventory(): void {
+    if(!this.character.created)return;
     this.screen = 'inventory';
     this.screens.show('inventory');
     this.inventoryScreen.render(this.character);
@@ -164,6 +190,10 @@ export class Game {
 
   /** Nuova partita nel dungeon corrente, con le skill dell'equipaggiamento attuale. */
   private startMatch(): void {
+    if(!this.character.created)return;
+    if(!canEnterDungeon(this.dungeon,this.character.gearScore)){
+      this.showToast(`Servono almeno ${minimumDungeonGearScore(this.dungeon)} GS equipaggiati per questo dungeon.`);return;
+    }
     this.match = this.createMatch(this.dungeon);
     this.effects.clear();
     this.poses.reset();
@@ -174,7 +204,7 @@ export class Game {
     this.hud.buildSkills(this.match.player.skillBar.skills);
     this.hud.setBossName(this.match.boss.definition.name);
     this.camera.follow(this.match.player.position);
-    this.hud.update(this.match);
+    this.hud.update(this.match, levelProgress(this.character.totalXp));
     this.canvas.focus();
   }
 
@@ -212,9 +242,13 @@ export class Game {
       // Il bottino si assegna e si salva PRIMA di mostrarlo: se la pagina si chiude ora, non si perde.
       const rolls = rollLoot(lootTableFor(match.dungeon.id), new SeededRng(Math.floor(Math.random() * 0x100000000)));
       const items = this.character.addRolls(rolls);
+      this.character.totalXp += PROGRESSION.rewards[match.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100;
       const record = this.character.recordVictory(match.dungeon.id, match.time);
       const saved = this.persist();
-      extra = renderLoot(items, { ...record, seconds: match.time }, saved);
+      extra = renderLoot(items, { ...record, seconds: match.time }, saved,this.character.characterClass);
+      const reward = document.createElement('p');
+      reward.textContent = '+' + (PROGRESSION.rewards[match.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100) + ' XP · Livello ' + levelProgress(this.character.totalXp).level;
+      extra.prepend(reward);
     }
     this.overlay.showEnded({
       won,
@@ -228,7 +262,7 @@ export class Game {
 
   /** Salva il personaggio; se non riesce avvisa una volta sola. Restituisce se il salvataggio e' riuscito. */
   private persist(): boolean {
-    const saved = this.saveStore.save(this.character);
+    const saved = this.saveStore.saveRoster(this.roster);
     if (!saved && !this.saveWarningShown) {
       this.saveWarningShown = true;
       this.showToast('Impossibile salvare in questo browser: i progressi andranno persi alla chiusura.');
@@ -316,13 +350,14 @@ export class Game {
     }
     this.camera.shakeOffset =
       this.screen === 'playing' || this.screen === 'ended' ? this.effects.shakeOffset() : Vec2.ZERO;
-    this.hud.update(this.match);
+    this.hud.update(this.match, levelProgress(this.character.totalXp));
     renderScene(this.ctx, {
       match: this.match,
       effects: this.effects,
       poses: this.poses,
       camera: this.camera,
       clock: this.clock,
+      appearance: this.character.appearance(),
     });
     requestAnimationFrame((next) => this.frame(next));
   }

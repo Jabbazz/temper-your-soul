@@ -470,12 +470,12 @@ describe('forge: iron_charge', () => {
     expect(s.boss.position.x).toBeLessThan(start.x);
     advance(s, 1);
     expect(s.boss.charge).toBeNull();
-    expect(s.harness.hurts.length).toBeGreaterThan(0);
+    expect(s.harness.hurts).toHaveLength(0); // Il pilastro centrale arresta la carica.
     expect(s.harness.hurts.every((amount) => amount === FORGE_COLOSSUS_STATS.chargeDamage)).toBe(true);
     const shock = s.harness.projectiles;
     expect(shock).toHaveLength(10);
     for (const shot of shock) {
-      expect(shot.position.distanceTo(target)).toBeLessThan(20);
+      expect(shot.position.distanceTo(target)).toBeGreaterThan(100); // Onda dal punto di collisione.
       expect(shot.spec).toMatchObject({ speed: 210, damage: 15, visual: 'forge_shock' });
     }
     expect(s.boss.scheduled).toHaveLength(0);

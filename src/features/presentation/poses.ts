@@ -1,7 +1,7 @@
 import type { GameEvent } from '../combat/events';
 
 /** Secondi di posa di lancio del mago dopo una skill. */
-const PLAYER_CAST_POSE = 0.16;
+export const PLAYER_CAST_POSE = 0.16;
 /** Velocita' dell'animazione di camminata, in fotogrammi al secondo. */
 const WALK_RATE = 9;
 
@@ -13,16 +13,21 @@ export class ActorPoses {
   /** Fase di camminata: la parte intera sceglie il fotogramma; si azzera da fermi. */
   walkPhase = 0;
   playerCast = 0;
+  playerSkillId: string | null = null;
   bossCast = 0;
 
   reset(): void {
     this.walkPhase = 0;
     this.playerCast = 0;
+    this.playerSkillId = null;
     this.bossCast = 0;
   }
 
   handle(event: GameEvent): void {
-    if (event.type === 'skill_cast') this.playerCast = PLAYER_CAST_POSE;
+    if (event.type === 'skill_cast') {
+      this.playerCast = PLAYER_CAST_POSE;
+      this.playerSkillId = event.skillId;
+    }
     else if (event.type === 'boss_pose') this.bossCast = event.seconds;
   }
 

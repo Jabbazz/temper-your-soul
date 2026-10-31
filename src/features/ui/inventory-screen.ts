@@ -1,11 +1,15 @@
+import { renderAppearancePicker } from './appearance-picker';
+import { renderCharacterPortrait } from './character-portrait';
+import { equipInSlot } from './equipment-actions';
 import type { Character } from '../character/character';
 import { EQUIPMENT_SLOTS, SLOT_LABELS, type EquipmentSlot } from '../items/equipment-slot';
 import { familyById } from '../items/item-families';
 import type { Item } from '../items/item';
-import { countBySlot, visibleInventory, type InventoryFilter } from './inventory-view';
+import { visibleInventory } from './inventory-view';
 import { el, requireElement } from './dom';
 import { hideItemTooltip, renderItemSlot } from './item-slot';
 import { itemName } from '../items/item';
+import { CLASS_LABELS } from '../character/character-class';
 
 /** Etichette dei comandi per slot (i tasti veri sono nell'Input Map). */
 const SLOT_KEYS: Record<EquipmentSlot, string> = {
@@ -20,21 +24,32 @@ const SLOT_KEYS: Record<EquipmentSlot, string> = {
  * slot. Non salva e non conosce le regole: ogni modifica passa da `Character` e avvisa con `onChange`.
  */
 export class InventoryScreen {
-  private filter: InventoryFilter = 'all';
+  reset():void {this.pendingDiscard=null;this.selectedUid=null;this.draggedUid=null;this.character=null;hideItemTooltip();}
+  private sorted = false;
+  private draggedUid: string | null = null;
   private selectedUid: string | null = null;
   /** Oggetto di cui si e' chiesto di scartare e che attende la conferma (secondo clic). */
   private pendingDiscard: string | null = null;
   private character: Character | null = null;
 
   constructor(private readonly handlers: { readonly onChange: () => void; readonly onBack: () => void }) {
-    requireElement('inventory-back').addEventListener('click', handlers.onBack);
+    requireElement('inventory-back').addEventListener('click', () => {
+      this.pendingDiscard = null;
+      this.clearDrag();
+      handlers.onBack();
+    });
+    requireElement('inventory-sort').addEventListener('click', () => {
+      this.sorted = true;
+      if (this.character) this.render(this.character);
+    });
   }
 
   render(character: Character): void {
     hideItemTooltip();
     this.character = character;
+    requireElement('inventory-appearance').replaceChildren(renderAppearancePicker(character));
     this.renderSlots(character);
-    this.renderFilters(character);
+
     this.renderList(character);
     this.renderSelection(character);
   }
@@ -47,12 +62,29 @@ export class InventoryScreen {
 
   private renderSlots(character: Character): void {
     const root = requireElement('equipment-slots');
-    root.replaceChildren();
+    root.replaceChildren(renderCharacterPortrait(character));
     for (const slot of EQUIPMENT_SLOTS) {
-      const panel = el('div', 'slot-panel');
+      const panel = el('div', 'slot-panel equipment-' + slot);
+      panel.dataset.equipmentSlot = slot;
+      panel.addEventListener('dragover', (event) => {
+        const item = this.draggedUid ? character.itemByUid(this.draggedUid) : undefined;
+        if (!item || !character.canEquip(item.uid) || familyById(item.familyId)?.slot !== slot) return;
+        event.preventDefault();
+        if(event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        panel.classList.add('drag-over');
+      });
+      panel.addEventListener('dragleave', (event) => {
+        if (!(event.relatedTarget instanceof Node) || !panel.contains(event.relatedTarget)) panel.classList.remove('drag-over');
+      });
+      panel.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const uid = this.draggedUid;
+        this.clearDrag();
+        if (uid && equipInSlot(character, uid, slot)) this.changed();
+      });
       panel.append(el('div', 'slot-title', `${SLOT_LABELS[slot]} · ${SLOT_KEYS[slot]}`));
       const equipped = character.equippedItem(slot);
-      const card = equipped === null ? null : renderItemSlot(equipped, { badge: 'Equipaggiato' });
+      const card = equipped === null ? null : renderItemSlot(equipped, { badge: 'Equipaggiato',characterClass:character.characterClass });
       if (card === null) {
         panel.append(el('div', 'slot-empty', 'Vuoto: nessuna skill'));
       } else {
@@ -73,30 +105,16 @@ export class InventoryScreen {
     }
   }
 
-  private renderFilters(character: Character): void {
-    const root = requireElement('inventory-filters');
-    root.replaceChildren();
-    const counts = countBySlot(character.inventory);
-    const options: Array<[InventoryFilter, string]> = [
-      ['all', `Tutti (${character.inventory.length})`],
-      ...EQUIPMENT_SLOTS.map((slot): [InventoryFilter, string] => [slot, `${SLOT_LABELS[slot]} (${counts[slot]})`]),
-    ];
-    for (const [value, label] of options) {
-      const button = el('button', value === this.filter ? 'chip active' : 'chip', label);
-      button.type = 'button';
-      button.addEventListener('click', () => {
-        this.filter = value;
-        this.pendingDiscard = null;
-        this.render(character);
-      });
-      root.append(button);
-    }
+  private clearDrag(): void {
+    this.draggedUid = null;
+    hideItemTooltip();
+    for(const panel of Array.from(requireElement('equipment-slots').children)) panel.classList.remove('drag-compatible', 'drag-over');
   }
 
   private renderList(character: Character): void {
     const root = requireElement('inventory-list');
     root.replaceChildren();
-    const items = visibleInventory(character.inventory, this.filter);
+    const items = this.sorted ? visibleInventory(character.inventory, 'all') : character.inventory.filter(item => familyById(item.familyId) !== undefined);
     if (items.length === 0) {
       root.append(el('p', 'inventory-empty', 'Nessun oggetto qui. Sconfiggi i boss per ottenerne di nuovi.'));
       return;
@@ -112,10 +130,29 @@ export class InventoryScreen {
     if (family === undefined) return null;
     const equippedHere = character.equipped[family.slot] === item.uid;
     const slot = renderItemSlot(item, {
+      characterClass:character.characterClass,
       ...(equippedHere ? { badge: 'Equipaggiato' } : {}),
       extraClass: this.selectedUid === item.uid ? 'is-selected' : '',
     });
     if (slot === null) return null;
+    slot.draggable = character.canEquip(item.uid);
+    slot.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      this.selectedUid = item.uid;
+      if (character.equip(item.uid)) this.changed();else this.render(character);
+    });
+    slot.addEventListener('dragstart', (event) => {
+      if(!character.canEquip(item.uid)){event.preventDefault();return;}
+      if(!event.dataTransfer) return;
+      this.draggedUid = item.uid;
+      hideItemTooltip();
+      event.dataTransfer.setData('text/plain', item.uid);
+      event.dataTransfer.effectAllowed = 'move';
+      for(const panel of Array.from(requireElement('equipment-slots').querySelectorAll<HTMLElement>('[data-equipment-slot]'))) {
+        panel.classList.toggle('drag-compatible', character.canEquip(item.uid)&&panel.dataset.equipmentSlot === family.slot);
+      }
+    });
+    slot.addEventListener('dragend', () => this.clearDrag());
     slot.setAttribute('aria-pressed', String(this.selectedUid === item.uid));
     slot.addEventListener('click', () => {
       this.selectedUid = item.uid;
@@ -142,10 +179,11 @@ export class InventoryScreen {
     }
     const equippedHere = character.equipped[family.slot] === item.uid;
     root.append(el('b', '', itemName(item)));
+    if(!character.canEquip(item.uid))root.append(el('small','item-requirement',`Richiede la classe ${CLASS_LABELS[family.characterClass]}. Puoi conservarlo o scartarlo.`));
     const actions = el('div', 'item-actions');
     const equip = el('button', 'small-button primary', equippedHere ? 'Equipaggiato' : 'Equipaggia');
     equip.type = 'button';
-    equip.disabled = equippedHere;
+    equip.disabled = equippedHere || !character.canEquip(item.uid);
     equip.addEventListener('click', () => {
       if (character.equip(item.uid)) this.changed();
     });

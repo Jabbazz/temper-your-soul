@@ -1,7 +1,11 @@
+import type { BodyType, CharacterAppearance } from './appearance';
+import type { CharacterClass } from './character-class';
 import { EQUIPMENT_SLOTS, type EquipmentSlot } from '../items/equipment-slot';
 import { familyById } from '../items/item-families';
 import { resolveItem, type Item, type ItemRoll } from '../items/item';
 import type { Loadout } from '../skills/skill-definition';
+import { cleanCharacterName, STARTER_SETS } from './creation';
+import { cleanItemLevel, gearScore } from '../items/gear-score';
 
 /** Progressi in un dungeon: vittorie e miglior tempo (null finche' non si vince). */
 export interface DungeonRecord {
@@ -15,9 +19,6 @@ export interface VictoryResult {
   newBest: boolean;
 }
 
-/** Quanti oggetti ha il personaggio iniziale e di che famiglie: una per slot, le quattro skill base del mago. */
-const STARTER_FAMILY_IDS: readonly string[] = ['arcane_staff', 'frost_grimoire', 'meteor_mantle', 'astral_boots'];
-
 /**
  * Il personaggio del giocatore: inventario, equipaggiamento e progressi. Stato puro, senza DOM ne' casualita'.
  *
@@ -26,6 +27,38 @@ const STARTER_FAMILY_IDS: readonly string[] = ['arcane_staff', 'frost_grimoire',
  * - La skill di ogni slot viene dall'oggetto equipaggiato (`loadout()`).
  */
 export class Character {
+  name: string | null = null;
+  /** Solo i personaggi nuovi ricevono il set di classe; le migrazioni conservano tutto. */
+  starterPending = false;
+  totalXp = 0;
+  bodyType: BodyType | null = null;
+  characterClass: CharacterClass | null = null;
+  chooseClass(value: CharacterClass): boolean {
+    if(this.characterClass!==null) return this.characterClass===value;
+    this.characterClass=value;this.reconcileEquipment();return true;
+  }
+  get created():boolean { return this.name!==null && this.bodyType!==null && this.characterClass!==null; }
+  chooseBody(value:BodyType):boolean {
+    if(this.bodyType!==null)return this.bodyType===value;
+    this.bodyType=value;return true;
+  }
+  completeCreation(rawName:string,body:BodyType,kind:CharacterClass):boolean {
+    const name=cleanCharacterName(rawName);
+    if(this.created || name===null || (this.bodyType!==null && this.bodyType!==body) || (this.characterClass!==null && this.characterClass!==kind))return false;
+    this.name=name;this.bodyType=body;this.characterClass=kind;
+    if(this.starterPending){
+      this.inventory=[];this.equipped={primary_hand:null,secondary_hand:null,armor:null,boots:null};
+      const added=this.addRolls(STARTER_SETS[kind].map(familyId=>({familyId,rarity:'common' as const})));
+      for(const item of added)this.equip(item.uid);
+    }
+    this.reconcileEquipment();this.starterPending=false;return true;
+  }
+  get gearScore():number { return EQUIPMENT_SLOTS.reduce((sum,slot)=>{const item=this.equippedItem(slot);return sum+(item?gearScore(item):0);},0); }
+  appearance(): CharacterAppearance {
+    const equipment: Partial<Record<EquipmentSlot, Item>> = {};
+    for(const slot of EQUIPMENT_SLOTS) { const item=this.equippedItem(slot); if(item) equipment[slot]=item; }
+    return {body:this.bodyType ?? 'male',characterClass:this.characterClass ?? 'mage',equipment};
+  }
   inventory: Item[] = [];
   equipped: Record<EquipmentSlot, string | null> = { primary_hand: null, secondary_hand: null, armor: null, boots: null };
   records: Record<string, DungeonRecord> = {};
@@ -33,9 +66,10 @@ export class Character {
   nextItemNumber = 1;
 
   /** Il personaggio di partenza: 4 oggetti Comuni, uno per slot, gia' equipaggiati (le 4 skill base del mago). */
-  static createStarter(): Character {
+  static createStarter(kind:CharacterClass='mage'): Character {
     const character = new Character();
-    const items = character.addRolls(STARTER_FAMILY_IDS.map((familyId) => ({ familyId, rarity: 'common' as const })));
+    character.starterPending=true;
+    const items = character.addRolls(STARTER_SETS[kind].map((familyId) => ({ familyId, rarity: 'common' as const })));
     for (const item of items) character.equip(item.uid);
     return character;
   }
@@ -47,7 +81,16 @@ export class Character {
   /** L'oggetto equipaggiato nello slot, o `null` se lo slot e' vuoto. */
   equippedItem(slot: EquipmentSlot): Item | null {
     const uid = this.equipped[slot];
-    return uid === null ? null : (this.itemByUid(uid) ?? null);
+    return uid===null||!this.canEquip(uid)?null:this.itemByUid(uid)??null;
+  }
+
+  canEquip(uid:string):boolean {
+    const item=this.itemByUid(uid),family=item? familyById(item.familyId):undefined;
+    return family!==undefined && (this.characterClass===null||family.characterClass===this.characterClass);
+  }
+  /** Conserva tutti gli oggetti, svuota soltanto gli slot incompatibili con la classe. */
+  reconcileEquipment():void {
+    for(const slot of EQUIPMENT_SLOTS){const uid=this.equipped[slot];if(uid!==null&&!this.canEquip(uid))this.equipped[slot]=null;}
   }
 
   /**
@@ -57,7 +100,7 @@ export class Character {
   equip(uid: string): boolean {
     const item = this.itemByUid(uid);
     const family = item === undefined ? undefined : familyById(item.familyId);
-    if (item === undefined || family === undefined) return false;
+    if (item === undefined || family === undefined || !this.canEquip(uid)) return false;
     this.equipped[family.slot] = item.uid;
     return true;
   }
@@ -88,7 +131,8 @@ export class Character {
     const added: Item[] = [];
     for (const roll of rolls) {
       if (familyById(roll.familyId) === undefined) continue;
-      const item: Item = { uid: `i${this.nextItemNumber}`, familyId: roll.familyId, rarity: roll.rarity };
+      const level=cleanItemLevel(roll.level);
+      const item: Item = { uid: `i${this.nextItemNumber}`, familyId: roll.familyId, rarity: roll.rarity, ...(level>1?{level}:{}) };
       this.nextItemNumber += 1;
       this.inventory.push(item);
       added.push(item);

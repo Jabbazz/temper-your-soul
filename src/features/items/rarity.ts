@@ -17,11 +17,11 @@ export interface RarityStats {
 
 /** Statistiche per rarita'. Valori provvisori (vedi docs/game-design.md): non definiscono il bilanciamento. */
 export const RARITY_STATS: Readonly<Record<Rarity, RarityStats>> = {
-  common: { label: 'Comune', color: '#b9b9c2', powerMultiplier: 1, cooldownMultiplier: 1 },
-  uncommon: { label: 'Non comune', color: '#5fd068', powerMultiplier: 1.12, cooldownMultiplier: 0.95 },
-  rare: { label: 'Raro', color: '#4aa3ff', powerMultiplier: 1.25, cooldownMultiplier: 0.9 },
-  epic: { label: 'Epico', color: '#b06bff', powerMultiplier: 1.4, cooldownMultiplier: 0.85 },
-  legendary: { label: 'Leggendario', color: '#ffa73b', powerMultiplier: 1.6, cooldownMultiplier: 0.8 },
+  common: { label: 'Comune', color: '#eee8df', powerMultiplier: 1, cooldownMultiplier: 1 },
+  uncommon: { label: 'Non comune', color: '#5fd068', powerMultiplier: 1.2, cooldownMultiplier: 0.95 },
+  rare: { label: 'Raro', color: '#4aa3ff', powerMultiplier: 1.5, cooldownMultiplier: 0.9 },
+  epic: { label: 'Epico', color: '#b06bff', powerMultiplier: 2, cooldownMultiplier: 0.85 },
+  legendary: { label: 'Leggendario', color: '#f04a55', powerMultiplier: 3, cooldownMultiplier: 0.8 },
 };
 
 /** Vero se `value` e' una rarita' valida (per leggere dati esterni, come i salvataggi). */

@@ -171,7 +171,20 @@ export function drawProjectile(
   ctx.arc(0, 0, r * 2.5, 0, TAU);
   ctx.fill();
   ctx.globalAlpha = 1;
-  if (look.shape === 'diamond') {
+  if(['wisp','thorn','ember','mirror'].includes(look.shape)){
+    ctx.fillStyle=look.color;ctx.strokeStyle='#f4f4d8';ctx.lineWidth=1;
+    ctx.beginPath();
+    if(look.shape==='wisp'){
+      ctx.moveTo(10,0);ctx.quadraticCurveTo(1,-12,-10,-3);ctx.lineTo(-4,0);ctx.lineTo(-12,5);ctx.quadraticCurveTo(2,11,10,0);
+    }else if(look.shape==='thorn'){
+      ctx.moveTo(15,0);ctx.lineTo(-8,-5);ctx.lineTo(-3,0);ctx.lineTo(-8,5);ctx.closePath();
+    }else if(look.shape==='ember'){
+      ctx.moveTo(9,0);ctx.lineTo(2,-6);ctx.lineTo(-12,-3);ctx.lineTo(-7,1);ctx.lineTo(-14,5);ctx.lineTo(2,5);ctx.closePath();
+    }else{
+      ctx.rotate(Math.sin(time*7)*.4);ctx.moveTo(12,0);ctx.lineTo(3,-7);ctx.lineTo(-9,-3);ctx.lineTo(-5,7);ctx.closePath();
+    }
+    ctx.fill();ctx.stroke();ctx.fillStyle='#fff6dc';ctx.fillRect(0,-1,4,2);
+  } else if (look.shape === 'diamond') {
     ctx.rotate(time * 3);
     ctx.fillStyle = '#417eac';
     ctx.beginPath();

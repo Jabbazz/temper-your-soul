@@ -1,5 +1,21 @@
 # Temper your soul: design del gioco
 
+## Aspetto del personaggio e oggetti indossati
+
+Direzione artistica scelta dall'utente: **A — Fantasy compatto** (distinta dal tema UI C — Reliquiario). La tavola generata e un riferimento artistico, non un atlante utilizzabile direttamente. Prima traduzione modulare: basi a tre quarti in lino e cuoio, colori caldi, materiali ombreggiati, capelli a ciocche, mantelli aperti e spallacci con sagome differenti. L'approvazione della tavola non costituisce approvazione della resa del prototipo nel gioco.
+
+Sviluppo grafico dei ritratti del personaggio **sospeso su richiesta dell’utente**: restano difetti di vestibilità e registrazione da rivedere in un incremento dedicato. Nessuna rigenerazione per le modifiche di gioco correnti. Sesso e classe ora si scelgono con il nome alla creazione e non si modificano dallo zaino; il formato v6 conserva più personaggi, identità e livello degli oggetti.
+
+Le 17 famiglie hanno tre rappresentazioni: icona inventario, strato illustrato per la scheda personaggio e strato compatto da combattimento (48×48, inclusi margini per il movimento delle armi). Su richiesta dell'utente, il ritratto usa ora asset PNG dettagliati derivati dalla proposta A (`src/assets/portraits/`), con due basi e armature distinte per sesso, oggetti secondari, armi e stivali. `portrait-atlas.ts` collega ogni famiglia al suo asset; `portrait-layout.ts` ne registra posizione, scala e ritaglio. È possibile ingrandire il ritratto con Zoom. Gli elementi vengono ricomposti quando cambia l'equipaggiamento, non si sceglie un'illustrazione fissa di classe.
+
+Il combattimento continua a usare `WEARABLES` e `characterPixels`, separati dal ritratto. `adventurer-body.ts` definisce articolazioni, fisionomie e proporzioni; `wearable-draw.ts` aggancia gli oggetti alle stesse pose. Riposo, camminata e lancio hanno cicli di 8 fotogrammi campionati. La base femminile è più esile anche sotto il collo, con proporzioni proprie di viso, spalle, vita e gambe; tutti gli oggetti vengono adattati a questi punti di attacco. Le parti sotto la presa di arco, martello, scettro, bastone e lancia passano dietro il corpo; la spada e gli oggetti secondari restano davanti. Un futuro scudo userà il livello davanti al torso, senza che questo incremento aggiunga uno scudo al catalogo.
+
+L'arco ha flettenti curvi e corda separata di profilo; la posa di attacco mostra anche freccia e tensione. Queste sono pose visive, non modificano tempi, danno o geometria della skill. Il ritratto illustrato è statico; le animazioni sono del personaggio in gioco. La pagina di sviluppo `/character-animation.html` permette di confrontare il ritratto illustrato con lo sprite piccolo, entrambi i corpi, tutti gli oggetti e le animazioni, senza leggere o modificare il salvataggio; non fa parte della build di produzione.
+
+Una nuova famiglia deve avere icona, skill con statistiche e icona spell. La revisione di `WEARABLES` e degli asset illustrati in `PORTRAIT_LAYERS` con entrambi i corpi è rinviata alla ripresa del lavoro grafico. Gli asset attuali vengono distribuiti localmente, senza nuove dipendenze o generazione remota durante il gioco.
+
+Direzione UI scelta dall'utente: **C — Reliquiario**. Comandi principali in rame e prugna, bordi lavorati con angoli asimmetrici, rilievo e pannello del menu coordinato. Implementazione CSS senza nuove dipendenze.
+
 Distingue le **decisioni prese** dai **valori provvisori** e dai **punti aperti**. Nessun valore numerico è definitivo, salvo dove indicato.
 
 ## Decisioni prese
@@ -57,7 +73,7 @@ Tipi di effetto disponibili (`SkillEffect`): **proiettile** (anche a ventaglio c
 
 ### Oggetti, rarità e bottino
 
-**Famiglie** (17, `features/items/item-families.ts`; valori in `item-skills.ts`). Le generiche possono cadere da qualunque boss; le esclusive solo dal boss indicato.
+**Famiglie** (25, `features/items/item-families.ts`; valori in `item-skills.ts` e `dungeon-item-skills.ts`). Nove famiglie storiche e sedici pezzi di set. La tabella seguente descrive i 17 oggetti originari; gli otto nuovi sono riportati sotto. `exclusiveTo` conserva il dungeon di origine del set, mentre le fonti effettive sono le voci esplicite in `LOOT_TABLES`, anche quando un pezzo compare altrove come alternativa inferiore.
 
 | Slot | Generiche | Esclusive (boss) |
 | --- | --- | --- |
@@ -66,18 +82,22 @@ Tipi di effetto disponibili (`SkillEffect`): **proiettile** (anche a ventaglio c
 | Armatura | Mantello della meteora (base), Egida di brace (esplosione attorno a te, raggio 110, 130 danni) | Sudario della cripta (cripta): grande esplosione attorno a te che rallenta 2,5 s · Corazza della fornace (fucina): enorme zona ritardata sul mirino, 360 danni · Velo di bufera (ghiacciaio): esplosione attorno a te che rallenta 3 s |
 | Stivali | Stivali astrali (base), Stivali del vento (scatto 200, invulnerabile 0,3 s, ricarica 2,4 s) | Stivali del pantano (palude): scatto corto con invulnerabilità lunga (0,8 s) |
 
-**Rarità** (`items/rarity.ts`): Comune, Non comune, Raro, Epico, Leggendario. La rarità moltiplica il danno (1 / 1,12 / 1,25 / 1,4 / 1,6) e la ricarica (x 1 / 0,95 / 0,9 / 0,85 / 0,8); distanza e invulnerabilità dello scatto crescono della metà dell'aumento di potenza. A rarità Comune la skill è identica a quella base. Nessuna skill generica supera il doppio del riferimento comune del suo slot nemmeno a rarità Leggendaria.
+**Rarità** (`items/rarity.ts`): Comune bianco, Non comune verde, Raro blu, Epico viola, Leggendario rosso (l’id `legendary` resta stabile). Danno x 1 / 1,2 / 1,5 / 2 / 3 e ricarica x 1 / 0,95 / 0,9 / 0,85 / 0,8; distanza e invulnerabilità dello scatto crescono della metà dell'aumento di potenza. A rarità Comune la skill è identica alla base. I valori restano provvisori.
 
-**Bottino** (`loot/loot-tables.ts`): a ogni vittoria 1 oggetto garantito più un secondo con probabilità 0,5. Per ogni oggetto: con probabilità 0,35 pesca tra le famiglie **esclusive** del boss, altrimenti tra le generiche; poi la rarità per pesi che crescono col pericolo del dungeon:
+**Bottino** (`loot/loot-tables.ts`): un tentativo per vittoria, **0 oppure 1 oggetto**, nessun drop garantito e nessun filtro di classe. Ogni boss ha otto voci: un set tematico completo di quattro slot e una sola alternativa verde Non comune per slot. Estrazione condizionata in tre passi: 25% di ottenere un oggetto; una volta ottenuto, **1/3 set e 2/3 Non comune** (33,33% e 66,67%, normalizzati al 100%); poi quattro pezzi equiprobabili, 25% ciascuno nel proprio gruppo. Per ogni specifico pezzo: `P(pezzo)=P(drop)×P(gruppo|drop)×P(pezzo|gruppo)`, quindi 2,0833% per uccisione per un pezzo di set e 4,1667% per un verde. I pesi per voce sono 1 nel set e 2 nelle alternative su tutti i boss, incluso il ghiacciaio. Rarità del set e livello restano fissati nella voce; nessuna estrazione dal catalogo generico globale.
 
-| Dungeon | Comune | Non comune | Raro | Epico | Leggendario |
-| --- | --- | --- | --- | --- | --- |
-| Cripta | 55 | 28 | 12 | 4 | 1 |
-| Palude | 40 | 30 | 18 | 9 | 3 |
-| Fucina | 30 | 30 | 22 | 13 | 5 |
-| Ghiacciaio | 20 | 28 | 27 | 17 | 8 |
+| Dungeon | Drop | Set principale | Alternative |
+| --- | --- | --- | --- |
+| Cripta | 25% | Reliquie dell’ossario · Raro, livello 1 | Non comune, livello 1 |
+| Palude | 25% | Custode dei rovi · Epico, livello 5 | Non comune, livello 1 |
+| Fucina | 25% | Anima della fornace · Leggendario, livello 10 | Non comune, livello 6 |
+| Ghiacciaio | 25% | Cuore del ghiacciaio · Leggendario, livello 15 | Non comune, livello 11 |
 
-**Salvataggio** (`features/character/`): chiave `temper-your-soul:save` in `localStorage`, versione 1. Si salva a ogni vittoria e a ogni modifica dell'equipaggiamento (prima di mostrare il bottino). Dati illeggibili, manomessi o di una versione più recente non vengono sovrascritti in silenzio: il testo originale si copia in `temper-your-soul:save:corrupt` e si riparte da un personaggio iniziale. Oggetti non validi si scartano, l'equipaggiamento incoerente si svuota. Se il browser non permette di salvare il gioco funziona in memoria e avvisa.
+Set principali, nell’ordine primaria/secondaria/armatura/stivali: Cripta = Lama del guardiano, Lanterna dell’ossario, Sudario della cripta, Stivali del sepolcro; Palude = Arco di rovi, Ventaglio di spore, Mantello delle canne, Stivali del pantano; Fucina = Martello della fornace, Cuore di brace, Corazza della fornace, Calzari della fornace; Ghiacciaio = Lancia di ghiaccio, Specchio del ghiacciaio, Velo di bufera, Stivali di brina. Sono set tematici senza bonus per completamento.
+
+Alternative per slot: Cripta = Arco del cacciatore, Grimorio del gelo, Egida di brace, Stivali del vento; Palude = Bastone arcano, Talismano degli spiriti, Mantello della meteora, Stivali astrali; Fucina = Scettro tempestoso, Ventaglio di spore, Mantello delle canne, Stivali del pantano; Ghiacciaio = i quattro pezzi della Fucina in variante Non comune. Tutte le 25 famiglie restano ottenibili; le varianti storiche già possedute restano valide.
+
+**Salvataggio** (`features/character/`): chiave `temper-your-soul:save` in `localStorage`, versione **6**, raccolta con `format: character-roster`. Ogni profilo ha id stabile e dati separati; si conserva l’id attivo. Si salva alla creazione, selezione, rimozione, vittoria e modifica dell'equipaggiamento. I singoli personaggi v1–v5 vengono importati senza reset; alla prima scrittura della raccolta il vecchio testo viene conservato in `temper-your-soul:save:before-roster`. Dati illeggibili o futuri vengono copiati in `temper-your-soul:save:corrupt`; una raccolta con profili non validi non viene riparata scartandoli in silenzio. Se il browser non permette di salvare il gioco funziona in memoria e avvisa.
 
 ## Differenze volute rispetto al prototipo originale
 
@@ -93,7 +113,7 @@ Il porting della Fase 0 conservava regole e valori; restano queste differenze (t
 - **Progressione**: livelli ed esperienza, tier T1-T15 come in Ashen Realm (qui la potenza viene dalla rarità), sblocco dei dungeon (oggi sono tutti disponibili), difficoltà scalabile.
 - **Altri slot**: anello e collana come modificatori delle skill, ali sulla velocità, pantaloni, peso dell'armatura (come in Ashen Realm). Oggi gli slot sono 4, uno per skill.
 - **Oggetti**: capienza dell'inventario (oggi illimitata), vendita o riforgiatura, confronto tra oggetti, modificatori casuali, oggetti identici duplicati, eventuali oggetti unici con nome proprio.
-- **Salvataggio**: cloud o più profili, esportazione/importazione del salvataggio, cosa fare con due schede aperte contemporaneamente (oggi l'ultima che salva vince), cancellazione dei progressi dal gioco.
+- **Salvataggio**: cloud, esportazione/importazione del salvataggio e cosa fare con due schede aperte contemporaneamente (oggi l'ultima che salva vince). Profili multipli e rimozione individuale sono implementati localmente.
 - Tutti i valori numerici (vita, danni, velocità, ricariche, pesi del bottino, scalatura delle rarità), da tarare con la prova manuale; equilibrio tra le famiglie e tra i dungeon.
 - Ambientazione e lore: nomi dei dungeon e dei boss, "Ordine della Brace", "Emberfall".
 - Raggi di collisione (oggi incoerenti di 1 tra proiettili e zone), perforazione e rimbalzo dei proiettili, pilastri distruttibili o che fermano anche le zone.
@@ -105,3 +125,51 @@ Il porting della Fase 0 conservava regole e valori; restano queste differenze (t
 Lo zaino si apre dal pulsante con icona pixel art nel menu. Equipaggiamento e bottino usano slot compatti con uno sprite originale 16×16 per ciascuna delle 17 famiglie (`presentation/item-sprites.ts`). La famiglia conserva lo stesso sprite a ogni rarità; bordo dello slot e nome nel tooltip usano il colore della rarità. Il tooltip appare al passaggio del mouse e al focus tastiera, con nome, rarità testuale, slot, abilità e statistiche risolte dalla rarità (anche velocità, raggio, durata e apertura totale dei proiettili).
 
 Un clic seleziona l'oggetto nello zaino e mostra i comandi Equipaggia/Scarta; lo scarto mantiene la conferma in due passi. Gli oggetti equipaggiati sono segnati con E e si rimuovono dai quattro slot superiori. Filtri, ordinamento, salvataggi e regole del bottino restano quelli esistenti. Nessuna nuova capienza o statistica di bilanciamento introdotta.
+
+## Livelli, mana e HUD (incremento corrente)
+XP cumulativi salvati nel formato v2; v1 migrato con 0 XP mantenendo oggetti e record. Premi provvisori per vittoria: cripta 100, palude 180, fucina 280, ghiacciaio 400. Livello iniziale 1; costo del passaggio 100 + 50 per ogni livello gia ottenuto. Nessun bonus automatico alle statistiche per livello, per ora.
+Mana massimo 100, ripristinato a inizio dungeon, rigenerazione base 8/s; ogni oggetto aggiunge un bonus secondo il tipo di skill e la rarita. Costi per tutte le skill in SPELL_MANA; rigenerazione ferma in pausa/fine partita. Skill senza mana non attiva ricarica. Danno per rarita: x1, x1.2, x1.5, x2, x3; costi e cooldown migliorano con rarita. Valori tutti provvisori.
+HUD centrale in basso: vita rossa, livello, mana blu, barra XP e icone originali pixel art in ordine DX/SX/Q/E; tooltip con statistiche. Ogni nuova skill richiede icona in SKILL_ICONS, costo in SPELL_MANA e test di copertura.
+Boss e cariche collidono coi pilastri; i teletrasporti atterrano fuori dagli ostacoli. Droprate e permadeath rimandati.
+
+## Classi e anteprima delle animazioni
+Le tre classi sono Guerriero, Arciere e Mago. Nell’anteprima: Fornace rappresenta il Guerriero, arco e stivali del vento rappresentano l’Arciere, Arcano rappresenta il Mago. I preset dell’anteprima sono combinazioni visive libere; nel gioco reale ogni famiglia è ora vincolata a una classe, senza introdurre statistiche innate di classe.
+Le armi vengono disegnate come strati rigidi e ruotate attorno alla presa, senza deformare la lama. Braccio, polso e dita condividono un punto di attacco per mano; il lancio usa lo slot della skill effettivamente lanciata. L’anteprima permette di scegliere Primaria/Secondaria/Armatura/Stivali. Il ventaglio non contiene pixel di pelle: la mano viene disegnata una sola volta dal corpo.
+
+### Ritratti indossabili e scelta della classe
+
+La scheda personaggio usa la direzione A «Fantasy compatto», con sei basi illustrate: maschio e femmina per Guerriero, Arciere e Mago. Il Guerriero ha una presa bassa, l’Arciere una posa rilassata con arco non teso, il Mago una mano per bastone/scettro e una aperta per sostenere il tomo. Gli oggetti vengono montati su punti anatomici: presa delle mani, collo e spalle, caviglia e suola di ciascun piede. Le armature si adattano con registrazioni proprie di collo, cintura e spalle: busto e gonna hanno un giunto continuo alla cintura; le tuniche lunghe coprono la parte alta degli stivali. Gli stivali sostituiscono i piedi della base e seguono l’inclinazione della gamba. Dita davanti alle impugnature e parti delle armi lunghe dietro al corpo definiscono la profondità. I ritratti restano statici; gli sprite piccoli e le animazioni di combattimento restano quelli esistenti.
+
+Nome, sesso e classe si scelgono nel menu prima del primo dungeon, con un’unica conferma. Da quel momento non si cambiano. I salvataggi v1–v4 mantengono inventario, equipaggiamento, XP, record e le scelte già fatte; richiedono solo i campi mancanti. La morte permanente non è ancora implementata: una sconfitta attuale non sblocca la ricreazione del personaggio.
+
+### Creazione, equipaggiamento novizio e GS
+
+Nome da 3 a 20 caratteri, con lettere Unicode, numeri, spazi, apostrofi e trattini; gli spazi vengono normalizzati. Nessun controllo di unicità globale, essendo un gioco locale.
+
+Ogni nuovo personaggio riceve quattro pezzi Comuni bianchi della propria classe, uno per slot, già equipaggiati, livello oggetto 1 e 20 GS per pezzo (totale 80). Riutilizzano famiglie e abilità attuali con nomi novizio: Guerriero (spada, talismano, armatura, schinieri), Arciere (arco, ventaglio, corpetto delle canne, stivali), Mago (bastone, tomo, tunica, calzari). L’Arciere non condivide più l’Egida di brace del Guerriero. Il bianco è riservato al set iniziale e non compare nei dungeon. Nessun nuovo asset o skill per questo adeguamento.
+
+GS provvisorio per pezzo: `min(100, baseRarità + livelloOggetto - 1)`, basi 20/40/60/80/100 e livello oggetto limitato a 1–20. Esempi: Arco novizio bianco livello 1 = 20, Arco del cacciatore verde livello 1 = 40, verde livello 5 = 44, rosso = 100. Le fasce non si sovrappongono; totale equipaggiato = somma dei quattro slot, massimo 400. Il livello oggetto è indipendente dal livello personaggio e attualmente entra nel GS; la potenza delle skill continua a scalare con la rarità. Eventuali bonus diretti per livello oggetto restano da definire.
+
+Tooltip e slot mostrano GS; la scheda personaggio mostra nome, classe, livello e GS totale. **Il sesso compare solo durante la creazione**, resta salvato per il corpo e non viene descritto nei riepiloghi di menu o inventario. Ogni scheda dungeon mostra artwork, nome, pericolo, record, XP e livello del set. Descrizioni e taglines sono rimosse dalla card; altezza uniforme di 480 px e pallini 7×7 px. **«Loot rate %»** apre un tooltip che segue il cursore, senza dropdown: mostra drop 25%, nessun oggetto 75%, percentuali dei gruppi e, a destra, la ripartizione condizionata dopo il drop (8,33% per pezzo di set, 16,67% per verde); nei dettagli resta la probabilità complessiva per uccisione. Mostra anche classe richiesta, rarità, livello e GS. Accessibile con focus/clic, chiuso con Escape o navigazione.
+
+### Vincoli di classe e ingresso nei dungeon
+
+Ogni famiglia ha una sola classe richiesta (`item-classes.ts`, esposta da `ItemFamily.characterClass`), uguale a tutte le rarità. Mago: bastoni/scettri, tomi, lanterna, globo di brace, specchio, vesti magiche, calzari astrali e di brina. Arciere: archi, ventaglio, mantello delle canne e stivali del vento. Guerriero: spada, martello, lancia, talismano, armature pesanti e schinieri del sepolcro/pantano/fornace. Il bottino non è filtrato per classe: un oggetto di un’altra classe si conserva o si scarta, ma non si equipaggia.
+
+Inventario e bottino mostrano gli oggetti incompatibili più scuri; i tooltip indicano la classe richiesta. Clic destro, pulsante Equipaggia e trascinamento passano dalle stesse regole di `Character`. I vecchi salvataggi conservano tutti gli oggetti, ma gli slot incompatibili vengono svuotati. Questi oggetti non conferiscono skill né GS, anche se referenziati impropriamente. Gli stati incompleti senza classe servono solo alla creazione/migrazione e non possono entrare in partita.
+
+T1 e T2 non hanno soglia; **T3 richiede almeno 100 GS equipaggiati, T4 almeno 200**. La scheda disabilita l’ingresso e mostra requisito e GS attuale; la verifica è ripetuta nell’avvio della partita. Si conta solo il totale degli oggetti equipaggiati compatibili, non l’inventario. Test controllano i confini esatti e che ciascuna classe possa raggiungere le soglie con il bottino dei dungeon precedenti. Soglie richieste dall’utente; bilanciamento delle probabilità e dei valori ancora provvisorio.
+
+### Profili locali e ritorno al menu
+
+Il menu elenca i personaggi con nome, classe, livello e GS. «Nuovo personaggio» apre una bozza: non sostituisce il profilo selezionato e si può annullare; solo la conferma aggiunge il nuovo personaggio alla raccolta. Selezionare un profilo cambia personaggio attivo; inventario, equipaggiamento, XP e record non sono condivisi. «Rimuovi» apre una conferma nominativa, inizialmente focalizzata su Annulla, e cancella solo quel profilo; rimuovendo l’ultimo si torna alla creazione e la raccolta vuota resta vuota al ricaricamento. Non è permadeath.
+
+Il pulsante **«← Menu principale»** resta nell’angolo superiore sinistro durante dungeon, inventario, partita, pausa e fine. Durante una partita abbandona l’incontro senza premi; gli oggetti e i progressi già salvati restano. Lo stato di selezione/scarto dell’inventario viene azzerato quando si cambia profilo.
+
+### Kit degli otto nuovi oggetti
+
+Lanterna dell’ossario: due luci lente con rallentamento; Arco di rovi: due spine divergenti; Cuore di brace: tre frammenti rapidi; Specchio del ghiacciaio: cinque schegge ad ampio ventaglio. Ciascun proiettile ha id, scia e forma propri (luce spettrale, spina, brace, frammento speculare). Mantello delle canne: zona di rovi attorno al giocatore con preavviso e rallentamento. Stivali del sepolcro, Calzari della fornace e Stivali di brina: tre scatti con distanze, invulnerabilità, ricariche, mana ed effetti differenti. Statistiche e costi sono provvisori e risolti dalla rarità come per le altre famiglie.
+
+Ogni oggetto ha icona inventario 16×16, icona spell, strato indossato animato in gioco per entrambi i corpi e strati dedicati del ritratto. I nuovi strati del ritratto sono SVG disegnati nel codice, separati dalle icone dello zaino e agganciati a mani/caviglie/busto: non sono nuove immagini generate. Gli atlanti illustrati precedenti restano invariati; la revisione estetica complessiva rimane sospesa. Nessuna modifica al formato v5 o reset dei salvataggi richiesto.
+
+Punti aperti: taratura di probabilità e GS, bonus del livello oggetto, futura gestione della morte e ricreazione. Vincoli di classe e soglie di ingresso sono implementati. UI nel tema C — Reliquiario; l’hover dei profili usa prugna scuro con testo crema smorzato, senza il vecchio fondo giallo.

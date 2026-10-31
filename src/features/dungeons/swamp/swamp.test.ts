@@ -501,7 +501,7 @@ describe('swamp: slancio tossico (toxic_lunge)', () => {
     expect(actor.charge).toBeNull();
     expect(harness.projectiles.length).toBe(TOXIC_LUNGE.burst.shots.normal);
     for (const shot of harness.projectiles) {
-      expect(shot.position.distanceTo(target)).toBeLessThan(6);
+      expect(shot.position.distanceTo(target)).toBeGreaterThan(100); // Albero centrale: niente attraversamento.
       expect(shot.spec.visual).toBe('swamp_pustule');
     }
     expect(actor.scheduled.length).toBe(0);

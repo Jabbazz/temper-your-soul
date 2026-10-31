@@ -1,5 +1,51 @@
 # Roadmap
 
+## Priorità corrente e TODO
+
+- [ ] **Sprite e ritratti: lavoro sospeso su richiesta dell’utente.** Alla ripresa rivedere manualmente vestibilità delle armature, scale delle armi, prese, giunzioni delle gambe e profondità degli strati. Evitare rigenerazioni successive per ogni incremento di gioco; prima fissare basi, misure e criteri di accettazione. Le revisioni precedenti sotto restano storico, non approvazione finale.
+- [x] Creazione con nome, sesso e classe, conferma unica e identità non modificabile dallo zaino.
+- [x] Set bianco novizio per ciascuna classe, escluso dai drop; GS per pezzo e totale equipaggiato.
+- [x] Drop non garantito, primo boss al massimo Raro, bottino senza filtro di classe; probabilità nelle schede dungeon.
+- [x] Testi, campi e pulsanti nuovi nel tema globale Reliquiario.
+- [x] Sesso visibile solo nella creazione, rimosso dai riepiloghi del profilo.
+- [x] Pool specifici per boss: quattro pezzi di set e quattro alternative inferiori, uno per slot, con percentuali esatte.
+- [x] Otto oggetti nuovi con skill/statistiche, mana, icone, effetti, strati animati e ritratti disegnati nel codice; nessuna rigenerazione raster.
+- [x] Drop uniforme al 25%; card dungeon di altezza unica, artwork basati su sprite/tema, pallini uniformi, «Loot rate %» come tooltip mobile.
+- [x] Profili locali multipli con selezione, creazione annullabile, rimozione nominativa e migrazione del vecchio personaggio con copia di sicurezza.
+- [x] Pulsante Menu principale in alto a sinistra, disponibile anche durante la partita.
+- [x] Hover profili scuro e leggibile; bottino condizionato 25% → 1/3 set o 2/3 verdi → 25% per pezzo.
+- [x] Ingresso T3 da 100 GS e T4 da 200 GS, controllato sia nella scheda sia all’avvio.
+- [x] Vincoli di classe per tutte le 25 famiglie; oggetti incompatibili scuri, niente equip tramite clic/drag e conservazione nello zaino dei vecchi oggetti.
+- [ ] Provare manualmente creazione, persistenza, sensazione dei tre set iniziali, grind e premi dei quattro boss.
+- [ ] Tarare GS, livelli oggetto, probabilità e futuro effetto del livello oggetto sulle statistiche.
+- [ ] Prova manuale del grind per classe, della chiarezza delle probabilità condizionate e dei blocchi GS.
+
+Incremento vincoli e probabilità: **383 test**, tipi e build superati. Copertura delle tre classi su tutte le famiglie, dei set iniziali compatibili, della lettura di vecchi equipaggiamenti, dei confini GS e della raggiungibilità delle soglie tramite i dungeon precedenti. Browser isolato a 1440 e 390 px: hover scuro, arco non equipaggiabile al Mago da clic destro o pulsante, trascinamento disattivato, blocchi T3/T4 a 80 GS, sblocco esatto a 100/200, tooltip 33,33%/66,67% e quote per pezzo. Nessuna eccezione JavaScript; conferma giocata ancora da ricevere.
+- [ ] Provare manualmente i nuovi set, le abilità e la leggibilità delle quattro nuove forme di proiettile; resa dei nuovi strati nei due corpi ancora da approvare.
+- [ ] Definire e implementare permadeath e ricreazione dopo la morte.
+
+Incremento creazione e bottino: formato v5 con migrazione senza reset dei vecchi progressi; 370 test, tipi e build superati. Prova browser automatica su profilo isolato: digitazione reale del nome (inclusi tasti di gioco), set dell’Arciere, ricaricamento, identità consultabile, GS e tooltip, dettagli drop che non avviano la partita, avvio esplicito del dungeon. Fotogrammi desktop e 390 px controllati. Questi controlli non sono una prova giocata né una conferma manuale.
+
+Incremento card e raccolta personaggi (v6): **377 test**, tipi e build superati. Browser su profilo isolato: create tre classi, verificati gli inventari distinti, selezione, annullamento della rimozione, rimozione di profili attivi/inattivi, ricaricamento e raccolta vuota dopo l’ultimo; nessuna eccezione JavaScript. Misurate le altezze uguali delle quattro card e dei sedici pallini; artwork distinti; tooltip con otto voci che segue il cursore; menu raggiunto con clic reale in alto a sinistra. Fotogrammi desktop e 390 px controllati. Ancora da provare manualmente: migrazione del proprio salvataggio, comodità della gestione personaggi e resa degli artwork. Nessuna nuova conferma manuale dedotta.
+
+Revisione pool per boss: **371 test**, tipi e build superati. Verificati otto ingressi per boss, copertura dei quattro slot nei due gruppi, rarità inferiore delle alternative, disponibilità di tutte le 25 famiglie e corrispondenza delle distribuzioni simulate con le percentuali mostrate. Test delle otto nuove skill e copertura dei kit sui due corpi. Controllo browser isolato: sesso assente nei due riepiloghi, gruppi set/alternative visibili, strati dei nuovi oggetti presenti e quattro nuovi proiettili renderizzati su Canvas senza eccezioni. Fotogrammi dei nuovi strati controllati, qualità artistica e prova giocata ancora da confermare. Il completamento dei set non conferisce bonus aggiuntivi.
+
+## Incremento aspetto modulare (implementato, prova manuale da fare)
+
+Aggiornamento richiesto: ritratto illustrato derivato dalla tavola A nello zaino e nella selezione del corpo, con Zoom; sprite piccolo mantenuto per il gioco. Differenziate fisionomia e corporatura femminili e adattati tutti gli oggetti; introdotti strati anteriori/posteriori per armi lunghe inclinate verso l'esterno. Test automatici: copertura delle 17 famiglie illustrate, ritagli entro gli atlanti, versioni femminili delle cinque armature, corporatura femminile più esile anche senza capelli, profondità e martello fuori dal viso in tutti i fotogrammi. Fotogrammi Edge dei due sessi controllati: nessuna nuova conferma manuale dedotta.
+
+Prova di fumo Edge su profilo isolato: zaino visibile, ritratto illustrato con quattro strati equipaggiati, apertura Zoom, Escape chiude Zoom lasciando aperto lo zaino, nessuna eccezione JavaScript. Controllato anche il fotogramma della scheda reale, oltre alla pagina di anteprima. Verifica completa: 358 test, tipi e build superati.
+
+Scelta artistica ricevuta: A — Fantasy compatto. Primo adattamento modulare animato implementato; da confrontare a mano con la tavola scelta. Pagina di sviluppo `/character-animation.html`: cambio sesso, tutti i 17 oggetti, riposo/camminata/lancio, specchiatura, ritratto e miniatura. Tipi, test e build controllano gli asset; un fotogramma Edge headless ha mostrato il prototipo, non dimostra qualita artistica approvata o prova giocata.
+
+Storico v3: scelta iniziale Maschio/Femmina e modifica nello zaino. **Superato dal v5: sesso e classe fissi alla creazione.** Due corpi generici e 17 aspetti indossabili, nelle versioni ritratto e combattimento, composti in strati distinti dalle icone. Test automatici coprono tutte le famiglie su entrambi i corpi e alle due risoluzioni, persistenza, migrazione, cambio/rimozione oggetto e pose. Nessuna nuova conferma manuale ricevuta.
+
+- [ ] Scelta iniziale e persistenza dopo ricaricamento; nessuna modifica dell’identità nello zaino (decisione v5).
+- [ ] Ogni oggetto cambia aspetto nel ritratto e in combattimento, con entrambi i corpi.
+- [ ] Rimuovere un oggetto mostra il corpo base nella zona interessata.
+- [ ] Camminata, lancio, mira a destra/sinistra e lampeggio restano leggibili senza strati disallineati.
+- [ ] I precedenti salvataggi conservano oggetti, XP e record.
+
 Le fasi sono una **proposta di ordine di lavoro**, non una pianificazione vincolante, e non fissano valori di design. Ogni fase e' un piccolo incremento che lascia il progetto avviabile. Le regole aperte stanno in `docs/game-design.md`.
 
 Criterio valido per tutte le fasi: `npm run verify` con esito positivo (tipi, test, build), test estesi quando serve, **prova manuale da parte dell'utente**, `docs/bugs.md` aggiornato.
@@ -79,3 +125,12 @@ L'ordine dipende dalle risposte ai punti aperti di `docs/game-design.md`, soprat
 ## Inventario a slot e sprite (2026-10-31)
 
 Implementati pulsante zaino, 17 sprite originali per le famiglie esistenti, griglia con bordi per rarità e tooltip su mouse/focus condivisi con il bottino. Selezione e comandi di equipaggiamento/scarto separati dalla griglia. Controlli automatici: catalogo sprite completo e matrici valide, statistiche risolte, suite `verify`; prova browser automatica con dati di test per selezione, equipaggia/rimuovi, conferma scarto, tooltip e viewport da 390 px. **Prova manuale dell'utente ancora da eseguire**, in particolare riconoscibilità degli sprite e comodità dei tooltip.
+
+## Incremento livelli, mana, HUD e collisioni boss
+Implementato, prova manuale da fare. Verificare: XP dopo ogni vittoria e persistenza ricaricando, migrazione inventario precedente, progressione di piu livelli; mana consumato e rigenerato (differenze fra equipaggiamenti), pausa; HUD e tooltip a diverse risoluzioni; tutti i boss contro i pilastri durante movimento/carica, atterraggio del Custode; differenza Comune/Leggendario. Nessuna conferma manuale ricevuta.
+
+## Incremento ritratti e pose di classe
+
+Implementati sei ritratti base (tre classi per due sessi), agganci anatomici per armi e stivali, dita davanti alle prese, scelta persistente della classe alla creazione e migrazione al formato v4. Verifica completa: 363 test, tipi e build; controllo browser automatico di scelta, persistenza, ritratto nell’inventario e zoom; fotogrammi delle due varianti di corpo ispezionati. Da provare manualmente nell’anteprima `character-animation.html`: tutte le combinazioni preferite di armi, secondarie, armature e stivali; continuità delle gambe e leggibilità delle mani. I ritratti grandi sono statici, mentre i piccoli sprite di combattimento conservano le animazioni esistenti. Nessuna conferma manuale ricevuta per questo incremento.
+
+Revisione successiva: l’utente conferma un miglioramento ma segnala offset e profondità ancora da correggere. Implementate registrazioni specifiche per le cinque armature nei due tagli, adattamento separato di busto e gonna, tuniche davanti agli stivali, nuove basi dell’arciere a riposo e proporzioni riviste delle armi. Verifica automatica aggiornata: 365 test, tipi e build; fotogrammi delle due varianti controllati. Nuova conferma visiva ancora da ricevere.

@@ -12,8 +12,8 @@
         <canvas id="game" tabindex="0" aria-label="Arena di combattimento: muoviti con WASD e mira con il mouse"></canvas>
       </div>
 
-      <section class="hud hud-player" aria-label="Stato del mago">
-        MAGO · LV. 1
+      <section class="hud hud-player" aria-label="Stato del personaggio">
+        VITA
         <div class="bar"><i id="player-bar"></i></div>
         <span id="player-text"></span>
       </section>
@@ -24,6 +24,7 @@
         <span id="boss-text"></span>
       </section>
 
+      <button id="main-menu-button" type="button" class="global-menu-button hidden">← Menu principale</button>
       <div class="actions">
         <button id="fullscreen-button" type="button">Schermo intero · F</button>
         <button id="pause-button" type="button">Pausa · ESC</button>
@@ -31,6 +32,10 @@
 
       <div class="hint">WASD · Muoviti &nbsp;|&nbsp; ESC · Pausa &nbsp;|&nbsp; R · Ricomincia &nbsp;|&nbsp; <span id="audio-state">Audio disattivato · M</span></div>
 
+      <section class="resource-hud" aria-label="Livello e risorse">
+        <div class="resource-row"><div class="health-anchor"></div><strong id="character-level" title="Livello">1</strong><div class="mana-resource"><div class="bar"><i id="mana-bar"></i></div><span id="mana-text"></span></div></div>
+        <div class="xp-track"><i id="xp-bar"></i><span id="xp-text"></span></div>
+      </section>
       <ul class="skills" id="skills"></ul>
 
       <!-- Schermate fuori dalla partita -->
@@ -39,6 +44,8 @@
           <span class="eyebrow">DUNGEON · BOSS · BOTTINO</span>
           <h1 class="brand">Temper your soul</h1>
           <p class="menu-text">Scegli un dungeon, sconfiggi il suo boss e forgia il tuo equipaggiamento: ogni oggetto cambia le tue abilità.</p>
+          <div id="menu-profiles"></div>
+          <div id="menu-appearance"></div>
           <div class="menu-buttons">
             <button id="menu-dungeons" type="button">Dungeon →</button>
             <button id="menu-inventory" type="button" class="secondary backpack-button" aria-label="Apri lo zaino e l’equipaggiamento">Zaino</button>
@@ -66,17 +73,20 @@
             <div>
               <span class="eyebrow">EQUIPAGGIAMENTO</span>
               <h2>Il tuo zaino</h2>
-              <small>Quattro slot, quattro abilità. Passa sugli oggetti per confrontare le statistiche.</small>
+              <small>Clic destro per equipaggiare, oppure trascina un oggetto sullo slot illuminato.</small>
             </div>
             <button id="inventory-back" type="button" class="secondary">← Menu</button>
           </div>
-          <div class="equipment-slots" id="equipment-slots"></div>
+          <div class="character-inventory-layout">
+          <section class="character-sheet" aria-label="Scheda del personaggio"><h3>Il tuo personaggio</h3><div id="inventory-appearance"></div><div class="equipment-slots" id="equipment-slots"></div></section>
+          <section class="backpack-panel" aria-label="Zaino">
           <div class="inventory-bar">
             <h3>Inventario</h3>
-            <div class="chips" id="inventory-filters"></div>
+            <button type="button" class="secondary" id="inventory-sort">Ordina · rarità</button>
           </div>
           <div class="inventory-list" id="inventory-list" aria-label="Oggetti nello zaino"></div>
           <div class="inventory-selection" id="inventory-selection" aria-live="polite"></div>
+          </section></div>
         </div>
       </div>
 

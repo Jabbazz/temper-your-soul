@@ -1,5 +1,6 @@
 import { Character } from './character';
 import { deserializeCharacter, serializeCharacter } from './save-format';
+import { CharacterRoster,deserializeRoster,serializeRoster } from './character-roster';
 
 export { SAVE_VERSION } from './save-format';
 
@@ -56,6 +57,7 @@ export type LoadStatus = 'fresh' | 'loaded' | 'recovered';
 
 /** Chiave della copia di sicurezza di un salvataggio illeggibile. */
 export const CORRUPT_BACKUP_KEY = `${SAVE_KEY}:corrupt`;
+export const PRE_ROSTER_BACKUP_KEY=`${SAVE_KEY}:before-roster`;
 
 /**
  * Legge e scrive il personaggio. Non lancia mai eccezioni. Con `store` null il gioco funziona in memoria:
@@ -63,6 +65,25 @@ export const CORRUPT_BACKUP_KEY = `${SAVE_KEY}:corrupt`;
  */
 export class SaveStore {
   constructor(private readonly store: KeyValueStore | null) {}
+
+  loadRoster():{roster:CharacterRoster;status:LoadStatus}{
+    let text:string|null;try{text=this.store?.getItem(SAVE_KEY)??null;}catch{return {roster:new CharacterRoster(),status:'fresh'};}
+    if(text===null)return {roster:new CharacterRoster(),status:'fresh'};
+    const roster=deserializeRoster(text);if(roster)return {roster,status:'loaded'};
+    this.backUpCorrupt(text);return {roster:new CharacterRoster(),status:'recovered'};
+  }
+  saveRoster(roster:CharacterRoster):boolean {
+    if(!this.store)return false;
+    try{
+      const previous=this.store.getItem(SAVE_KEY);
+      if(previous!==null && !this.store.getItem(PRE_ROSTER_BACKUP_KEY)){
+        let single=false;
+        try{const parsed:unknown=JSON.parse(previous);single=typeof parsed==='object'&&parsed!==null&&!('format' in parsed);}catch{/* Il testo illeggibile è già conservato da loadRoster in :corrupt. */}
+        if(single)this.store.setItem(PRE_ROSTER_BACKUP_KEY,previous);
+      }
+      this.store.setItem(SAVE_KEY,serializeRoster(roster));return true;
+    }catch{return false;}
+  }
 
   load(): { character: Character; status: LoadStatus } {
     let text: string | null = null;

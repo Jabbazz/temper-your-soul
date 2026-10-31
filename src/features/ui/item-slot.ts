@@ -1,9 +1,11 @@
-import { resolveItem, type Item } from '../items/item';
+import { itemName, resolveItem, type Item } from '../items/item';
+import { gearScore } from '../items/gear-score';
 import { RARITY_STATS } from '../items/rarity';
 import { ITEM_SPRITES } from '../presentation/item-sprites';
 import { el } from './dom';
 import { renderItemCard, type ItemCardOptions } from './item-card';
 import { renderPixelIcon } from './pixel-icon';
+import { CLASS_LABELS } from '../character/character-class';
 
 let tooltip: HTMLElement | null = null;
 let owner: HTMLElement | null = null;
@@ -38,14 +40,17 @@ function showItemTooltip(button: HTMLElement, item: Item, options: ItemCardOptio
 export function renderItemSlot(item: Item, options: ItemCardOptions = {}): HTMLButtonElement | null {
   const resolved = resolveItem(item);
   if (resolved === undefined) return null;
-  const button = el('button', `item-slot ${options.extraClass ?? ''}`.trim());
+  const incompatible=options.characterClass!==undefined&&options.characterClass!==null&&options.characterClass!==resolved.family.characterClass;
+  const button = el('button', `item-slot ${options.extraClass ?? ''} ${incompatible?'is-incompatible':''}`.trim());
   button.type = 'button';
   button.style.setProperty('--rarity', RARITY_STATS[item.rarity].color);
-  button.setAttribute('aria-label', `${resolved.family.name} · ${RARITY_STATS[item.rarity].label}${options.badge ? ` · ${options.badge}` : ''}`);
+  button.setAttribute('aria-label', `${itemName(item)} · ${RARITY_STATS[item.rarity].label} · ${gearScore(item)} GS${options.badge ? ` · ${options.badge}` : ''}`);
+  if(incompatible)button.setAttribute('aria-label',button.getAttribute('aria-label')+` · Richiede ${CLASS_LABELS[resolved.family.characterClass]} · Non equipaggiabile`);
   const sprite = ITEM_SPRITES[item.familyId];
   if (sprite !== undefined) button.append(renderPixelIcon(sprite));
   else button.append(el('span', '', '?'));
   if (options.badge !== undefined) button.append(el('span', 'slot-badge', options.badge === 'Equipaggiato' ? 'E' : options.badge));
+  button.append(el('span','slot-gs',String(gearScore(item))));
   button.addEventListener('pointerenter', () => showItemTooltip(button, item, options));
   button.addEventListener('focus', () => showItemTooltip(button, item, options));
   button.addEventListener('pointerleave', hideItemTooltip);

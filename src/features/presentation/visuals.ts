@@ -12,7 +12,7 @@ export interface ProjectileLook {
    * `dart`: freccia arcana; `diamond`: rombo rotante; `orb`: sfera; `arrow`: freccia lunga e sottile;
    * `shard`: scheggia di cristallo allungata.
    */
-  readonly shape: 'dart' | 'diamond' | 'orb' | 'arrow' | 'shard';
+  readonly shape: 'dart' | 'diamond' | 'orb' | 'arrow' | 'shard' | 'wisp' | 'thorn' | 'ember' | 'mirror';
 }
 
 /** Colori di una zona di pericolo: anello e tacche, scoppio, riempimento (colore con trasparenza). */

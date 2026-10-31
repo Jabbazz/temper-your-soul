@@ -1,3 +1,4 @@
+import { MANA, manaBonus } from '../skills/mana';
 import { Vec2 } from '../../core/vec2';
 import { clampToArena, pushOutOfPillars, type ArenaDefinition } from '../arena/arena';
 import { BODY_RADIUS } from '../combat/collision';
@@ -15,6 +16,9 @@ export const PLAYER_STATS = {
 } as const;
 
 export class Player {
+  mana: number = MANA.maximum;
+  readonly maxMana = MANA.maximum;
+  manaRegeneration: number = MANA.regeneration;
   position: Vec2;
   /** Punto del mondo verso cui si mira (sempre l'ultimo ricevuto). */
   aim: Vec2;
@@ -32,6 +36,7 @@ export class Player {
     this.position = arena.playerSpawn;
     this.aim = arena.playerSpawn;
     this.skillBar = new SkillBar(loadout);
+    this.manaRegeneration += loadout.reduce((sum, skill) => sum + (skill ? manaBonus(skill) : 0), 0);
   }
 
   get isInvulnerable(): boolean {
@@ -42,6 +47,7 @@ export class Player {
   tick(dt: number): void {
     this.invulnerableFor = Math.max(0, this.invulnerableFor - dt);
     this.skillBar.tick(dt);
+    this.mana = Math.min(this.maxMana, this.mana + this.manaRegeneration * dt);
   }
 
   /** Si muove con la direzione `move` (lunghezza al massimo 1) restando nell'arena e fuori dai pilastri. */

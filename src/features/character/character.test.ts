@@ -133,7 +133,7 @@ describe('Character', () => {
     expect(loadout[3]).toEqual(MAGE_SKILLS[3]);
     const effect = loadout[0]!.effect;
     if (effect.kind !== 'projectile') throw new Error('atteso un proiettile');
-    expect(effect.projectile.damage).toBe(18); // 14 x 1,25 = 17,5 -> 18
+    expect(effect.projectile.damage).toBe(21); // 14 x 1,25 = 17,5 -> 18
     expect(loadout[0]!.cooldown).toBeCloseTo(0.16 * 0.9, 10);
   });
 
@@ -199,7 +199,7 @@ describe('formato di salvataggio', () => {
     expect(serializeCharacter(loaded!)).toBe(text);
     expect(loaded!.loadout()).toEqual(character.loadout());
     expect(JSON.parse(text)).toMatchObject({ version: SAVE_VERSION, nextItemNumber: character.nextItemNumber });
-    expect(Object.keys(JSON.parse(text)).sort()).toEqual(['equipped', 'items', 'nextItemNumber', 'records', 'version']);
+    expect(Object.keys(JSON.parse(text)).sort()).toEqual(['bodyType', 'characterClass', 'equipped', 'items', 'name', 'nextItemNumber', 'records', 'starterPending', 'totalXp', 'version']);
   });
 
   it('JSON non valido, valori non oggetto, versione mancante o futura => null', () => {

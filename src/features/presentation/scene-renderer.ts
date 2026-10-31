@@ -1,3 +1,4 @@
+import type { CharacterAppearance } from '../character/appearance';
 import type { Camera } from '../../core/camera';
 import type { Match } from '../match/match';
 import { drawBoss, drawPlayer } from './draw-actors';
@@ -9,6 +10,7 @@ import type { ActorPoses } from './poses';
 
 /** Tutto cio' che serve per disegnare un fotogramma. Il renderer legge e non modifica nulla. */
 export interface Scene {
+  readonly appearance?: CharacterAppearance;
   readonly match: Match;
   readonly effects: Effects;
   readonly poses: ActorPoses;
@@ -33,7 +35,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const zone of match.zones) drawPendingZone(ctx, zone, match.time);
 
   if (!boss.health.isDead) drawBoss(ctx, boss, player, poses, match.time);
-  drawPlayer(ctx, player, poses, match.time, !player.isInvulnerable || Math.floor(clock * 20) % 2 === 0);
+  drawPlayer(ctx, player, poses, match.time, !player.isInvulnerable || Math.floor(clock * 20) % 2 === 0, scene.appearance);
 
   for (const projectile of match.projectiles) drawProjectile(ctx, projectile, effects.trailOf(projectile), camera, match.time);
   for (const zone of match.zones) drawFallingSpell(ctx, zone);

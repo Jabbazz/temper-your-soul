@@ -3,7 +3,7 @@ import { clamp, Vec2 } from '../../core/vec2';
 /** Temi grafici delle mappe: ognuno ha il proprio disegno in `presentation/themes/`. */
 export type ArenaThemeId = 'crypt' | 'swamp' | 'forge' | 'glacier';
 
-/** Ostacolo cilindrico: blocca il movimento del giocatore e assorbe i proiettili (di entrambe le squadre). Il boss lo ignora. */
+/** Ostacolo cilindrico: blocca il movimento del giocatore e assorbe i proiettili (di entrambe le squadre). Blocca anche i boss. */
 export interface Pillar {
   readonly position: Vec2;
   readonly radius: number;
@@ -66,4 +66,14 @@ export function pushOutOfPillars(arena: ArenaDefinition, point: Vec2, bodyRadius
     }
   }
   return result;
+}
+
+/** Movimento a piccoli passi: evita attraversamenti anche durante le cariche. */
+export function moveBody(arena: ArenaDefinition, from: Vec2, to: Vec2, radius: number, margin: number): Vec2 {
+ let result = from;
+ const delta = to.sub(from);
+ const steps = Math.max(1, Math.ceil(delta.length() / 4));
+ const step = delta.mul(1 / steps);
+ for (let i = 0; i < steps; i++) result = clampToArena(arena, pushOutOfPillars(arena, clampToArena(arena, result.add(step), margin), radius), margin);
+ return result;
 }

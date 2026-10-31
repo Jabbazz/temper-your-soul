@@ -1,0 +1,15 @@
+.illustrated-character { position:relative; width:100%; height:100%; isolation:isolate; }
+.illustrated-layer { position:absolute; background-repeat:no-repeat; image-rendering:pixelated; pointer-events:none; }
+.illustrated-base { z-index:1; }
+.illustrated-rear-weapon { z-index:0; }
+.illustrated-armor { z-index:3; }
+.illustrated-boots { z-index:2; }
+.illustrated-secondary_hand { z-index:4; }
+.illustrated-primary_hand { z-index:5; }
+.illustrated-fingers { z-index:6; }
+.illustrated-head { z-index:4; }
+.portrait-zoom { pointer-events:auto; position:absolute; left:-65px; top:-30px; font-size:10px; padding:5px 8px; }
+.portrait-dialog { background:#211825; color:#ecdcc9; border:1px solid #a67b8e; border-radius:10px 24px; padding:16px; }
+.portrait-dialog::backdrop { background:#090710c9; }
+.portrait-dialog .illustrated-character { width:min(500px,75vw,calc(80vh * .8)); aspect-ratio:4/5; height:auto; }
+.portrait-dialog button { display:block; margin:0 0 10px auto; }

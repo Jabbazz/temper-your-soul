@@ -24,6 +24,8 @@ export interface SkillDefinition {
   readonly description: string;
   /** Ricarica in secondi. */
   readonly cooldown: number;
+  readonly manaCost?: number;
+  readonly manaRegeneration?: number;
   /** Id dell'aspetto e del suono (chiavi in `presentation/effects.ts` e `audio/audio-player.ts`; sconosciuto = generico per tipo). */
   readonly visual: string;
   readonly effect: SkillEffect;

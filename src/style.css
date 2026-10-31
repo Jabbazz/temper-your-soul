@@ -1,4 +1,7 @@
 :root {
+  --relic-copper: #c18b70;
+  --relic-panel: #211923;
+  --relic-border: #655064;
   --bg: #0e1015;
   --text: #e6ddce;
   --muted: #92949f;
@@ -803,3 +806,277 @@ button.secondary:hover {
   .equipment-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #screen-inventory .screen-card { padding: 14px; }
 }
+
+/* HUD centrale: vita, livello, mana, XP e quattro spell. */
+.resource-hud{position:fixed;bottom:116px;left:50%;transform:translateX(-50%);width:min(520px,94vw);z-index:4;pointer-events:none;font:12px monospace}
+.resource-row{display:grid;grid-template-columns:1fr 50px 1fr;align-items:center;gap:8px;height:46px;background:#10141ee8;border:1px solid #766044;padding:6px}
+#character-level {
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  aspect-ratio: 1;
+  justify-self: center;
+  border: 2px solid #d5b678;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  isolation: isolate;
+  font: 700 21px/1 Georgia, serif;
+  color: #fff0c9;
+  text-shadow: 0 2px 3px #000;
+  background: radial-gradient(circle at 35% 25%, #474032, #171b27 65%);
+  box-shadow: 0 0 0 3px #12151e, 0 0 0 4px #77603b, inset 0 0 0 3px #292a31, 0 0 16px #d3a55030;
+}
+#character-level::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #c5a36650;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hud-player{top:auto;left:calc(50% - min(260px,47vw) + 7px);bottom:143px;width:calc(min(260px,47vw) - 40px);padding:0;background:none;z-index:5;font-size:0}
+.hud-player .bar{height:14px;margin:0}.hud-player .bar i{background:#d53640}#player-text{display:block;font:11px monospace;text-align:center}
+.mana-resource .bar{height:14px;margin:0}.mana-resource .bar i{background:#3285ed}#mana-text{display:block;font:11px monospace;text-align:center}
+.xp-track{position:relative;height:18px;background:#201d30;border:1px solid #786243;margin-top:5px;overflow:hidden}.xp-track i{display:block;height:100%;background:#be9944}.xp-track span{position:absolute;inset:0;text-align:center;font:10px/16px monospace;color:white;text-shadow:1px 1px black}
+.skills{left:50%;right:auto;bottom:25px;transform:translateX(-50%);display:flex;gap:8px;width:auto;padding:0;margin:0}
+.skills .skill{width:76px;height:80px;padding:5px;background:#111725ed;border:2px solid #867151;position:relative;text-align:center;overflow:hidden}
+.skills .pixel-icon{width:48px;height:48px;display:block;margin:auto}.skills .skill b,.skills .skill small{display:none}.skills .key{float:none;font:10px monospace;display:block;padding:0;border:0;margin:0}.skills .cool{height:5px}.skills .no-mana{filter:grayscale(.85);border-color:#35486e}
+.in-menu .resource-hud{display:none}.hint{bottom:5px;font-size:10px}
+
+/* Reliquiario: direzione C scelta per i comandi principali. */
+.menu-buttons button, .overlay-buttons button, .screen-head button, .actions button {
+  color: #ffe7c6;
+  background: linear-gradient(#643a3c, #38242b);
+  border: 2px solid #c18b70;
+  border-radius: 6px 18px;
+  box-shadow: inset 0 0 0 3px #291e28, 0 4px 0 #090b12;
+  transition: background-color 150ms, box-shadow 150ms, transform 150ms;
+}
+.menu-buttons button.secondary, .overlay-buttons button.secondary, .screen-head button.secondary {
+  color: #cdb7cc;
+  background: linear-gradient(#2c2736, #191720);
+  border-color: #655567;
+}
+.menu-buttons button:hover, .overlay-buttons button:hover, .screen-head button:hover, .actions button:hover {
+  color: #fff0d9;
+  background: linear-gradient(#7a484a, #482c36);
+  border-color: #e0af8c;
+  box-shadow: inset 0 0 0 3px #291e28, 0 5px 0 #090b12, 0 0 18px #a55e4930;
+  transform: translateY(-1px);
+}
+.menu-buttons button:active, .overlay-buttons button:active, .screen-head button:active, .actions button:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 0 0 3px #291e28, 0 1px 0 #090b12;
+}
+.menu-card {
+  background: radial-gradient(ellipse at top, #462835bd, #17121ce6 75%);
+  border: 1px solid #795467;
+  border-radius: 12px 32px;
+  box-shadow: inset 0 0 0 5px #17121c88, 0 18px 60px #0006;
+}
+.menu-card .eyebrow { color: #d69880; }
+button:focus-visible { outline: 2px solid #ffe1a2; outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .menu-buttons button, .overlay-buttons button, .screen-head button, .actions button { transition: none; }
+}
+
+/* Reliquiario: tema condiviso da tutte le schermate e finestre. */
+.screen-card.wide, .card, .item-tooltip {
+  background: linear-gradient(145deg, #30202ef5, #17131ef7 65%);
+  border: 1px solid var(--relic-border);
+  border-radius: 12px 26px;
+  box-shadow: inset 0 0 0 4px #120f1880, 0 18px 60px #0006;
+}
+.card { padding: 26px; }
+.dungeon-card {
+  background: linear-gradient(145deg, #34232d, #1b1722);
+  border-color: var(--relic-border);
+  border-radius: 6px 18px;
+  box-shadow: inset 0 0 0 3px #17121c;
+}
+.dungeon-card:hover, .dungeon-card:focus-visible { background: #46303c; border-color: var(--relic-copper); }
+.inventory-selection, .slot-panel { background: #241c28; border-color: var(--relic-border); border-radius: 6px 14px; }
+.item-card { background: linear-gradient(145deg, #2a202e, #19151f); border-radius: 6px 14px; }
+.item-slot { background: #231b2a; border-radius: 5px 12px; }
+.item-slot:hover, .item-slot:focus-visible { background: #463043; }
+.small-button, #inventory-sort {
+  background: linear-gradient(#3a2c40, #211a28);
+  color: #e4cadd;
+  border: 1px solid #866779;
+  border-radius: 6px 12px;
+  box-shadow: inset 0 0 0 2px #19131e, 0 2px 0 #090b12;
+}
+.small-button.primary { color: #ffe7c6; background: linear-gradient(#643a3c, #38242b); border-color: var(--relic-copper); }
+.small-button:hover, #inventory-sort:hover { background: #503343; }
+.small-button.danger { background: #7f293d; border-color: #c76275; color: white; }
+.hud-boss, .resource-row { background: #211925e8; border-color: #8d6b61; border-radius: 6px 14px; }
+.skills .skill { background: linear-gradient(#302336, #18141f); border-radius: 6px 14px; }
+
+/* Scheda personaggio e zaino: slot disposti attorno al ritratto. */
+#screen-inventory .screen-card { max-width: 1120px; }
+.character-inventory-layout { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 24px; }
+.character-sheet, .backpack-panel { min-width: 0; }
+.character-sheet { border: 1px solid var(--relic-border); border-radius: 10px 24px; padding: 14px; background: radial-gradient(ellipse at center, #65425944, #15121c); }
+.character-sheet h3 { margin: 0 0 8px; text-align: center; font: 21px Georgia, serif; color: #e4b899; }
+#equipment-slots { display: block; position: relative; height: 420px; }
+#equipment-slots .slot-panel { position: absolute; width: 94px; padding: 6px; gap: 4px; border: 1px solid var(--relic-border); z-index: 2; }
+#equipment-slots .slot-title { font-size: 10px; min-height: 26px; margin-bottom: 2px; }
+#equipment-slots .item-slot, #equipment-slots .slot-empty { width: 64px; height: 64px; }
+#equipment-slots .slot-empty { font-size: 10px; }
+#equipment-slots .small-button { padding: 4px 8px; font-size: 10px; }
+.equipment-primary_hand { left: 0; top: 145px; }
+.equipment-secondary_hand { right: 0; top: 145px; }
+.equipment-armor { right: 0; top: 0; }
+.equipment-boots { left: 50%; bottom: 0; transform: translateX(-50%); }
+.character-portrait { position: absolute; width: 132px; height: 235px; left: 50%; top: 38px; transform: translateX(-50%); pointer-events: none; filter: drop-shadow(0 8px 15px #0008); }
+.character-portrait > svg { width: 100%; height: 100%; image-rendering: pixelated; }
+.portrait-item { position: absolute; width: 42px; height: 42px; filter: drop-shadow(1px 2px 1px #090812); }
+.portrait-item .pixel-icon { width: 100%; height: 100%; }
+.portrait-primary_hand { left: -14px; top: 118px; transform: rotate(-12deg); }
+.portrait-secondary_hand { right: -14px; top: 118px; transform: rotate(12deg); }
+.portrait-armor { left: 46px; top: 105px; width: 40px; height: 48px; }
+.portrait-boots { left: 45px; bottom: 2px; width: 44px; height: 38px; }
+.portrait-level { position: absolute; top: -28px; left: 0; right: 0; text-align: center; font: 12px monospace; color: #e8c098; }
+.backpack-panel .inventory-bar { margin-top: 0; }
+.item-slot[draggable=true] { cursor: grab; }
+.item-slot[draggable=true]:active { cursor: grabbing; }
+#equipment-slots .drag-compatible { border-color: #ddb888; box-shadow: 0 0 14px #d1986440; }
+#equipment-slots .drag-over { background: #654a43; outline: 2px solid #ffe2ac; outline-offset: 2px; }
+@media (max-width: 850px) {
+  .character-inventory-layout { grid-template-columns: 1fr; }
+  .character-sheet { width: min(420px, 100%); margin: 0 auto; }
+}
+@media (max-width: 400px) {
+  #screen-inventory .screen-card { padding: 12px; }
+  .character-sheet { padding: 8px; }
+  #equipment-slots .slot-panel { width: 78px; }
+  .character-portrait { width: 112px; }
+}
+
+.appearance-picker { border: 0; padding: 8px 0; margin: 0 auto 12px; display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
+.appearance-picker legend { font: 12px Georgia,serif; color: #d8b698; text-align: center; margin-bottom: 6px; }
+.appearance-option { width: 100px; padding: 8px; display: grid; justify-items: center; gap: 4px; color: #d8c5d3; background: linear-gradient(#352639,#1d1723); border: 1px solid #78566d; border-radius: 6px 18px; }
+.appearance-option svg { height: 84px; width: 63px; image-rendering: pixelated; }
+.appearance-option[aria-pressed=true] { border-color: #e4b58a; color: #ffe3bb; box-shadow: inset 0 0 0 2px #ae7c4b60, 0 0 16px #ae7c4b28; }
+.appearance-option:hover { background: #4a3042; }
+.appearance-note { flex-basis: 100%; text-align: center; }
+.menu-buttons button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+#inventory-appearance .appearance-option { display: flex; width: auto; align-items: center; padding: 5px 12px; }
+#inventory-appearance .appearance-option svg { width: 24px; height: 32px; }
+#inventory-appearance .appearance-note { display: none; }
+.character-portrait > svg { overflow: visible; }
+.character-portrait { width: 240px; height: 300px; top: 24px; }
+.portrait-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+@media (max-width: 400px) { .character-portrait { width: 164px; height: 205px; top: 50px; } }
+
+.character-creation { display:grid; gap:14px; text-align:left; margin:18px 0; }
+.character-creation h2 { text-align:center; font-size:23px; margin:0; }
+.character-creation > label { display:grid; gap:7px; }
+.character-creation input[type=text] { width:100%; box-sizing:border-box; background:#1c1520; border:1px solid #906776; border-radius:8px; padding:11px; color:#f4e5d1; font:inherit; }
+.character-creation fieldset { display:flex; flex-wrap:wrap; gap:10px; padding:12px; border:1px solid #705262; border-radius:8px; }
+.character-creation legend { color:#e0baa0; padding:0 5px; }
+.creation-choice { display:flex; align-items:center; gap:7px; cursor:pointer; padding:7px 10px; background:#302230; border-radius:7px; }
+.creation-choice:has(input:checked) { outline:1px solid #c99677; background:#4b3039; }
+.creation-choice:has(input:disabled) { opacity:.45; cursor:default; }
+.creation-starter { color:#ddd0c0; font-size:13px; line-height:1.5; margin:0; }
+.creation-error { color:#ff9a9a; margin:0; }
+.creation-error:empty { display:none; }
+.character-identity { display:grid; gap:6px; padding:15px; text-align:center; border:1px solid #76505f; border-radius:9px; margin:14px 0; }
+.character-identity strong { color:#f3d4ac; font:22px Georgia,serif; }
+.slot-gs { position:absolute; bottom:2px; right:3px; color:#f8e7cd; font-size:10px; text-shadow:0 1px 2px #000; background:#18121bcc; padding:1px 3px; border-radius:3px; }
+.dungeon-card { cursor:default; text-align:left; }
+.dungeon-drop-rates { font-size:12px; width:100%; }
+.dungeon-drop-rates summary { cursor:pointer; color:#ecc7a6; padding:9px 0; }
+.dungeon-drop-rates small { display:block; line-height:1.5; margin-bottom:8px; }
+.dungeon-drop-row { display:flex; flex-wrap:wrap; gap:4px 12px; padding:7px 0; border-top:1px solid #70526266; }
+.dungeon-drop-row b { width:100%; font-weight:normal; }
+.dungeon-rewards { font-size:12px; line-height:1.5; }
+.dungeon-enter { margin-top:auto; }
+
+/* Reliquiario globale: anche i nuovi moduli usano gli stessi comandi, rame e tipografia. */
+:root { --relic-ivory:#ffe7c6; --relic-muted:#c7aebc; --relic-control:linear-gradient(#643a3c,#38242b); --relic-title:Georgia,'Times New Roman',serif; }
+.character-creation, .character-identity, .dungeon-rewards, .dungeon-drop-rates { color:var(--text); }
+.character-creation h2, .character-identity strong { font-family:var(--relic-title); color:var(--relic-ivory); font-weight:normal; }
+.character-creation legend, .character-creation > label { font-family:var(--relic-title); color:#e8c4aa; }
+.character-creation fieldset { border-color:var(--relic-border); border-radius:6px 18px; background:linear-gradient(145deg,#34232d66,#1b1722); box-shadow:inset 0 0 0 2px #17121c; }
+.character-creation input[type=text] { border-radius:6px 14px; border-color:var(--relic-border); color:var(--relic-ivory); box-shadow:inset 0 2px 5px #0004; }
+.character-creation input[type=text]:focus-visible { outline:2px solid var(--relic-copper); outline-offset:3px; }
+.character-creation input[type=radio] { accent-color:var(--relic-copper); }
+.character-creation small, .creation-starter, .dungeon-drop-rates small { color:var(--relic-muted); line-height:1.6; }
+.creation-choice { border:1px solid var(--relic-border); border-radius:6px 12px; background:linear-gradient(#3a2c40,#211a28); color:#e4cadd; box-shadow:inset 0 0 0 2px #19131e; }
+.creation-choice:hover { border-color:var(--relic-copper); }
+.creation-choice:has(input:focus-visible) { outline:2px solid #ffe1a2; outline-offset:3px; }
+.character-creation button, .dungeon-enter, .portrait-dialog button {
+  color:var(--relic-ivory); background:var(--relic-control); border:2px solid var(--relic-copper); border-radius:6px 18px;
+  box-shadow:inset 0 0 0 3px #291e28,0 4px 0 #090b12; font-family:inherit; transition:transform 150ms,box-shadow 150ms;
+}
+.character-creation button:hover, .dungeon-enter:hover, .portrait-dialog button:hover { background:linear-gradient(#7a484a,#482c36); border-color:#e0af8c; transform:translateY(-1px); }
+.character-creation button:active, .dungeon-enter:active, .portrait-dialog button:active { transform:translateY(2px); box-shadow:inset 0 0 0 3px #291e28,0 1px 0 #090b12; }
+button:disabled { cursor:default; opacity:.45; transform:none; }
+.dungeon-drop-rates { padding:0 10px; border:1px solid var(--relic-border); border-radius:6px 14px; background:#1b1521aa; }
+.dungeon-drop-rates summary { color:var(--relic-ivory); font-family:var(--relic-title); font-size:14px; }
+.dungeon-drop-rates summary:focus-visible { outline:2px solid var(--relic-copper); outline-offset:3px; }
+.dungeon-drop-row b { color:#e9c9ad; }
+.dungeon-card { align-items:stretch; }
+.dungeon-list { align-items:start; }
+.dungeon-list { grid-auto-rows:1fr; align-items:stretch; }
+.dungeon-card { height:480px; display:grid; grid-template-rows:20px 48px 160px 34px 32px 30px 32px 48px; gap:6px; }
+.dungeon-card .dungeon-name { display:flex; align-items:center; font-size:20px; line-height:1.2; }
+.dungeon-card .dungeon-boss,.dungeon-card .dungeon-record { display:flex; align-items:center; line-height:1.4; }
+.dungeon-card .dungeon-rewards { margin:0; align-self:center; }
+.boss-artwork { position:relative; inset:auto; display:block; width:100%; height:160px; object-fit:cover; border:1px solid var(--relic-border); border-radius:6px 14px; cursor:default; }
+.dungeon-danger { display:flex; align-items:center; gap:5px; }
+.dungeon-danger > span { margin-right:3px; }
+.danger-dot { display:block; width:7px; height:7px; flex:0 0 7px; border:1px solid #d98b6b; border-radius:50%; box-sizing:border-box; }
+.danger-dot.filled { background:#d98b6b; }
+.loot-rate-trigger { padding:4px 0; width:max-content; color:#edc7a5; background:none; border:0; border-bottom:1px dashed #a67e74; box-shadow:none; font:15px var(--relic-title); }
+.loot-rate-trigger:hover { color:#ffe5bd; background:none; }
+.loot-rate-tooltip { position:fixed; z-index:150; width:min(350px,calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow:hidden; pointer-events:none; padding:14px; background:linear-gradient(145deg,#30202efa,#17131efa); color:var(--text); border:1px solid var(--relic-copper); border-radius:8px 20px; box-shadow:0 14px 40px #0009,inset 0 0 0 3px #17121c; }
+.loot-rate-tooltip > strong { font:15px var(--relic-title); color:var(--relic-ivory); }
+.loot-rate-tooltip > small { display:block; margin-top:5px; font-size:10px; }
+.loot-tooltip-row { display:grid; grid-template-columns:1fr auto; gap:2px 8px; padding:5px 0; border-top:1px solid #65506466; font-size:12px; }
+.loot-tooltip-row > small { grid-column:1/-1; font-size:10px; }
+.loot-tooltip-row > b { color:#f0d2b5; font-weight:normal; }
+.loot-rate-tooltip .drop-tier-title { margin:10px 0 5px; }
+.character-profiles { margin:16px 0; text-align:left; }
+.profiles-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px; }
+.profiles-heading h2 { margin:0; color:var(--relic-ivory); font:20px var(--relic-title); }
+.profile-row { display:flex; align-items:center; gap:8px; margin-top:7px; }
+.profile-select { flex:1; display:grid; gap:5px; min-width:0; text-align:left; padding:10px 12px; background:linear-gradient(#302431,#211a27); color:var(--relic-ivory); border:1px solid var(--relic-border); border-radius:6px 14px; }
+.profile-select[aria-pressed=true] { border-color:var(--relic-copper); box-shadow:inset 0 0 0 2px #9c6b5433; }
+.profile-select:hover,.profile-select:focus-visible { background:linear-gradient(#40313e,#2b222f); color:#ead8c2; border-color:#a48080; }
+.profile-select:hover strong,.profile-select:focus-visible strong { color:#ead8c2; }
+.profile-select:hover small,.profile-select:focus-visible small { color:#c9b8c5; }
+.item-slot.is-incompatible { background:#15131a; border-color:#51434e; box-shadow:inset 0 0 0 2px #111016; }
+.item-slot.is-incompatible:hover,.item-slot.is-incompatible:focus-visible { background:#25202a; border-color:#776272; }
+.item-slot.is-incompatible .pixel-icon { filter:brightness(.55) saturate(.45); }
+.item-slot.is-incompatible .slot-gs { color:#a89aa8; background:#131117; }
+.item-requirement { color:#c5a0ad; line-height:1.5; }
+.dungeon-enter:disabled,.dungeon-enter:disabled:hover { background:linear-gradient(#302630,#211b25); color:#b9a7b3; border-color:#66525f; opacity:1; transform:none; cursor:not-allowed; }
+.profile-select strong { font:17px var(--relic-title); overflow-wrap:anywhere; }
+.profile-select small { color:var(--relic-muted); font-weight:normal; }
+.profile-new,.profile-cancel,.global-menu-button,.profile-delete-actions button { color:var(--relic-ivory); background:var(--relic-control); border:1px solid var(--relic-copper); border-radius:6px 14px; padding:9px 12px; box-shadow:inset 0 0 0 2px #291e28,0 3px 0 #090b12; font-size:12px; }
+.profile-cancel { margin-top:10px; }
+.global-menu-button { position:fixed; top:14px; left:14px; z-index:30; }
+.profile-delete-dialog { max-width:min(460px,calc(100vw - 32px)); padding:24px; background:linear-gradient(145deg,#30202e,#17131e); border:1px solid var(--relic-copper); border-radius:10px 24px; color:var(--text); }
+.profile-delete-dialog h2 { color:var(--relic-ivory); font:23px var(--relic-title); }
+.profile-delete-dialog p { font-size:14px; line-height:1.6; }
+.profile-delete-dialog::backdrop { background:#090710cc; }
+.profile-delete-actions { display:flex; justify-content:flex-end; gap:10px; }
+.profile-delete-actions button.danger { background:linear-gradient(#803d4c,#4b2534); border-color:#d78991; }
+@media(max-width:450px){ .profile-row { flex-wrap:wrap; }.profile-select { flex-basis:70%; }.profiles-heading { flex-wrap:wrap; }.loot-tooltip-row { padding:3px 0; }.loot-rate-tooltip { padding:10px; } }
+.drop-tier-title { color:var(--relic-ivory); font:15px var(--relic-title); margin:14px 0 6px; }
+.dungeon-card .dungeon-desc { flex:none; }
+.dungeon-drop-entries { max-height:min(360px,42vh); overflow-y:auto; padding-right:5px; scrollbar-color:var(--relic-border) #1b1521; }
+@media(prefers-reduced-motion:reduce){ .character-creation button,.dungeon-enter,.portrait-dialog button { transition:none; } }
+#equipment-slots { height: 450px; }
+.portrait-level { text-align: left; }
+.appearance-option .illustrated-character { width:72px; height:108px; }
+#inventory-appearance .appearance-option .illustrated-character { width:30px; height:45px; }
+.class-choice { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; flex-basis:100%; }
+.class-option { border:1px solid #8c657b; border-radius:6px 14px; padding:7px 12px; background:#302131; color:#e9d0bf; font-size:12px; }
+.class-option[aria-pressed=true] { border-color:#e5b782; background:#65424a; }
+.class-option:disabled { opacity:.45; cursor:default; }
+#inventory-appearance .class-choice { gap:5px; }

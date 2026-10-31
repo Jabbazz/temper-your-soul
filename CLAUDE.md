@@ -1,5 +1,15 @@
 # Temper your soul: istruzioni per Claude
 
+## Collaborazione obbligatoria fra persone e agenti AI
+
+Leggere prima [README.md](README.md), in particolare «Prima di lavorare», stato corrente e prossimi passi. Queste regole sono richieste dal proprietario del progetto e valgono anche quando si riprende un lavoro precedente.
+
+- **Prima di qualsiasi nuova modifica**, comunicare in italiano l'obiettivo e controllare repository, ramo e stato locale; eseguire **`git pull --ff-only`** sull'upstream corrente. Per un nuovo ramo, aggiornare prima la base. Non lavorare su una copia obsoleta ignorando il pull.
+- Se il pull non riesce, spiegare subito perché e risolvere l'allineamento senza perdere lavoro. Non usare reset distruttivi, force push, stash automatici o risoluzioni che scartino il lavoro dell'altro collaboratore. Non iniziare nuove modifiche finché manca una base allineata in sicurezza.
+- **Tenere aggiornato l'utente durante il lavoro**, indicativamente almeno ogni minuto di lavoro attivo, e quando emergono risultati, ostacoli o cambi di piano. Alla fine: modifiche, verifiche, limiti, prova manuale ancora da fare; ramo/hash se pubblicato.
+- Non fare commit/push senza autorizzazione esplicita; quando autorizzati, ricontrollare remoto e stato prima della pubblicazione. Coordinare lavori simultanei su rami separati.
+- Rispettare la direzione UI **C — Reliquiario**. La revisione dei ritratti/sprite è sospesa: non consumare crediti per rigenerazioni senza una nuova richiesta esplicita.
+
 Gioco d'azione 2D per browser in **TypeScript** (Canvas 2D, nessuna dipendenza a runtime, nessun motore di gioco).
 Nato come prototipo JavaScript generato con ChatGPT ("Emberfall", un mago contro un guardiano in un'arena), poi riscritto con la struttura e i principi di Ashen Realm.
 Decisioni di gioco: `docs/game-design.md`. Fasi e criteri: `docs/roadmap.md`. Problemi noti: `docs/bugs.md`.
@@ -73,11 +83,11 @@ Flusso: `Game` tiene il personaggio (caricato da `SaveStore`) e la schermata cor
 - **Valori provvisori**: i valori stanno in tabelle di dati con nome (`PLAYER_STATS`, le `BossStats` di ogni boss, `MAGE_SKILLS`, `item-skills.ts`, `RARITY_STATS`, `LOOT_TABLES`, le tabelle degli schemi, le `ArenaDefinition`, `HIT_RADIUS`), non sepolti nel codice. Sono tutti provvisori (vedi `docs/game-design.md`): non inventare valori definitivi, usare un valore regolabile e segnalarlo.
 - Input solo tramite azioni (`Action`), mai tasti hardcoded; tasti legati per posizione fisica (`event.code`). Le pressioni piu' brevi di un passo non si perdono (`Input.isActionActive` + `takeLatched`).
 - Id stabili (`arcane_bolt`, `frost_orb`, `meteor`, `astral_step`, id degli schemi, `ProjectileVisual`): non rinominarli, li usano test, eventi e rappresentazione.
-- **Oggetti**: la FAMIGLIA (`ItemFamily`) decide la skill dello slot, la rarita' (`RARITY_STATS`) la scala (`scaleSkill`: a Comune la skill e' identica alla base). Un `Item` salvato e' solo `{ uid, familyId, rarity }`: la skill si ricalcola sempre dai dati, mai si salva. Per aggiungere una famiglia: skill in `item-skills.ts`, voce in `item-families.ts` (id stabile, mai rinominarlo: e' nei salvataggi), aspetti in `presentation/looks/items.ts`, e se e' esclusiva aggiungerla al `LootTable` del dungeon (si deriva da `exclusiveTo`). Per aggiungere una rarita' o uno slot cambiare anche la validazione del salvataggio.
-- **Salvataggio**: ogni dato letto da `localStorage` e' NON fidato: passa da `deserializeCharacter` (validazione rigorosa, scarta il non valido, mai crash). Dati illeggibili non si cancellano: si copiano in `...:corrupt`. Cambiando il formato incrementare `SAVE_VERSION` e gestire la migrazione.
+- **Oggetti**: 25 famiglie; la famiglia decide skill, slot e classe richiesta, la rarità scala le skill. Un oggetto salvato è `{ uid, familyId, rarity, level? }`; skill e GS si ricalcolano dai dati. Per una nuova famiglia: skill in `item-skills.ts` o `dungeon-item-skills.ts`, voce nel catalogo, requisito in `item-classes.ts`, costo in `SPELL_MANA`, icone oggetto/spell, look ed equipaggiamento nei due corpi, test. Inserire esplicitamente le voci nei pool di `loot-tables.ts`: non derivarli da `exclusiveTo`, che indica solo l'origine. Niente equip di altre classi; gli oggetti incompatibili restano nello zaino.
+- **Salvataggio**: formato v6, raccolta `character-roster` con profili separati. Ogni dato esterno passa da `deserializeRoster` e `deserializeCharacter`; preservare le migrazioni v1–v5 e le copie `...:corrupt` / `...:before-roster`. Una raccolta invalida non si ripara perdendo profili in silenzio. I pezzi di altre classi si rimuovono dagli slot, non dall'inventario. Cambiando il formato incrementare `SAVE_VERSION` e gestire la migrazione.
 - **Dungeon**: per aggiungerne uno creare `features/dungeons/<id>/` con `ArenaDefinition`, `BossDefinition` (schemi con gli attrezzi di `pattern-kit.ts`), `DungeonDefinition`; un tema in `presentation/themes/`, la grafica in `presentation/boss-art/`, gli aspetti in `presentation/looks/`; registrarlo in `dungeons.ts`, nei registri di temi, grafiche e aspetti, e aggiungere la tabella di bottino. `dungeons.test.ts` e' il criterio di accettazione (mappa valida, schemi eseguibili e leggibili, danno limitato, simulazione lunga). L'id del dungeon, del boss e degli schemi e' stabile.
 - Per aggiungere una skill base: `SkillDefinition` (con `visual`) e, se serve un nuovo tipo di effetto, un caso in `skill-effects.ts`, in `Effects.onSkillCast` e (per il suono) in `AudioPlayer`; test.
-- Grafica provvisoria: pixel art come matrici di caratteri in `sprites.ts`; niente asset esterni finche' non decisi. L'interfaccia (HUD) e' in DOM sopra il canvas e mostra solo lo stato, senza regole.
+- Grafica provvisoria: pixel art nel codice e PNG locali già approvati in `src/assets/portraits/`. Non rigenerare i ritratti sospesi. L'HUD è in DOM sopra il canvas: UI e tooltip leggono le stesse regole del dominio, senza duplicarle.
 
 ## Verifica
 

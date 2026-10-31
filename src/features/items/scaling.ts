@@ -1,3 +1,4 @@
+import { manaCost, manaBonus } from '../skills/mana';
 import type { SkillDefinition, SkillEffect } from '../skills/skill-definition';
 import { RARITY_STATS, type Rarity } from './rarity';
 
@@ -15,10 +16,11 @@ export const DASH_POWER_SHARE = 0.5;
 
 /** Restituisce una NUOVA skill con i valori della rarita' indicata; l'originale non viene mai modificato. */
 export function scaleSkill(skill: SkillDefinition, rarity: Rarity): SkillDefinition {
+  if (rarity === 'common') return skill;
   const { powerMultiplier, cooldownMultiplier } = RARITY_STATS[rarity];
   const damage = (value: number): number => Math.round(value * powerMultiplier);
   const dashFactor = 1 + (powerMultiplier - 1) * DASH_POWER_SHARE;
-  return { ...skill, cooldown: skill.cooldown * cooldownMultiplier, effect: scaleEffect(skill.effect, damage, dashFactor) };
+  return { ...skill, manaCost: manaCost(skill) * cooldownMultiplier, manaRegeneration: (1 / cooldownMultiplier - 1) * 8 + manaBonus(skill), cooldown: skill.cooldown * cooldownMultiplier, effect: scaleEffect(skill.effect, damage, dashFactor) };
 }
 
 function scaleEffect(effect: SkillEffect, damage: (value: number) => number, dashFactor: number): SkillEffect {

@@ -4,15 +4,23 @@ import { familyById } from '../items/item-families';
 import type { Item } from '../items/item';
 import { isRarity } from '../items/rarity';
 import { Character, type DungeonRecord } from './character';
+import { isCharacterClass } from './character-class';
+import { cleanCharacterName } from './creation';
+import { cleanItemLevel } from '../items/gear-score';
 
 /** Versione del formato di salvataggio. Se cambia la struttura, alzarla e aggiungere la migrazione in `deserializeCharacter`. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 6;
 
-/** Il personaggio come testo JSON: `{ version, items, equipped, records, nextItemNumber }`. */
+/** Dati del singolo personaggio v6, inclusi nel roster locale. GS e skill restano derivati. */
 export function serializeCharacter(character: Character): string {
   return JSON.stringify({
     version: SAVE_VERSION,
-    items: character.inventory.map(({ uid, familyId, rarity }) => ({ uid, familyId, rarity })),
+    name: character.name,
+    starterPending: character.starterPending,
+    totalXp: character.totalXp,
+    bodyType: character.bodyType,
+    characterClass: character.characterClass,
+    items: character.inventory.map(({ uid, familyId, rarity,level }) => ({ uid, familyId, rarity,...(cleanItemLevel(level)>1?{level:cleanItemLevel(level)}:{}) })),
     equipped: Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, character.equipped[slot]])),
     records: character.records,
     nextItemNumber: character.nextItemNumber,
@@ -47,6 +55,11 @@ export function deserializeCharacter(text: string): Character | null {
   if (!Array.isArray(items)) return null;
 
   const character = new Character();
+  character.name=cleanCharacterName(data.name);
+  character.starterPending=version>=5 && data.starterPending===true && character.name===null;
+  character.bodyType = data.bodyType === 'male' || data.bodyType === 'female' ? data.bodyType : null;
+  character.characterClass = isCharacterClass(data.characterClass) ? data.characterClass : null;
+  character.totalXp = typeof data.totalXp === 'number' && Number.isSafeInteger(data.totalXp) && data.totalXp >= 0 ? Math.min(data.totalXp, 1000000000) : 0;
   const seen = new Set<string>();
   for (const raw of items) {
     if (!isObject(raw)) continue;
@@ -54,7 +67,8 @@ export function deserializeCharacter(text: string): Character | null {
     if (typeof uid !== 'string' || uid === '' || seen.has(uid)) continue;
     if (typeof familyId !== 'string' || familyById(familyId) === undefined || !isRarity(rarity)) continue;
     seen.add(uid);
-    const item: Item = { uid, familyId, rarity };
+    const level=cleanItemLevel(raw.level);
+    const item: Item = { uid, familyId, rarity, ...(level>1?{level}:{}) };
     character.inventory.push(item);
   }
 
@@ -77,11 +91,12 @@ export function deserializeCharacter(text: string): Character | null {
   character.nextItemNumber = Math.max(saved, highest + 1, 1);
 
   if (character.inventory.length === 0) {
-    const starter = Character.createStarter();
+    const starter = Character.createStarter(character.characterClass??'mage');
     character.inventory = starter.inventory;
     character.equipped = starter.equipped;
     character.nextItemNumber = Math.max(character.nextItemNumber, starter.nextItemNumber);
   }
+  character.reconcileEquipment();
   return character;
 }
 

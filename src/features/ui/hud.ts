@@ -1,3 +1,7 @@
+import { SKILL_ICONS } from '../presentation/skill-icons';
+import { renderPixelIcon } from './pixel-icon';
+import { describeSkillStats } from '../items/item';
+import { manaCost } from '../skills/mana';
 import type { Match } from '../match/match';
 import type { Loadout } from '../skills/skill-definition';
 import { requireElement } from './dom';
@@ -16,7 +20,7 @@ export class Hud {
   private readonly bossText = requireElement('boss-text');
   private readonly bossName = requireElement('boss-name');
   private readonly cooldownBars: HTMLElement[] = [];
-  private readonly last = new Map<HTMLElement, string>();
+  private readonly last = new WeakMap<HTMLElement, string>();
 
   setBossName(name: string): void {
     this.setText(this.bossName, name);
@@ -39,13 +43,28 @@ export class Hud {
       description.textContent = skill === null ? 'Equipaggia un oggetto' : skill.description;
       const cooldown = document.createElement('div');
       cooldown.className = 'cool';
+      if (skill !== null) {
+        const icon = SKILL_ICONS[skill.id];
+        if (icon) item.append(renderPixelIcon(icon));
+        item.title = [skill.name, skill.description, ...describeSkillStats(skill)].join('\n');
+        item.dataset.cost = String(manaCost(skill));
+      }
+      item.style.order = String([1, 0, 2, 3][slot]);
       item.append(key, name, description, cooldown);
       list.append(item);
       this.cooldownBars.push(cooldown);
     });
   }
 
-  update(match: Match): void {
+  update(match: Match, progress = {level: 1, current: 0, required: 100}): void {
+    this.setText(requireElement('character-level'), String(progress.level));
+    this.setText(requireElement('xp-text'), `${progress.current} / ${progress.required} XP`);
+    this.setWidth(requireElement('xp-bar'), progress.current / progress.required * 100);
+    this.setText(requireElement('mana-text'), `${Math.floor(match.player.mana)} / ${match.player.maxMana} MANA`);
+    this.setWidth(requireElement('mana-bar'), match.player.mana / match.player.maxMana * 100);
+    for (const element of Array.from(requireElement('skills').children)) {
+      (element as HTMLElement).classList.toggle('no-mana', Number((element as HTMLElement).dataset.cost ?? 0) > match.player.mana);
+    }
     const { player, boss } = match;
     this.setWidth(this.playerBar, player.health.fraction * 100);
     this.setText(this.playerText, `${Math.ceil(player.health.current)} / ${player.health.max} PV`);

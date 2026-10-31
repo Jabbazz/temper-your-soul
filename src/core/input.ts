@@ -107,6 +107,8 @@ export class Input {
     };
     const onKeyDown = (event: KeyboardEvent): void => {
       if (isBrowserShortcut(event)) return;
+      // I nomi e i controlli dei menu devono ricevere i propri tasti, anche WASD, F, M e Spazio.
+      if(event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
       if (event.code in BINDINGS || event.code === 'Space') event.preventDefault();
       this.press(event.code, event.repeat);
     };

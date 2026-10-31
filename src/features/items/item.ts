@@ -1,23 +1,28 @@
+import { manaCost, manaBonus } from '../skills/mana';
 import type { SkillDefinition } from '../skills/skill-definition';
 import { familyById } from './item-families';
 import type { ItemFamily } from './item-family';
 import type { Rarity } from './rarity';
 import { scaleSkill } from './scaling';
+import { NOVICE_NAMES } from '../character/creation';
 
 /**
  * Un oggetto posseduto: istanza di una famiglia a una rarita'. L'`uid` e' unico e stabile (lo coniano `Character.addRolls`
- * e il salvataggio lo conserva); `familyId` e `rarity` sono gli unici dati: tutto il resto si deriva dal catalogo.
+ * e il salvataggio lo conserva); famiglia, rarita' e livello sono i dati: skill e GS si derivano, non si salvano.
  */
 export interface Item {
   readonly uid: string;
   readonly familyId: string;
   readonly rarity: Rarity;
+  /** Livello oggetto, indipendente dal livello del personaggio. Assente nei salvataggi storici = 1. */
+  readonly level?: number;
 }
 
 /** Il risultato di un'estrazione del bottino: ancora senza `uid` (lo assegna il personaggio quando lo riceve). */
 export interface ItemRoll {
   readonly familyId: string;
   readonly rarity: Rarity;
+  readonly level?: number;
 }
 
 /** La skill che l'oggetto concede: quella della famiglia con i valori della rarita'. */
@@ -34,6 +39,7 @@ export function resolveItem(item: Item): { item: Item; family: ItemFamily; skill
 
 /** Nome da mostrare: quello della famiglia (la rarita' si mostra a parte, con colore ed etichetta). */
 export function itemName(item: Item): string {
+  if(item.rarity==='common' && NOVICE_NAMES[item.familyId])return NOVICE_NAMES[item.familyId]!;
   return familyById(item.familyId)?.name ?? item.familyId;
 }
 
@@ -87,6 +93,9 @@ export function describeSkillStats(skill: SkillDefinition): string[] {
       lines.push(`Arco ${formatNumber(Math.round((effect.arc * 180) / Math.PI))}°`);
       break;
   }
+
+  lines.push(`Mana ${formatNumber(manaCost(skill))}`);
+  lines.push(`Rigenerazione mana +${formatNumber(manaBonus(skill))}/s`);
   lines.push(`Ricarica ${formatNumber(skill.cooldown)} s`);
   return lines;
 }

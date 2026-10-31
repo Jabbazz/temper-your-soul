@@ -1,6 +1,8 @@
 import { ARCANE_BOLT, ASTRAL_STEP, FROST_ORB, METEOR } from '../skills/mage-skills';
 import type { EquipmentSlot } from './equipment-slot';
 import type { ItemFamily } from './item-family';
+import { DUNGEON_ITEM_SKILLS as NEW_SKILLS } from './dungeon-item-skills';
+import { ITEM_CLASSES } from './item-classes';
 import {
   BLIZZARD_BURST,
   BOG_STEP,
@@ -18,11 +20,19 @@ import {
 } from './item-skills';
 
 /*
- * Il catalogo delle famiglie di oggetti: 9 generiche (cadono da ogni boss) e 8 esclusive (2 per dungeon, cadono solo
- * dal boss indicato in `exclusiveTo`). Id e slot sono stabili; nomi, descrizioni e valori delle skill sono provvisori.
+ * Catalogo: 9 famiglie storiche e 16 pezzi di set (4 per dungeon). `exclusiveTo` indica l'origine del set;
+ * le fonti e le rarità ottenibili sono esclusivamente quelle esplicite in LOOT_TABLES. Id e slot sono stabili.
  * Le quattro famiglie "base" concedono le skill originali del mago (stesse costanti di `mage-skills.ts`).
  */
-export const ITEM_FAMILIES: readonly ItemFamily[] = [
+const FAMILY_DEFINITIONS: readonly Omit<ItemFamily,'characterClass'>[] = [
+  {id:'ossuary_lantern',name:'Lanterna dell’ossario',description:'Una gabbia d’osso che libera luci sepolcrali.',slot:'secondary_hand',skill:NEW_SKILLS.ossuary_lantern,exclusiveTo:'crypt'},
+  {id:'grave_boots',name:'Stivali del sepolcro',description:'Gambali d’osso per attraversare il pericolo.',slot:'boots',skill:NEW_SKILLS.grave_boots,exclusiveTo:'crypt'},
+  {id:'thorn_bow',name:'Arco di rovi',description:'Flettenti di radici che scoccano due spine.',slot:'primary_hand',skill:NEW_SKILLS.thorn_bow,exclusiveTo:'swamp'},
+  {id:'reed_mantle',name:'Mantello delle canne',description:'Un intreccio di giunchi che sprigiona rovi.',slot:'armor',skill:NEW_SKILLS.reed_mantle,exclusiveTo:'swamp'},
+  {id:'cinder_orb',name:'Cuore di brace',description:'Una sfera di ferro vivo che proietta tre braci.',slot:'secondary_hand',skill:NEW_SKILLS.cinder_orb,exclusiveTo:'forge'},
+  {id:'ember_treads',name:'Calzari della fornace',description:'Stivali di metallo incandescente per lunghi balzi.',slot:'boots',skill:NEW_SKILLS.ember_treads,exclusiveTo:'forge'},
+  {id:'glacier_mirror',name:'Specchio del ghiacciaio',description:'Un cristallo specchiato che frantuma il gelo.',slot:'secondary_hand',skill:NEW_SKILLS.glacier_mirror,exclusiveTo:'glacier'},
+  {id:'rime_boots',name:'Stivali di brina',description:'Cristalli compatti per passi frequenti sul ghiaccio.',slot:'boots',skill:NEW_SKILLS.rime_boots,exclusiveTo:'glacier'},
   // --- Generiche ---
   { id: 'arcane_staff', name: 'Bastone arcano', description: 'Il bastone del mago: un dardo arcano rapido.', slot: 'primary_hand', skill: ARCANE_BOLT },
   { id: 'hunter_bow', name: 'Arco del cacciatore', description: 'Frecce veloci a lunga gittata, ma meno potenti.', slot: 'primary_hand', skill: HUNTER_ARROW },
@@ -46,6 +56,8 @@ export const ITEM_FAMILIES: readonly ItemFamily[] = [
   { id: 'frost_lance', name: 'Lancia di ghiaccio', description: 'Una scheggia veloce e pesante che rallenta il boss.', slot: 'primary_hand', skill: FROST_SHARD, exclusiveTo: 'glacier' },
   { id: 'blizzard_veil', name: 'Velo di bufera', description: 'Una bufera attorno a te che rallenta il boss a lungo.', slot: 'armor', skill: BLIZZARD_BURST, exclusiveTo: 'glacier' },
 ];
+
+export const ITEM_FAMILIES:readonly ItemFamily[]=FAMILY_DEFINITIONS.map(family=>({...family,characterClass:ITEM_CLASSES[family.id]!}));
 
 export function familyById(id: string): ItemFamily | undefined {
   return ITEM_FAMILIES.find((family) => family.id === id);

@@ -1,8 +1,16 @@
 # Bug e problemi rilevati
 
+Posa e profondità: il martello copriva parte del viso, soprattutto a riposo. Riorientate le armi lunghe verso l'esterno e separate le estremità inferiori dietro il corpo. La versione femminile risultava sostanzialmente uguale salvo i capelli: ora ha fisionomia e corporatura proprie, con adattamenti di tutti gli strati. Controlli automatici e fotogrammi eseguiti; conferma manuale da ricevere.
+
+Ritratti illustrati A: asset separati per basi, cinque armature maschili/femminili, armi e stivali; ritagli registrati e controllati su entrambe le figure. Il montaggio resta da provare a mano su tutte le combinazioni, in particolare prese delle armi e giunzioni degli stivali. Gli asset generati non costituiscono un atlante anatomico perfetto: eventuali piccoli disallineamenti richiedono correzioni della registrazione, non delle regole di gioco.
+
+Medaglione del livello: corrette le proporzioni 50×40 che lo rendevano ellittico. Ora ha dimensioni fisse 44×44, centrato nella colonna. Aspetto e dimensioni alle varie risoluzioni da confermare a mano.
+
 Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti per origine. Stato dopo la Fase 0 (porting del prototipo in TypeScript).
 
 ## Aperti
+
+- **Sprite e ritratti: difetti residui confermati dall’utente.** Offset e vestibilità delle armature, proporzioni e prese delle armi richiedono ancora revisione. Lavoro sospeso su richiesta esplicita per contenere le rigenerazioni; TODO nel codice (`portrait-rig.ts`) e nella roadmap. Nessuna nuova revisione grafica inclusa nell’incremento creazione/bottino.
 
 - **Prova manuale della Fase 0 confermata solo in generale.** L'utente ha dichiarato che "funziona tutto correttamente" (2026-10-30), senza dettaglio per voce della checklist in `docs/roadmap.md`: non sono stati segnalati problemi. I controlli automatici, la prova di fumo in Edge headless e i fotogrammi renderizzati non coprono da soli sensazione di gioco, leggibilita', interfaccia in DOM e prestazioni.
 - **Interfaccia in DOM, ciclo del browser e disegno non coperti dai test automatici.** `Hud`, `Overlay`, `FullscreenToggle`, `Game` e le funzioni `draw-*` non hanno test (la suite gira in Node, senza DOM ne' canvas). Sono stati solo esercitati dalla prova di fumo in un browser vero (rieseguita anche dopo le correzioni della revisione, senza errori in console).
@@ -60,7 +68,27 @@ Nessuna di queste e' stata riprodotta a mano.
 
 ## Risolti
 
+- **Hover giallo sui profili, testo poco leggibile**, segnalato dall’utente. Il selettore di profilo ora sovrascrive l’hover globale dei pulsanti con un gradiente prugna scuro e testo crema smorzato; stesso trattamento sul focus tastiera. Colore controllato con hover reale nel browser.
+
+- **Card dungeon di altezze diverse e pallini disomogenei**, segnalati dall’utente. Tolte le descrizioni dalle card, sostituite con vignette del boss e della mappa; griglia a misure fisse e pallini CSS 7×7 px. «Loot rate %» usa un tooltip mobile al posto del dropdown. Misure e movimento del tooltip controllati nel browser a 1440 e 390 px, senza attribuire questi controlli a una prova giocata.
+
+- **Pool di bottino troppo ampi, segnalato dall’utente.** Rimossa la pesca dal catalogo generico: ogni boss ha otto combinazioni esplicite (quattro di set e quattro inferiori). Le probabilità visualizzate e l’estrazione leggono le stesse voci/pesi; test verificano slot, limiti di rarità e distribuzione simulata. Profili di menu e inventario non descrivono più il sesso, che resta una scelta solo di creazione.
+
+- **La tastiera di gioco intercettava il nome durante la creazione.** Rilevato nel collegare il nuovo modulo: WASD, F, M e Spazio avevano `preventDefault` globale. Ora gli elementi di input, textarea, select e contenuti editabili ricevono i propri tasti. Controllo browser con eventi di tastiera reali: nome «Ada M» digitato per intero, nessuna attivazione dell’audio.
+
 - **Mira e mirino sfasati di un passo rispetto alla camera** (revisione). La mira era calcolata con la camera del passo precedente: camminando il mirino restava circa 3 unita' (4 px a schermo) dietro il mouse e dopo il Passo astrale saltava di 125 unita' per un fotogramma. Ora `PlayerIntent.aimOffset` e la mira si ricavano dopo il movimento, prima di ogni skill e a fine passo (come `syncAim()` nel prototipo). Test: la mira e' posizione + offset dopo il movimento e dopo lo scatto; il dardo parte verso il mouse anche mentre ci si muove. Le mutazioni (togliere la sincronizzazione dopo il movimento o a fine passo) fanno fallire i test.
 - **Ctrl+R e Ctrl+F intercettati** (revisione). Il gioco bloccava il comportamento del browser per tutti i tasti legati, anche con Ctrl/Meta/Alt (Ctrl+R riavviava la partita invece di ricaricare la pagina; Ctrl+F attivava lo schermo intero). Ora le scorciatoie con modificatori sono lasciate al browser (`isBrowserShortcut`). Il prototipo aveva lo stesso difetto per W/A/S/D/Q/E.
 - **Lacune dei test sui confini** (revisione). Mancavano prove per: contatto a 29, raggio di colpo sul boss (raggio + 26), margine delle zone sul boss (raggio + 25), soglia della carica (37), soglia di orbita (180), rinnovo del gelo senza somma, estremi della casualita' delle fratture, esito della morte simultanea (ora si asserisce `lost`, un solo `match_ended`, nessun `boss_defeated`). Aggiunte; ognuna fallisce con la mutazione corrispondente.
 - **Id dello schema non nell'evento `boss_attack`** e posa iniziale 0,5 s duplicata (revisione). Ora l'evento porta `patternId` (il test di rotazione confronta gli id stabili) e la posa e' `BOSS_STATS.attackPose`.
+
+## Incremento livelli e mana
+Corretto il difetto segnalato dall'utente: i boss attraversavano i pilastri e diventavano difficili da colpire. Movimento a piccoli passi e cariche interrotte contro gli ostacoli; atterraggi dei teletrasporti risolti fuori dai pilastri. Da confermare a mano. Il movimento attuale non include una ricerca completa del percorso: un boss puo fermarsi contro un pilastro se il giocatore resta esattamente dietro.
+
+## Correzione attacchi modulari segnalati dall’utente
+Rilevati: spada deformata durante l’attacco (si inclinava solo la lama); dita duplicate del ventaglio, separate dal braccio sinistro fermo. Corretti con rotazione rigida attorno alla presa, punti della mano condivisi con il braccio e scelta della mano animata secondo lo slot della skill. Margini dei fotogrammi ampliati per le armi inclinate. Test specifici verificano perno rigido, indipendenza delle mani e assenza di pelle nello strato del ventaglio. Fotogrammi Edge dell’anteprima controllati: non costituiscono conferma manuale del giocatore.
+
+## Ritratti: oggetti staccati dal corpo
+
+Segnalazione dell’utente: stivali sospesi sotto le gambe e armi sovrapposte alle mani senza essere impugnate. Correzione: basi maschili/femminili specifiche per le tre classi, prive di stivali incorporati; presa registrata per ogni arma, dita in primo piano e due punti di aggancio per ciascuno stivale (caviglia e suola). Corretto anche il verso degli stivali sulla posa specchiata del mago e mantenuta la testa davanti ai colletti delle armature. Controlli automatici: geometria di tutte le prese e dei tre paia di stivali sulle sei pose, persistenza della classe e migrazione v3; prova browser di scelta corpo/classe, ricaricamento, inventario e zoom senza eccezioni JavaScript. Fotogrammi delle pose maschili e femminili ispezionati; **approvazione visiva manuale ancora da ricevere**.
+
+Seconda segnalazione dell’utente: miglioramento parziale, ma offset delle armature, proporzioni di alcune armi e stivali davanti alla tunica ancora errati; posa dell’arciere troppo tesa. Corretti i riferimenti delle armature con collo/cintura/spalle propri per ogni indumento e corpo, invertita la profondità tunica/stivali, ridimensionate le armi e riposizionata la presa dell’arco sul legno anziché sulla corda. Sostituite le due basi dell’arciere con pose rilassate. Corretto anche il rapporto del ritratto sotto 400 px, che era deformato da 164×250 a fronte del formato 4:5. Test di continuità busto/gonna e agganci sulle sei pose, fotogrammi maschile/femminile controllati; resta da ricevere la conferma visiva dell’utente.

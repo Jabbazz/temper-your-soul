@@ -1,5 +1,5 @@
 import { clamp, Vec2 } from '../../core/vec2';
-import { clampToArena, type ArenaDefinition } from '../arena/arena';
+import { moveBody, type ArenaDefinition } from '../arena/arena';
 import { Health } from '../combat/health';
 import type { BossContext } from './boss-context';
 import type { BossDefinition, BossStats, ScheduledAction } from './boss-definition';
@@ -60,6 +60,7 @@ export class Boss {
     if (this.charge === null) this.move(dt, ctx.target);
     this.advanceCharge(dt, ctx);
     this.advanceScheduled(dt, ctx);
+    this.position = moveBody(this.arena, this.position, this.position, this.stats.hitRadius, this.arena.bossMargin);
     this.attackTimer -= dt;
     if (this.attackTimer <= 0 && this.charge === null && this.scheduled.length === 0) {
       this.startAttack(ctx);
@@ -83,7 +84,7 @@ export class Boss {
       this.position.distanceTo(target) > this.stats.orbitDistance
         ? Vec2.fromAngle(angle, speed * dt)
         : Vec2.fromAngle(angle + Math.PI / 2, speed * this.stats.orbitSpeedFactor * dt);
-    this.position = clampToArena(this.arena, this.position.add(step), this.arena.bossMargin);
+    this.position = moveBody(this.arena, this.position, this.position.add(step), this.stats.hitRadius, this.arena.bossMargin);
   }
 
   private advanceCharge(dt: number, ctx: BossContext): void {
@@ -92,7 +93,14 @@ export class Boss {
     charge.elapsed += dt;
     if (charge.elapsed < charge.windup) return;
     const u = clamp((charge.elapsed - charge.windup) / charge.duration, 0, 1);
-    this.position = charge.start.lerp(charge.target, u);
+    const destination = charge.start.lerp(charge.target, u);
+    const before = this.position;
+    this.position = moveBody(this.arena, before, destination, this.stats.hitRadius, this.arena.bossMargin);
+    if (this.position.distanceTo(destination) > 1) {
+      ctx.emit({ type: 'boss_charge_finished', position: this.position });
+      this.charge = null;
+      return;
+    }
     if (this.position.distanceTo(ctx.target) < this.stats.chargeHitDistance) ctx.hurtPlayer(this.stats.chargeDamage);
     if (u === 1) {
       ctx.emit({ type: 'boss_charge_finished', position: this.position });

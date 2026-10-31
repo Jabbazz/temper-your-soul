@@ -1,0 +1,107 @@
+# Temper your soul: istruzioni per Codex
+
+## Collaborazione obbligatoria fra persone e agenti AI
+
+Leggere prima [README.md](README.md), in particolare «Prima di lavorare», stato corrente e prossimi passi. Queste regole sono richieste dal proprietario del progetto e valgono anche quando si riprende un lavoro precedente.
+
+- **Prima di qualsiasi nuova modifica**, comunicare in italiano l'obiettivo e controllare repository, ramo e stato locale; eseguire **`git pull --ff-only`** sull'upstream corrente. Per un nuovo ramo, aggiornare prima la base. Non lavorare su una copia obsoleta ignorando il pull.
+- Se il pull non riesce, spiegare subito perché e risolvere l'allineamento senza perdere lavoro. Non usare reset distruttivi, force push, stash automatici o risoluzioni che scartino il lavoro dell'altro collaboratore. Non iniziare nuove modifiche finché manca una base allineata in sicurezza.
+- **Tenere aggiornato l'utente durante il lavoro**, indicativamente almeno ogni minuto di lavoro attivo, e quando emergono risultati, ostacoli o cambi di piano. Alla fine: modifiche, verifiche, limiti, prova manuale ancora da fare; ramo/hash se pubblicato.
+- Non fare commit/push senza autorizzazione esplicita; quando autorizzati, ricontrollare remoto e stato prima della pubblicazione. Coordinare lavori simultanei su rami separati.
+- Rispettare la direzione UI **C — Reliquiario**. La revisione dei ritratti/sprite è sospesa: non consumare crediti per rigenerazioni senza una nuova richiesta esplicita.
+
+Gioco d'azione 2D per browser in **TypeScript** (Canvas 2D, nessuna dipendenza a runtime, nessun motore di gioco).
+Nato come prototipo JavaScript generato con ChatGPT ("Emberfall", un mago contro un guardiano in un'arena), poi riscritto con la struttura e i principi di Ashen Realm.
+Decisioni di gioco: `docs/game-design.md`. Fasi e criteri: `docs/roadmap.md`. Problemi noti: `docs/bugs.md`.
+Repository: https://github.com/Jabbazz/temper-your-soul (remote `origin` configurato, branch `main`).
+
+## Il prototipo originale
+
+Resta in `legacy/emberfall-prototype/` (HTML + JS classico, si apre con doppio clic) **solo come riferimento storico**: non fa parte del build, non e' coperto da `tsc` ne' dai test. Il codice attuale e' tutto in `src/`.
+
+## Strumenti
+
+- Node 22 + npm. Se `node` non e' nel PATH si puo' usare la copia portatile di Ashen Realm:
+  `$env:PATH = "C:\Users\gianm\Documents\ashen-realm\.tools\node-v22.11.0-win-x64;$env:PATH"` (PowerShell). `tools/verify.ps1` la cerca da solo.
+- TypeScript 5.6 (strict), Vite 5 (sviluppo e build), Vitest 2 (test). Versioni fissate in `package.json`, come in Ashen Realm.
+- `C:\Users\gianm` e' un repository Git (senza commit): questo progetto ha un repository **dedicato** nella propria cartella; non toccare quello della home.
+
+## Comandi (dalla radice del progetto)
+
+```powershell
+npm install        # una sola volta
+npm run dev        # server di sviluppo con ricarica (http://localhost:5173)
+npm run build      # controllo dei tipi + build di produzione in dist/
+npm run typecheck  # solo tsc --noEmit
+npm test           # tutti i test (Vitest)
+npm run verify     # tipi + test + build: esce con codice 0 solo se tutto riesce
+.\tools\verify.ps1 # come npm run verify, ma trova Node da solo e stampa "VERIFICA COMPLETA: OK"
+```
+
+`dist/index.html` e' uno script classico (non un modulo ES): si apre anche con doppio clic (`file://`) e si pubblica su qualunque hosting statico.
+
+## Struttura
+
+Organizzazione per funzionalita', non per tipo di file. Test accanto al codice (`*.test.ts`).
+
+```
+index.html, src/main.ts, src/game.ts, src/style.css   pagina, avvio, ciclo (passo fisso 60 Hz), macchina delle schermate, collegamento di tutte le parti
+src/core/        vec2, rng (Rng + SeededRng), signal, input (azioni), camera (+ ZOOM)
+src/features/
+  arena/         arena.ts: ArenaDefinition (mappa: dimensioni, partenze, margini, pilastri), clamp, pilastri (pillarAt, pushOutOfPillars)
+  combat/        health, team, collision (raggi), projectile (+ ProjectileSpec), danger-zone (+ DangerZoneSpec), events (GameEvent)
+  skills/        skill-definition (SkillDefinition, SkillEffect: projectile | ground_blast | dash | melee_arc, Loadout), mage-skills (le 4 base),
+                 skill-bar (ricariche, slot anche vuoti), skill-effects (comportamento)
+  player/        player.ts (movimento con pilastri, vita, invulnerabilita', loadout)
+  boss/          boss-definition (BossDefinition/BossStats/BossPattern/ScheduledAction/ByPhase), boss.ts (stato, movimento, fasi, carica, azioni
+                 programmate), pattern-kit.ts (anelli, ventagli, schedule, carica), guardian.ts (il boss della cripta), boss-context.ts
+  dungeons/      dungeon-definition, crypt.ts, dungeons.ts (registro DUNGEONS), e una cartella per dungeon (swamp/, forge/, glacier/) con
+                 mappa, boss, schemi e test; dungeons.test.ts valida OGNI dungeon registrato
+  items/         rarity, equipment-slot, item-family + item-families (catalogo), item-skills (valori delle skill), item (Item, resolveItemSkill,
+                 describeSkillStats), scaling (rarita' -> valori)
+  loot/          loot-table + loot-tables (per dungeon), roll-loot (deterministico con Rng)
+  character/     character.ts (inventario, equipaggiamento, record), save-format (serializzazione e VALIDAZIONE), save-store (localStorage)
+  match/         match.ts: la partita (dungeon + loadout) senza DOM, un solo ordine di passo, emette eventi
+  presentation/  visuals + looks/ (aspetti per id), themes/ (disegno delle mappe), boss-art/ (grafica dei boss), effects, poses, sprites, draw-*.ts,
+                 scene-renderer.ts
+  ui/            hud, overlay (pausa e fine), screens, main-menu, dungeon-select, inventory-screen + inventory-view (ordinamento/filtri, testabile),
+                 item-card, loot-view, fullscreen, dom
+  audio/         audio-player.ts (Web Audio, ascolta gli eventi)
+src/testing.ts   aiuti per i test (partite con seme e dungeon, intenzioni, esecuzione a passo fisso, contesto del boss)
+```
+
+Flusso: `Game` tiene il personaggio (caricato da `SaveStore`) e la schermata corrente (menu, dungeon, equipaggiamento, partita, pausa, fine). Avviare un dungeon crea un `Match` con `character.loadout()`; `Game.frame` accumula il tempo e chiama a 60 Hz `Match.step(dt, intent)`; `Match` modifica solo se stessa ed emette `GameEvent`; effetti, pose e audio ascoltano gli eventi; alla vittoria `Game` tira il bottino (`rollLoot`), lo aggiunge al personaggio, registra il record e salva PRIMA di mostrare la schermata; `renderScene` disegna leggendo lo stato.
+
+## Convenzioni
+
+- TypeScript **strict**: niente `any`, parametri inutilizzati con prefisso `_`. File in `kebab-case`, classi in `PascalCase`.
+- Testi visibili al giocatore e documentazione in italiano; identificatori nel codice in inglese.
+- **La simulazione non conosce il DOM, il canvas, il tempo reale ne' `Math.random`**: tutto cio' che e' casuale nelle regole passa da un `Rng` iniettato (`SeededRng` nei test e nelle partite), cosi' una partita e' riproducibile con il seme. La casualita' estetica (`cosmeticRng`) vale solo in `presentation/`.
+- **Passo fisso**: la logica avanza solo in `Match.step(dt, intent)` a 1/60 s (mai dipendente dal frame rate); disegno e HUD a ogni fotogramma. Il tempo di partita (`Match.time`) si ferma alla fine.
+- **Dati / comportamento / rappresentazione separati**: i dati (`SkillDefinition`, `ItemFamily`, `ProjectileSpec`, `DangerZoneSpec`, `ArenaDefinition`, `BossDefinition`/`BossStats`, tabelle degli schemi) sono di sola lettura a runtime; il comportamento sta in `skill-effects.ts`, `boss.ts`, `boss-patterns.ts`, `match.ts`; l'aspetto in `presentation/`. I dati scelgono l'aspetto con un id (`ProjectileVisual`), mai con un colore o con un numero (non identificare un proiettile dal raggio). Non mettere regole nella rappresentazione ne' aspetto nei dati.
+- **Eventi**: la simulazione dice cosa e' successo (`GameEvent`), non cosa disegnare o suonare. Aggiungere un effetto o un suono = ascoltare un evento esistente; se manca l'evento, aggiungerlo a `events.ts` e coprirlo con un test.
+- **Valori provvisori**: i valori stanno in tabelle di dati con nome (`PLAYER_STATS`, le `BossStats` di ogni boss, `MAGE_SKILLS`, `item-skills.ts`, `RARITY_STATS`, `LOOT_TABLES`, le tabelle degli schemi, le `ArenaDefinition`, `HIT_RADIUS`), non sepolti nel codice. Sono tutti provvisori (vedi `docs/game-design.md`): non inventare valori definitivi, usare un valore regolabile e segnalarlo.
+- Input solo tramite azioni (`Action`), mai tasti hardcoded; tasti legati per posizione fisica (`event.code`). Le pressioni piu' brevi di un passo non si perdono (`Input.isActionActive` + `takeLatched`).
+- Id stabili (`arcane_bolt`, `frost_orb`, `meteor`, `astral_step`, id degli schemi, `ProjectileVisual`): non rinominarli, li usano test, eventi e rappresentazione.
+- **Oggetti**: 25 famiglie; la famiglia decide skill, slot e classe richiesta, la rarità scala le skill. Un oggetto salvato è `{ uid, familyId, rarity, level? }`; skill e GS si ricalcolano dai dati. Per una nuova famiglia: skill in `item-skills.ts` o `dungeon-item-skills.ts`, voce nel catalogo, requisito in `item-classes.ts`, costo in `SPELL_MANA`, icone oggetto/spell, look ed equipaggiamento nei due corpi, test. Inserire esplicitamente le voci nei pool di `loot-tables.ts`: non derivarli da `exclusiveTo`, che indica solo l'origine. Niente equip di altre classi; gli oggetti incompatibili restano nello zaino.
+- **Salvataggio**: formato v6, raccolta `character-roster` con profili separati. Ogni dato esterno passa da `deserializeRoster` e `deserializeCharacter`; preservare le migrazioni v1–v5 e le copie `...:corrupt` / `...:before-roster`. Una raccolta invalida non si ripara perdendo profili in silenzio. I pezzi di altre classi si rimuovono dagli slot, non dall'inventario. Cambiando il formato incrementare `SAVE_VERSION` e gestire la migrazione.
+- **Dungeon**: per aggiungerne uno creare `features/dungeons/<id>/` con `ArenaDefinition`, `BossDefinition` (schemi con gli attrezzi di `pattern-kit.ts`), `DungeonDefinition`; un tema in `presentation/themes/`, la grafica in `presentation/boss-art/`, gli aspetti in `presentation/looks/`; registrarlo in `dungeons.ts`, nei registri di temi, grafiche e aspetti, e aggiungere la tabella di bottino. `dungeons.test.ts` e' il criterio di accettazione (mappa valida, schemi eseguibili e leggibili, danno limitato, simulazione lunga). L'id del dungeon, del boss e degli schemi e' stabile.
+- Per aggiungere una skill base: `SkillDefinition` (con `visual`) e, se serve un nuovo tipo di effetto, un caso in `skill-effects.ts`, in `Effects.onSkillCast` e (per il suono) in `AudioPlayer`; test.
+- Grafica provvisoria: pixel art nel codice e PNG locali già approvati in `src/assets/portraits/`. Non rigenerare i ritratti sospesi. L'HUD è in DOM sopra il canvas: UI e tooltip leggono le stesse regole del dominio, senza duplicarle.
+
+## Verifica
+
+`npm run verify` (o `.\tools\verify.ps1`) deve terminare con codice 0. I test sono headless (nessun browser) e coprono regole, boss, skill, giocatore, partita, effetti e coerenza dei dati; **non** verificano l'aspetto visivo, la sensazione di gioco, l'interfaccia in DOM (HUD, schermate, pulsanti) ne' il ciclo del browser: quelli si controllano aprendo il gioco (`npm run dev` o `dist/index.html`).
+Fotogrammi renderizzati da uno script (es. Edge headless) e prove di fumo **non** sono prove giocate: la conferma manuale la da' l'utente.
+Dopo aver scritto un test conviene verificare che possa fallire (mutazione temporanea e ripristino): ad esempio cambiare `HIT_RADIUS.player` o togliere `slowSeconds` dalla logica del gelo deve far fallire un test.
+
+## Come lavorare
+
+- **Piccoli incrementi**: una funzionalita' per volta, gioco avviabile a ogni passo; fermarsi a fine incremento in attesa della prova manuale.
+- Prima di cambiare, leggere i file esistenti.
+- Dopo ogni modifica: `npm run verify`. Se si aggiunge comportamento, estendere i test o dichiarare che non e' coperto.
+- **Conferme manuali**: nella documentazione si registra come confermato a mano solo cio' che l'utente ha detto esplicitamente di aver provato. Distinguere sempre controlli automatici, fotogrammi renderizzati e prove manuali ancora da fare.
+- Non inventare valori definitivi o regole per i punti aperti di `docs/game-design.md`: usare un valore provvisorio regolabile, segnalarlo e aggiungerlo ai punti aperti.
+- Registrare i difetti realmente rilevati in `docs/bugs.md`; aggiornare roadmap e design quando una decisione cambia.
+- **Non fare commit, push o repository remoti senza richiesta esplicita.** Mai force push. Commit con messaggio descrittivo in italiano.
+- Non riscrivere file sorgente con `Get-Content`/`Set-Content`/`WriteAllText` in PowerShell 5.1: altera i caratteri non ASCII (il codice usa `·`, `→`, `✦`, `è`). Usare Python (UTF-8 esplicito), Node o lo strumento di modifica.

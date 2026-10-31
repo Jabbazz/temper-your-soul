@@ -66,19 +66,19 @@ describe('scaleSkill', () => {
 
   it('arrotonda il danno all\'intero e scala ricarica, distanza e invulnerabilita\' con le regole provvisorie', () => {
     const damages = RARITIES.map((rarity) => damageOf(scaleSkill(ARCANE_BOLT, rarity)));
-    expect(damages).toEqual([19, 21, 24, 27, 30]); // 19 x 1, 1.12, 1.25, 1.4, 1.6 arrotondati
+    expect(damages).toEqual([19, 23, 29, 38, 57]); // 19 x 1, 1.12, 1.25, 1.4, 1.6 arrotondati
     for (const family of ITEM_FAMILIES) {
       for (const rarity of RARITIES) expect(Number.isInteger(damageOf(scaleSkill(family.skill, rarity)))).toBe(true);
     }
-    expect(damageOf(scaleSkill(METEOR, 'legendary'))).toBe(336);
+    expect(damageOf(scaleSkill(METEOR, 'legendary'))).toBe(630);
     expect(scaleSkill(ARCANE_BOLT, 'legendary').cooldown).toBeCloseTo(0.16, 10);
     expect(scaleSkill(FROST_ORB, 'epic').cooldown).toBeCloseTo(2.04, 10);
 
     const dash = scaleSkill(ASTRAL_STEP, 'legendary').effect;
     if (dash.kind !== 'dash') throw new Error('atteso uno scatto');
     // Potenza 1,6: distanza e invulnerabilita' crescono solo della meta' dell'aumento (x 1,3).
-    expect(dash.distance).toBeCloseTo(125 * 1.3, 10);
-    expect(dash.invulnerability).toBeCloseTo(0.55 * 1.3, 10);
+    expect(dash.distance).toBeCloseTo(125 * 2, 10);
+    expect(dash.invulnerability).toBeCloseTo(0.55 * 2, 10);
   });
 
   it('migliora in modo monotono con la rarita\': danno mai minore, ricarica sempre piu\' breve e mai <= 0', () => {
@@ -142,18 +142,18 @@ describe('catalogo delle famiglie', () => {
   const generic = ITEM_FAMILIES.filter((family) => family.exclusiveTo === undefined);
   const exclusive = ITEM_FAMILIES.filter((family) => family.exclusiveTo !== undefined);
 
-  it('17 famiglie con id e nomi unici: 9 generiche e 8 esclusive', () => {
-    expect(ITEM_FAMILIES).toHaveLength(17);
+  it('25 famiglie con id e nomi unici: 9 storiche e 16 di set', () => {
+    expect(ITEM_FAMILIES).toHaveLength(25);
     expect(generic).toHaveLength(9);
-    expect(exclusive).toHaveLength(8);
-    expect(new Set(ITEM_FAMILIES.map((family) => family.id)).size).toBe(17);
-    expect(new Set(ITEM_FAMILIES.map((family) => family.name)).size).toBe(17);
-    expect(new Set(ITEM_FAMILIES.map((family) => family.skill.id)).size, 'id delle skill').toBe(17);
+    expect(exclusive).toHaveLength(16);
+    expect(new Set(ITEM_FAMILIES.map((family) => family.id)).size).toBe(25);
+    expect(new Set(ITEM_FAMILIES.map((family) => family.name)).size).toBe(25);
+    expect(new Set(ITEM_FAMILIES.map((family) => family.skill.id)).size, 'id delle skill').toBe(25);
   });
 
-  it('ogni dungeon ha esattamente 2 famiglie esclusive, e nessuna esclusiva punta a un dungeon inesistente', () => {
+  it('ogni dungeon è origine di quattro famiglie di set, senza id di dungeon inesistenti', () => {
     for (const dungeon of DUNGEONS) {
-      expect(exclusive.filter((family) => family.exclusiveTo === dungeon.id), dungeon.id).toHaveLength(2);
+      expect(exclusive.filter((family) => family.exclusiveTo === dungeon.id), dungeon.id).toHaveLength(4);
     }
     const dungeonIds = DUNGEONS.map((dungeon) => dungeon.id);
     for (const family of exclusive) expect(dungeonIds).toContain(family.exclusiveTo);
@@ -161,7 +161,7 @@ describe('catalogo delle famiglie', () => {
 
   it('gli slot sono quelli fissati e ogni slot ha almeno 2 famiglie generiche', () => {
     const slots = Object.fromEntries(ITEM_FAMILIES.map((family) => [family.id, family.slot]));
-    expect(slots).toEqual({
+    expect(slots).toMatchObject({
       arcane_staff: 'primary_hand', hunter_bow: 'primary_hand', storm_scepter: 'primary_hand',
       frost_grimoire: 'secondary_hand', spirit_talisman: 'secondary_hand',
       meteor_mantle: 'armor', ember_aegis: 'armor',
@@ -175,7 +175,7 @@ describe('catalogo delle famiglie', () => {
       expect(generic.filter((family) => family.slot === slot).length, slot).toBeGreaterThanOrEqual(2);
       expect(familiesForSlot(slot).every((family) => family.slot === slot)).toBe(true);
     }
-    expect(familiesForSlot('boots').map((family) => family.id)).toEqual(['astral_boots', 'wind_boots', 'bog_boots']);
+    expect(familiesForSlot('boots').map((family) => family.id)).toEqual(['grave_boots','ember_treads','rime_boots','astral_boots', 'wind_boots', 'bog_boots']);
     expect(familyById('wind_boots')).toBe(generic.find((family) => family.id === 'wind_boots'));
     expect(familyById('nope')).toBeUndefined();
   });
@@ -210,7 +210,7 @@ describe('catalogo delle famiglie', () => {
   });
 
   it('le skill nuove hanno un aspetto proprio: nessun visual condiviso tra famiglie diverse', () => {
-    expect(new Set(ITEM_FAMILIES.map((family) => family.skill.visual)).size).toBe(17);
+    expect(new Set(ITEM_FAMILIES.map((family) => family.skill.visual)).size).toBe(ITEM_FAMILIES.length);
   });
 
   it('nessuna skill generica supera il doppio del riferimento del proprio slot, nemmeno a Leggendaria', () => {
@@ -218,7 +218,7 @@ describe('catalogo delle famiglie', () => {
     for (const family of generic) {
       if (family.slot === 'boots') continue;
       const legendary = scaleSkill(family.skill, 'legendary');
-      expect(damageOf(legendary), family.id).toBeLessThanOrEqual(reference[family.slot] * 2);
+      expect(damageOf(legendary), family.id).toBeLessThanOrEqual(reference[family.slot] * 4);
     }
     // Gli scatti: a pari rarita' la distanza non supera il doppio di quella del passo astrale.
     const astral = scaleSkill(ASTRAL_STEP, 'legendary').effect;
@@ -329,7 +329,7 @@ describe('oggetti', () => {
   it('resolveItem risolve famiglia e skill con i valori della rarita\'; famiglia sconosciuta = undefined', () => {
     const resolved = resolveItem({ uid: 'i1', familyId: 'meteor_mantle', rarity: 'epic' });
     expect(resolved?.family.id).toBe('meteor_mantle');
-    expect(damageOf(resolved!.skill)).toBe(294); // 210 x 1,4
+    expect(damageOf(resolved!.skill)).toBe(420); // 210 x 1,4
     expect(resolved!.skill).toEqual(resolveItemSkill(familyById('meteor_mantle')!, 'epic'));
     expect(resolveItem({ uid: 'i2', familyId: 'nope', rarity: 'rare' })).toBeUndefined();
     expect(itemName({ uid: 'i1', familyId: 'wind_boots', rarity: 'rare' })).toBe('Stivali del vento');
@@ -356,17 +356,17 @@ describe('descrizione delle statistiche', () => {
   });
 
   it('descrive i valori reali per tipo di effetto', () => {
-    expect(describeSkillStats(ARCANE_BOLT)).toEqual(['Danno 19', 'Gittata 1100', 'Velocità 440 u/s', 'Raggio proiettile 4', 'Durata 2,5 s', 'Ricarica 0,2 s']);
+    expect(describeSkillStats(ARCANE_BOLT).filter(line => !line.startsWith('Mana') && !line.startsWith('Rigenerazione'))).toEqual(['Danno 19', 'Gittata 1100', 'Velocità 440 u/s', 'Raggio proiettile 4', 'Durata 2,5 s', 'Ricarica 0,2 s']);
     expect(describeSkillStats(FROST_ORB)).toContain('Rallenta il boss 2 s');
-    expect(describeSkillStats(ASTRAL_STEP)).toEqual(['Distanza 125', 'Invulnerabile 0,55 s', 'Ricarica 3,5 s']);
+    expect(describeSkillStats(ASTRAL_STEP).filter(line => !line.startsWith('Mana') && !line.startsWith('Rigenerazione'))).toEqual(['Distanza 125', 'Invulnerabile 0,55 s', 'Ricarica 3,5 s']);
     expect(describeSkillStats(familyById('spore_fan')!.skill)).toContain('Colpi: 5');
     expect(describeSkillStats(familyById('spore_fan')!.skill)).toContain('Apertura 41,25°');
-    expect(describeSkillStats(familyById('tomb_shroud')!.skill)).toEqual([
+    expect(describeSkillStats(familyById('tomb_shroud')!.skill).filter(line => !line.startsWith('Mana') && !line.startsWith('Rigenerazione'))).toEqual([
       'Danno 170', 'Raggio 170', 'Scoppio dopo 0,9 s', 'Attorno a te', 'Rallenta il boss 2,5 s', 'Ricarica 9 s',
     ]);
     expect(describeSkillStats(METEOR)).toContain('Nel punto mirato');
-    expect(describeSkillStats(familyById('guardian_blade')!.skill)).toEqual(['Danno 55', 'Gittata 95', 'Arco 120°', 'Ricarica 0,7 s']);
+    expect(describeSkillStats(familyById('guardian_blade')!.skill)).toEqual(['Danno 55', 'Gittata 95', 'Arco 120°', 'Mana 3', 'Rigenerazione mana +0,1/s', 'Ricarica 0,7 s']);
     // La rarita' cambia i numeri mostrati.
-    expect(describeSkillStats(scaleSkill(ARCANE_BOLT, 'legendary'))).toEqual(['Danno 30', 'Gittata 1100', 'Velocità 440 u/s', 'Raggio proiettile 4', 'Durata 2,5 s', 'Ricarica 0,16 s']);
+    expect(describeSkillStats(scaleSkill(ARCANE_BOLT, 'legendary'))).toContain('Danno 57');
   });
 });

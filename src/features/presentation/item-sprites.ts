@@ -21,6 +21,14 @@ export const BACKPACK_SPRITE = art([
 ], '#93623e', '#ce9860', '#88bbb0');
 
 export const ITEM_SPRITES: Readonly<Record<string, ItemSprite>> = {
+  ossuary_lantern:art(['......ggg','.....g...g','.....ggggg','....ogggggo','....omwwmmo','....omwwmmo','....omwwmmo','....ogggggo','.....ohmho','......ooo'], '#6b7765','#d6dec2','#9be5b2'),
+  grave_boots:art(['...oooo..oooo','...ohho..ohho','...ommo..ommo','...ohho..ohho','...osso..osso','...ommoo.ommoo','..ohmmmoohmmmo','..oggggooggggo','...oooo..oooo'], '#7a7772','#e2dbc0','#a9bba5'),
+  thorn_bow:art(['.........gg','........gm','...a....mg','....a..gm','.....a.mg','......gg','.....gmg','....mg.a','...gm...a','..gm.....a','...gg'], '#54753c','#ceda89','#a07551'),
+  reed_mantle:art(['.....g..g','....mg..gm','...ommmmmmo','..ommaammmo','..omaammaamo','...ommmmmmo','...ommmmmmo','..gmgmgmgmg','..gmgmgmgmg','...g.g.g.g'], '#557146','#c1ca83','#9cac52'),
+  cinder_orb:art(['......aaa','....aawwaa','...agmmmmga','...gmmwwmmg','..agmmwwmmga','...gmmmmmmg','...agmmmmga','....gggggg','.....oggo','......oo'], '#773a31','#ffc268','#ec7334'),
+  ember_treads:art(['...oooo..oooo','...ommo..ommo','...oaao..oaao','...owwo..owwo','...oaao..oaao','...ommoo.ommoo','..omwaaoomwaao','..oggggooggggo','...oooo..oooo'], '#68433b','#ffd287','#ff823b'),
+  glacier_mirror:art(['.....aaaaa','....ahhhha','...ahwwwhha','...ahwmwwha','...ahwwmwha','...ahwwwhha','....ahhhha','.....aaaa','......gg','......gg','......oo'], '#5186a7','#d8f8ff','#8bc8ed'),
+  rime_boots:art(['....a....a','...aha..aha','...ommo..ommo','..ahmmo.ahmmo','...ommo..ommo','...ommoo.ommoo','..ohmmmoohmmmo','..oaaooooaaoo','...oooo..oooo'], '#547e9c','#e2faff','#9cd6ef'),
   arcane_staff: art(['.........aa', '........ahwa', '........aaao', '.........go', '........ogo', '.......ogo', '......ogo', '.....ogo', '....ogo', '...ogo', '..ogo', '..oo'], '#8d61b9', '#cfb1f7', '#b984f4'),
   hunter_bow: art(['....og', '.....ogh', '.....og.h', '......og.h', '......og..h', '..aaaaagggwa', '......og..h', '......og.h', '.....og.h', '.....ogh', '....og'], '#98704c', '#e6c493', '#93b87b'),
   storm_scepter: art(['.......a', '......awa', '.....ahmha', '......ama', '.....oggo', '......go', '......go', '......go', '.....ogo', '.....go', '.....go', '....ogo'], '#438d9d', '#b4ecdf', '#64d9f3'),

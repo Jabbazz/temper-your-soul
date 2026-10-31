@@ -1,6 +1,6 @@
 import { between } from '../../../core/rng';
 import { TAU, Vec2 } from '../../../core/vec2';
-import { clampToArena } from '../../arena/arena';
+import { clampToArena, pushOutOfPillars } from '../../arena/arena';
 import type { Boss, Charge } from '../../boss/boss';
 import type { BossContext } from '../../boss/boss-context';
 import { pick, type BossPattern, type ByPhase } from '../../boss/boss-definition';
@@ -179,9 +179,9 @@ export const BLINK = {
  * schiaccerebbe contro il giocatore, si prova il lato opposto.
  */
 export function blinkLanding(boss: Boss, target: Vec2, angle: number, distance: number): Vec2 {
-  const landing = pointAround(boss, target, angle, distance);
+  const landing = pushOutOfPillars(boss.arena, pointAround(boss, target, angle, distance), boss.stats.hitRadius);
   if (landing.distanceTo(target) >= distance * 0.6) return landing;
-  return pointAround(boss, target, angle + Math.PI, distance);
+  return pushOutOfPillars(boss.arena, pointAround(boss, target, angle + Math.PI, distance), boss.stats.hitRadius);
 }
 
 function land(landing: Vec2) {

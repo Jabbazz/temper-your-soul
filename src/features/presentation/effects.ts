@@ -21,6 +21,7 @@ const CAST_COLORS: Readonly<Record<string, string>> = {
   arcane_bolt: '#c8a7ff',
   frost_orb: '#a5efff',
   meteor: '#cba5ff',
+  grave_step:'#b7d5b9',ember_step:'#ff8c49',rime_step:'#9fe5ff',reed_burst:'#a8cb75',
 };
 
 export interface Particle {
@@ -216,9 +217,10 @@ export class Effects {
         // Il segnale e lo scoppio sono della zona; attorno al lanciatore si vede solo un anello.
         if (origin.equals(destination)) this.wave(origin, 30, CAST_COLORS[event.visual] ?? '#cba5ff', 0.3);
         break;
-      case 'dash':
-        this.burst(origin, '#b8a4ef');
-        this.wave(origin, 24, '#b8a4ef');
+      case 'dash': {
+        const color=CAST_COLORS[event.visual]??'#b8a4ef';
+        this.burst(origin, color);
+        this.wave(origin, 24, color);
         for (let j = 0; j < 30; j++) {
           const u = j / 30;
           const point = origin.lerp(destination, u);
@@ -227,14 +229,15 @@ export class Effects {
             point.y,
             (this.rng.next() - 0.5) * 25,
             (this.rng.next() - 0.5) * 25,
-            '#c6acff',
+            CAST_COLORS[event.visual]??'#c6acff',
             0.25 + u * 0.3,
             2 + this.rng.next() * 3,
           );
         }
-        this.wave(destination, 28, '#dfccff');
-        this.burst(destination, '#b8a4ef');
+        this.wave(destination, 28, CAST_COLORS[event.visual]??'#dfccff');
+        this.burst(destination, color);
         break;
+      }
       case 'melee_arc': {
         const color = CAST_COLORS[event.visual] ?? '#ffd9a0';
         const range = event.range ?? 80;

@@ -1,8 +1,11 @@
+import type { CharacterAppearance } from '../character/appearance';
+import { characterPixels, DEFAULT_APPEARANCE } from './character-art';
 import type { Boss } from '../boss/boss';
 import type { Player } from '../player/player';
 import { bossArt } from './boss-art';
 import type { ActorPoses } from './poses';
-import { drawSprite, MAGE_CASTING, MAGE_PALETTE, MAGE_WALK } from './sprites';
+import { PLAYER_CAST_POSE } from './poses';
+import { drawSprite } from './sprites';
 
 function drawShadow(ctx: CanvasRenderingContext2D, x: number, y: number, radiusX: number, radiusY: number, color: string): void {
   ctx.fillStyle = color;
@@ -12,7 +15,7 @@ function drawShadow(ctx: CanvasRenderingContext2D, x: number, y: number, radiusX
 }
 
 /**
- * Disegna il mago, rivolto verso la mira. L'ombra c'e' sempre; il corpo solo se `visible` (lampeggia durante
+ * Disegna corpo e strati equipaggiati, rivolti verso la mira. L'ombra c'e' sempre; il corpo solo se `visible` (lampeggia durante
  * l'invulnerabilita', deciso dal chiamante).
  */
 export function drawPlayer(
@@ -21,25 +24,24 @@ export function drawPlayer(
   poses: ActorPoses,
   time: number,
   visible: boolean,
+  appearance: CharacterAppearance = DEFAULT_APPEARANCE,
 ): void {
   drawShadow(ctx, player.position.x, player.position.y + 14, 14, 5, '#080b1480');
   if (!visible) return;
-  const frame = Math.floor(poses.walkPhase) % 4;
+  const slots = ['primary_hand','secondary_hand','armor','boots'] as const;
+  const attackSlot=slots[player.skillBar.skills.findIndex(skill=>skill?.id===poses.playerSkillId)] ?? 'primary_hand';
+  const motion = poses.playerCast > 0
+    ? {state: 'cast' as const, attackSlot, frame: Math.min(7,Math.floor((1-poses.playerCast/PLAYER_CAST_POSE)*8))}
+    : player.moving ? {state:'walk' as const,frame:Math.floor(poses.walkPhase)%8}
+    : {state:'idle' as const,frame:Math.floor(time*4)%8};
   const facing = player.aim.x < player.position.x ? -1 : 1;
   ctx.save();
   ctx.translate(Math.round(player.position.x), Math.round(player.position.y));
   ctx.scale(facing, 1);
-  drawSprite(
-    ctx,
-    poses.playerCast > 0 ? MAGE_CASTING : MAGE_WALK[frame]!,
-    0,
-    player.moving && frame % 2 ? -1 : 0,
-    2,
-    MAGE_PALETTE,
-  );
-  if (poses.playerCast > 0) {
-    ctx.fillStyle = Math.floor(time * 35) % 2 ? '#f0dcff' : '#b39cff';
-    ctx.fillRect(9, -13, 5, 5);
+  const art=characterPixels(appearance,'game',0,false,motion);
+  for(let y=0;y<art.height;y++) for(let x=0;x<art.width;x++) {
+    const color=art.pixels[y]![x];if(!color) continue;
+    ctx.fillStyle=color;ctx.fillRect(x-art.width/2,y-art.height+15,1,1);
   }
   ctx.restore();
 }

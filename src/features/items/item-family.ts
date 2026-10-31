@@ -1,5 +1,6 @@
 import type { SkillDefinition } from '../skills/skill-definition';
 import type { EquipmentSlot } from './equipment-slot';
+import type { CharacterClass } from '../character/character-class';
 
 /**
  * Una famiglia di oggetti: determina lo slot e la skill che l'oggetto concede (come in Ashen Realm, la famiglia
@@ -12,8 +13,9 @@ export interface ItemFamily {
   readonly name: string;
   readonly description: string;
   readonly slot: EquipmentSlot;
+  readonly characterClass:CharacterClass;
   /** La skill concessa, con i valori a rarita' Comune (vedi `scaleSkill` per le altre). */
   readonly skill: SkillDefinition;
-  /** Id del dungeon il cui boss la fa cadere; assente = famiglia generica (cade da tutti i boss). */
+  /** Dungeon di origine del set; può comparire come alternativa inferiore altrove. Le fonti reali sono in LOOT_TABLES. */
   readonly exclusiveTo?: string;
 }

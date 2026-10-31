@@ -1,3 +1,4 @@
+import { manaCost } from './mana';
 import { Vec2 } from '../../core/vec2';
 import { clampToArena, pushOutOfPillars } from '../arena/arena';
 import { BODY_RADIUS } from '../combat/collision';
@@ -25,6 +26,9 @@ export function tryCastSkill(slot: number, ctx: SkillContext): boolean {
   const { player } = ctx;
   const skill = player.skillBar.skillAt(slot);
   if (skill === null || !player.skillBar.isReady(slot)) return false;
+  const cost = manaCost(skill);
+  if (player.mana < cost) return false;
+  player.mana -= cost;
   player.skillBar.start(slot);
   executeSkill(skill, ctx);
   return true;
