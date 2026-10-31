@@ -99,3 +99,86 @@ Boss grandi top-down CC0 di qualità: nessuno verificato. La via realistica rest
 | Internet Archive | `advancedsearch.php`, senza chiave | `licenseurl:(*publicdomain*)` | — | Licenze dichiarate da chi carica: verificarle |
 | Wikimedia Commons | API MediaWiki | Sì | — | Da questo PC `upload.wikimedia.org` è troppo lento |
 | OpenGameArt, Musopen, IMSLP, FMA | Nessuna API utile; OGA risponde 403 alle letture automatiche, Musopen ha una verifica anti-bot | — | — | Leggerli con il browser |
+
+## Studio: pixel art per boss, servitori, effetti e schermate (1 novembre 2026)
+
+Ricerca di approfondimento, solo pagine web, nessun download. **V** = verificato sulla pagina; **D** = dedotto; **(!)** = licenza da ricontrollare nel pacchetto. Quasi tutta la pixel art animata libera è **laterale**: in un gioco dall'alto si usa specchiandola in orizzontale. Le rare risorse davvero dall'alto sono segnate **TD**.
+
+**Vincolo del progetto:** la revisione grafica di sprite e ritratti è sospesa da Jabbaz. Questo studio serve a **decidere** il prossimo lotto grafico: nulla va scaricato senza il suo consenso e quello dell'utente.
+
+### Boss
+
+| Risorsa · autore | Licenza | Formato | Uso proposto |
+| --- | --- | --- | --- |
+| [Enemy Galore I](https://opengameart.org/content/enemy-galore-i) · Admurin | CC BY 4.0 su OGA **V** (!) | 32×32, 12 nemici, 479 fotogrammi; il golem corazzato ha una "rottura dell'armatura" | Colosso della fornace, ingrandito ×3 e ricolorato lava; la rottura dell'armatura diventa la fase II |
+| [[LPC] Golem](https://opengameart.org/content/lpc-golem) · Redshrike | CC BY 3.0/4.0 (scegliere CC BY tra quelle elencate) **V** | 64×64 **TD**, camminata, attacco e morte in 4 direzioni | Colosso (alternativa dall'alto vera) |
+| [Animated Statue](https://opengameart.org/content/animated-statue) · Calciumtrice | CC BY 3.0 **V** | 64×64, risveglio, camminata, attacco, sgretolamento | Guardiano della cripta: statua con crepe e occhi di brace |
+| [Demon Flower Monster](https://opengameart.org/content/demon-flower-monster-sprite-sheet) · Rosswet Mobile | CC BY 3.0 **V** | 64×64, idle, salto, attacchi, morte, proiettile | Madre delle spore, desaturata |
+| [EVil Wizard 2](https://luizmelo.itch.io/evil-wizard-2) · LuizMelo | CC0, "no generative AI" **V** | circa 80 px su tela 250×250, idle, corsa, 2 attacchi, colpito, morte | Custode del ghiaccio, ricolorato gelo con teletrasporto a dissolvenza |
+| [Boss Cohort](https://opengameart.org/content/boss-cohort) · Gilgaphoenixignis | CC BY 3.0/4.0 **V** | ritratti statici 84–111 px | Ritratti dei boss nelle schermate finali o nell'introduzione |
+
+Scartati: Ars Notoria (alcune parti sono CC BY-SA, lo dice l'autore nei commenti), CraftPix (licenza OGA-BY), pacchetti che spuntano tutte le licenze insieme, risorse legate a giochi protetti o modelli 3D.
+
+### Servitori
+
+| Tema | Risorsa · autore | Licenza | Formato |
+| --- | --- | --- | --- |
+| Cripta | [Skeletons Rework](https://opengameart.org/content/skeletons-rework) · AntumDeluge | CC0 **V** | 24×32 **TD**, idle e camminata |
+| Cripta | [Skull Enemy](https://chrisppop.itch.io/skeleton-head) · ChrisPpop | CC0, "no generative AI" **V** | 32×32, idle, movimento, attacco, colpito, morte (teschio di brace) |
+| Tutti i temi | [16x16, 16x24, 32x32 rpg enemies](https://opengameart.org/content/16x16-16x24-32x32-rpg-enemies-updated) · Redshrike | CC BY 3.0 **V** | vista 3/4 **TD**, funghi, gelatine, scheletri, golem, fiammelle |
+| Palude | [Forest Monsters](https://opengameart.org/content/forest-monsters) · Calciumtrice | CC BY 3.0 **V** | 32×32, pianta che sputa veleno con nube animata |
+| Palude | [Animated Mushroom Monster](https://opengameart.org/content/animated-mushroom-monster-pixel-art) · ScratchIO | CC0 **V** | 29×28, comparsa, attacco, colpito, morte |
+| Fucina | [[LPC] Imp](https://opengameart.org/content/lpc-imp) · Redshrike | CC BY 3.0/4.0 **V** | 64×64 **TD**, 5 varianti |
+| Ghiaccio | [Ghost animated](https://opengameart.org/content/ghost-animated) (ghostIce) · LetargicDev | CC0 **V** | 32×32, camminata, attacco, morte |
+| Ghiaccio | [Bat (Rework)](https://opengameart.org/content/bat-rework) | CC BY 3.0 **V** | 32×32 **TD**, volo in 4 direzioni |
+
+### Effetti e interfaccia
+
+| Uso | Risorsa · autore | Licenza |
+| --- | --- | --- |
+| Scintille e impatti | [Pixel FX Pack](https://opengameart.org/content/pixel-fx-pack) · CodeManu | CC0 **V** |
+| Esplosioni | [Explosion Set 1](https://opengameart.org/content/explosion-set-1-m484-games) · Master484; [explosion animations](https://opengameart.org/content/explosion-animations) · Jetrel | CC0 **V** |
+| Fendente | [Pixel art sword slash](https://opengameart.org/content/pixel-art-sword-slash-effect) · tbbk | CC0 **V** |
+| Incantesimi | [Pixel Art Spells](https://opengameart.org/content/pixel-art-spells) · DevWizard | CC0 **V** |
+| Stendardi e cornici | [Golden UI](https://opengameart.org/content/golden-ui) · Buch (da ricolorare in rame); [Fantasy UI Borders](https://kenney.nl/assets/fantasy-ui-borders) · Kenney | CC0 **V** |
+| Barra del boss | [Thorns – Health Bar](https://opengameart.org/content/thorns-health-bar) · Cethiel | CC0 **V** |
+| Trofei e teschi | [CC0 Award Icons](https://opengameart.org/content/cc0-award-icons) · AntumDeluge | CC0 **V** |
+| Numeri del danno | font Jersey 10, Tiny5, Pixelify Sans (Google Fonts) | OFL **V** |
+
+L'onda d'urto della fase II, le braci e i coriandoli conviene farli nel codice, come già oggi: un anello che si espande, un lampo di due fotogrammi, una scossa e un cambio di palette.
+
+### Metodo per trovarne altra
+
+- **OpenGameArt**: ricerca avanzata filtrata per licenza. Nell'indirizzo `field_art_licenses_tid[]` vale 4 per CC0, 2 per CC BY 3.0, 17981 per CC BY 4.0. Da evitare: 3 e 17982 (licenze SA), 10310 e 31772 (OGA-BY). Il materiale assistito da IA sta nella collezione "Artificial Intelligence Assisted Artwork", con il download disattivato.
+- **itch.io**: il filtro `/game-assets/assets-cc0/tag-pixel-art/tag-no-ai` funziona. Dal novembre 2024 dichiarare l'uso di IA è obbligatorio: cercare la frase "No generative AI was used".
+- **Autori affidabili**: Calciumtrice, Redshrike, ansimuz, LuizMelo, AntumDeluge, Clint Bellanger, Master484, Buch, Cethiel, GrafxKid, Kenney.
+- **Verifica della licenza**:
+  - confrontare la pagina con il file di licenza dentro il pacchetto e con i commenti;
+  - se discordano vale la più restrittiva;
+  - registrare URL, autore, licenza e data nei crediti.
+- **Unificare stili diversi**:
+  - una palette sola (Resurrect 64 o Endesga 32), applicata a colori indicizzati;
+  - ingrandimenti solo interi (×2, ×3);
+  - un solo stile di contorno;
+  - luce dall'alto a sinistra;
+  - 8–12 fotogrammi al secondo;
+  - la stessa ombra ellittica.
+- **Strumenti gratuiti**: LibreSprite (GPLv2), Pixelorama (MIT, anche via web), Piskel (Apache-2.0, nel browser), Aseprite compilato dal sorgente per uso personale.
+- **Commissione a un artista**, stima indicativa:
+  - un boss di circa 40 fotogrammi costa 250–800 $;
+  - otto servitori da 32 px costano 500–1300 $;
+  - nel contratto: palette del gioco, file sorgente, cessione della licenza, nessuna IA.
+- **Sprite procedurali nel codice**: adatti a servitori ed effetti (come gli attuali), meno ai boss.
+
+### Primo lotto grafico proposto (da decidere con Jabbaz)
+
+| # | Risorsa | Licenza | Per cosa | Peso |
+| --- | --- | --- | --- | --- |
+| 1 | Enemy Galore I (Admurin) | CC BY 4.0 (controllare il file nel pacchetto) | Colosso della fornace con rottura dell'armatura in fase II; sassi, teschi, pipistrelli | 1,5 MB |
+| 2 | Calciumtrice: Statue, Skeleton, Forest Monsters, Rat and Bat | CC BY 3.0 | Guardiano della cripta, scheletri, pianta di spore | circa 60 KB |
+| 3 | Redshrike, rpg enemies 16/24/32 | CC BY 3.0 | Servitori in vista 3/4 per tutti i temi | 17 KB |
+| 4 | Demon Flower Monster (Rosswet Mobile) | CC BY 3.0 | Madre delle spore | 207 KB |
+| 5 | LuizMelo: EVil Wizard 2 e Monsters Creatures Fantasy | CC0, senza IA | Custode del ghiaccio; fungo, scheletro, occhio volante | circa 140 KB |
+
+Circa 1,9 MB di archivi; i PNG effettivamente usati resterebbero sotto i 300 KB. Si aggiungerebbero circa 0,5 MB di effetti (Pixel FX Pack, Explosion Set 1, fendente di tbbk). I crediti CC BY vanno citati (Admurin, Calciumtrice, Stephen "Redshrike" Challener con link a OpenGameArt.org, Rosswet Mobile). Gli sprite di LuizMelo sono più grandi (60–80 px): vanno usati per boss o nemici d'élite, non mescolati ai servitori da 32 px.
+

@@ -46,7 +46,7 @@ Valori nuovi tutti provvisori, nelle tabelle con nome: durate delle pause, sogli
 
 ## 4. Da fare in seguito
 
-- Ridisegno vero dei boss in pixel art più dettagliata (vedi lo studio sulle fonti in `risorse-libere.md`), quando Jabbaz riaprirà la revisione grafica.
+- Ridisegno vero dei boss e dei servitori in pixel art più dettagliata: lo studio sulle fonti, con un primo lotto proposto, è in `risorse-libere.md` (sezione «Studio: pixel art per boss, servitori, effetti e schermate»). Da decidere con Jabbaz, che ha sospeso la revisione grafica.
 - Suoni dedicati per servitori e colpi mancati (secondo lotto audio).
 - Camera: limiti ai bordi e interpolazione del disegno (debito noto).
 - Statistiche per giocatore anche nel resoconto cooperativo (precisione, colpo più forte) oltre alla tabella attuale.
