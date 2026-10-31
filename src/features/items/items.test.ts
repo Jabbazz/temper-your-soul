@@ -356,16 +356,17 @@ describe('descrizione delle statistiche', () => {
   });
 
   it('descrive i valori reali per tipo di effetto', () => {
-    expect(describeSkillStats(ARCANE_BOLT)).toEqual(['Danno 19', 'Gittata 1100', 'Ricarica 0,2 s']);
+    expect(describeSkillStats(ARCANE_BOLT)).toEqual(['Danno 19', 'Gittata 1100', 'Velocità 440 u/s', 'Raggio proiettile 4', 'Durata 2,5 s', 'Ricarica 0,2 s']);
     expect(describeSkillStats(FROST_ORB)).toContain('Rallenta il boss 2 s');
     expect(describeSkillStats(ASTRAL_STEP)).toEqual(['Distanza 125', 'Invulnerabile 0,55 s', 'Ricarica 3,5 s']);
     expect(describeSkillStats(familyById('spore_fan')!.skill)).toContain('Colpi: 5');
+    expect(describeSkillStats(familyById('spore_fan')!.skill)).toContain('Apertura 41,25°');
     expect(describeSkillStats(familyById('tomb_shroud')!.skill)).toEqual([
       'Danno 170', 'Raggio 170', 'Scoppio dopo 0,9 s', 'Attorno a te', 'Rallenta il boss 2,5 s', 'Ricarica 9 s',
     ]);
     expect(describeSkillStats(METEOR)).toContain('Nel punto mirato');
     expect(describeSkillStats(familyById('guardian_blade')!.skill)).toEqual(['Danno 55', 'Gittata 95', 'Arco 120°', 'Ricarica 0,7 s']);
     // La rarita' cambia i numeri mostrati.
-    expect(describeSkillStats(scaleSkill(ARCANE_BOLT, 'legendary'))).toEqual(['Danno 30', 'Gittata 1100', 'Ricarica 0,16 s']);
+    expect(describeSkillStats(scaleSkill(ARCANE_BOLT, 'legendary'))).toEqual(['Danno 30', 'Gittata 1100', 'Velocità 440 u/s', 'Raggio proiettile 4', 'Durata 2,5 s', 'Ricarica 0,16 s']);
   });
 });

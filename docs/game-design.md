@@ -99,3 +99,9 @@ Il porting della Fase 0 conservava regole e valori; restano queste differenze (t
 - Raggi di collisione (oggi incoerenti di 1 tra proiettili e zone), perforazione e rimbalzo dei proiettili, pilastri distruttibili o che fermano anche le zone.
 - Camera: limiti ai bordi, smorzamento, interpolazione del disegno (su schermi a più di 60 Hz il movimento può sembrare lievemente a scatti).
 - Direzione artistica e audio definitivi; controlli (rimappatura, controller, touch/mobile); piattaforme e pubblicazione.
+
+### Inventario a slot (2026-10-31)
+
+Lo zaino si apre dal pulsante con icona pixel art nel menu. Equipaggiamento e bottino usano slot compatti con uno sprite originale 16×16 per ciascuna delle 17 famiglie (`presentation/item-sprites.ts`). La famiglia conserva lo stesso sprite a ogni rarità; bordo dello slot e nome nel tooltip usano il colore della rarità. Il tooltip appare al passaggio del mouse e al focus tastiera, con nome, rarità testuale, slot, abilità e statistiche risolte dalla rarità (anche velocità, raggio, durata e apertura totale dei proiettili).
+
+Un clic seleziona l'oggetto nello zaino e mostra i comandi Equipaggia/Scarta; lo scarto mantiene la conferma in due passi. Gli oggetti equipaggiati sono segnati con E e si rimuovono dai quattro slot superiori. Filtri, ordinamento, salvataggi e regole del bottino restano quelli esistenti. Nessuna nuova capienza o statistica di bilanciamento introdotta.

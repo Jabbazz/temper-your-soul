@@ -75,3 +75,7 @@ L'ordine dipende dalle risposte ai punti aperti di `docs/game-design.md`, soprat
 7. **Grafica e audio definitivi**: sostituzione delle forme e della pixel art provvisorie, musica.
 8. **Controlli e piattaforme**: rimappatura tasti, controller, touch.
 9. **Sviluppi successivi**: classifiche, co-op, altro.
+
+## Inventario a slot e sprite (2026-10-31)
+
+Implementati pulsante zaino, 17 sprite originali per le famiglie esistenti, griglia con bordi per rarità e tooltip su mouse/focus condivisi con il bottino. Selezione e comandi di equipaggiamento/scarto separati dalla griglia. Controlli automatici: catalogo sprite completo e matrici valide, statistiche risolte, suite `verify`; prova browser automatica con dati di test per selezione, equipaggia/rimuovi, conferma scarto, tooltip e viewport da 390 px. **Prova manuale dell'utente ancora da eseguire**, in particolare riconoscibilità degli sprite e comodità dei tooltip.

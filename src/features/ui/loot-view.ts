@@ -1,6 +1,6 @@
 import type { Item } from '../items/item';
 import { el, formatSeconds } from './dom';
-import { renderItemCard } from './item-card';
+import { renderItemSlot } from './item-slot';
 
 /** Cosa e' cambiato nei record del dungeon dopo la vittoria. */
 export interface VictoryRecord {
@@ -23,7 +23,7 @@ export function renderLoot(items: readonly Item[], record: VictoryRecord, saved:
   root.append(el('h4', 'loot-title', items.length === 1 ? 'Bottino: 1 oggetto' : `Bottino: ${items.length} oggetti`));
   const grid = el('div', 'loot-grid');
   for (const item of items) {
-    const card = renderItemCard(item, { badge: 'Nuovo' });
+    const card = renderItemSlot(item, { badge: 'Nuovo' });
     if (card !== null) grid.append(card);
   }
   root.append(grid);

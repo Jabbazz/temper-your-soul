@@ -55,6 +55,12 @@ export function describeSkillStats(skill: SkillDefinition): string[] {
       lines.push(`Danno ${formatNumber(projectile.damage)}`);
       if (count !== undefined && count > 1) lines.push(`Colpi: ${count}`);
       lines.push(`Gittata ${formatNumber(Math.round(projectile.speed * projectile.lifetime))}`);
+      lines.push(`Velocità ${formatNumber(projectile.speed)} u/s`);
+      lines.push(`Raggio proiettile ${formatNumber(projectile.radius)}`);
+      lines.push(`Durata ${formatNumber(projectile.lifetime)} s`);
+      if (effect.spread !== undefined && (count ?? 1) > 1) {
+        lines.push(`Apertura ${formatNumber((effect.spread * ((count ?? 1) - 1) * 180) / Math.PI)}°`);
+      }
       if (projectile.slowSeconds !== undefined && projectile.slowSeconds > 0) {
         lines.push(`Rallenta il boss ${formatNumber(projectile.slowSeconds)} s`);
       }

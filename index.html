@@ -41,7 +41,7 @@
           <p class="menu-text">Scegli un dungeon, sconfiggi il suo boss e forgia il tuo equipaggiamento: ogni oggetto cambia le tue abilità.</p>
           <div class="menu-buttons">
             <button id="menu-dungeons" type="button">Dungeon →</button>
-            <button id="menu-inventory" type="button" class="secondary">Equipaggiamento</button>
+            <button id="menu-inventory" type="button" class="secondary backpack-button" aria-label="Apri lo zaino e l’equipaggiamento">Zaino</button>
           </div>
           <small id="menu-note"></small>
         </div>
@@ -65,8 +65,8 @@
           <div class="screen-head">
             <div>
               <span class="eyebrow">EQUIPAGGIAMENTO</span>
-              <h2>Le tue abilità dipendono dagli oggetti</h2>
-              <small>Ogni slot concede una skill: la famiglia decide quale, la rarità ne migliora i valori.</small>
+              <h2>Il tuo zaino</h2>
+              <small>Quattro slot, quattro abilità. Passa sugli oggetti per confrontare le statistiche.</small>
             </div>
             <button id="inventory-back" type="button" class="secondary">← Menu</button>
           </div>
@@ -75,7 +75,8 @@
             <h3>Inventario</h3>
             <div class="chips" id="inventory-filters"></div>
           </div>
-          <div class="inventory-list" id="inventory-list"></div>
+          <div class="inventory-list" id="inventory-list" aria-label="Oggetti nello zaino"></div>
+          <div class="inventory-selection" id="inventory-selection" aria-live="polite"></div>
         </div>
       </div>
 
