@@ -16,6 +16,8 @@ import { canEnterDungeon,minimumDungeonGearScore } from './features/dungeons/dun
 import { lootTableFor } from './features/loot/loot-tables';
 import { rollLoot } from './features/loot/roll-loot';
 import { Match, type PlayerIntent } from './features/match/match';
+import { BOSS_SHEETS } from './features/presentation/boss-art';
+import { preloadSheets } from './features/presentation/boss-art/sheet-images';
 import { Effects } from './features/presentation/effects';
 import { ActorPoses } from './features/presentation/poses';
 import { renderScene, type Scene } from './features/presentation/scene-renderer';
@@ -123,6 +125,8 @@ export class Game {
     if (ctx === null) throw new Error('Canvas 2D non disponibile in questo browser');
     this.ctx = ctx;
     this.fullscreen = new FullscreenToggle(() => this.resize());
+    // I fogli dei boss (circa 110 KB) si caricano subito: il boss entra gia' con la sua grafica.
+    preloadSheets(Object.values(BOSS_SHEETS).map((sheet) => sheet.layout.url));
 
     const storage = browserStorage();
     this.saveStore = new SaveStore(storage);

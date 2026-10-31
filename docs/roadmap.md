@@ -208,3 +208,24 @@ Checklist manuale:
 - [ ] La schermata di sconfitta dice chiaramente cosa ha colpito e dà un consiglio utile.
 - [ ] La vignetta rossa e il battito a vita bassa aiutano senza disturbare.
 - [ ] Schermate leggibili anche a finestra stretta (390 px).
+
+## Incremento grafica dei boss (ramo `feature/grafica-boss`, proposta)
+
+Primo lotto grafico scaricato con il consenso dell'utente e provato sui quattro boss: statua animata (guardiano), fiore demoniaco (madre delle spore), golem corazzato (colosso), mago di fiamma (custode del ghiaccio). Pixel art di terzi in CC BY 3.0/4.0 e CC0, ricolorata con la tavolozza del gioco in calma e in furia; crediti nel gioco e in `src/assets/art/boss/LEGGIMI.md`. Fonti, scelte e limiti in `docs/risorse-libere.md`.
+
+Implementati:
+- fogli di sprite con camminata, attacco (segue la posa del boss), trasformazione al passaggio in fase II (risveglio della statua, salto del fiore, rottura dell'armatura del golem) e morte (sgretolamento, crollo);
+- variante di furia ricolorata per ogni boss, lampo bianco del colpo e velo di brina da rallentato sulle stesse figure;
+- vignette della scelta del dungeon con lo stesso sprite;
+- ripiego automatico sulla grafica a matrici se un'immagine non si carica; la grafica a matrici resta nel codice;
+- script ripetibile `tools/arte/prepara_boss.py`.
+
+Verifiche: test su coerenza fra PNG e geometria, crediti, scelta del fotogramma, avanzamento della posa e trasformazione; tipi e build. Prova nel browser con i quattro boss. **Decisione per Jabbaz**: la revisione grafica era sospesa; questa e' una prova su richiesta dell'utente, da tenere o scartare.
+
+Checklist manuale:
+
+- [ ] I quattro boss si riconoscono e si leggono sul loro pavimento (in particolare il colosso, scuro, sulla fornace).
+- [ ] La grandezza dei boss rispetto al cerchio di colpo e al giocatore e' giusta.
+- [ ] Attacchi, trasformazione in fase II e morte arrivano al momento giusto.
+- [ ] La differenza di finezza dei pixel fra i boss non disturba.
+- [ ] Le vignette della scelta del dungeon sono piu' belle di prima.

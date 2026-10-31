@@ -15,12 +15,20 @@ export class ActorPoses {
   playerCast = 0;
   playerSkillId: string | null = null;
   bossCast = 0;
+  /** Durata dell'ultima posa del boss: con `bossCast` da' l'avanzamento dell'animazione di attacco. */
+  bossCastTotal = 0;
 
   reset(): void {
     this.walkPhase = 0;
     this.playerCast = 0;
     this.playerSkillId = null;
     this.bossCast = 0;
+    this.bossCastTotal = 0;
+  }
+
+  /** Avanzamento 0–1 della posa del boss, null se non ce n'e' una in corso. */
+  get bossCastProgress(): number | null {
+    return this.bossCast > 0 && this.bossCastTotal > 0 ? 1 - this.bossCast / this.bossCastTotal : null;
   }
 
   handle(event: GameEvent): void {
@@ -28,7 +36,10 @@ export class ActorPoses {
       this.playerCast = PLAYER_CAST_POSE;
       this.playerSkillId = event.skillId;
     }
-    else if (event.type === 'boss_pose') this.bossCast = event.seconds;
+    else if (event.type === 'boss_pose') {
+      this.bossCast = event.seconds;
+      this.bossCastTotal = event.seconds;
+    }
   }
 
   update(dt: number, playerMoving: boolean): void {

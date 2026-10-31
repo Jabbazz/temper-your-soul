@@ -1,7 +1,23 @@
-import { AUDIO_CREDITS, AUDIO_LICENSES } from '../audio/audio-credits';
+import { AUDIO_CREDITS, AUDIO_LICENSES, type AudioLicense } from '../audio/audio-credits';
+import { ART_CREDITS } from '../presentation/art-credits';
 import type { AudioPlayer } from '../audio/audio-player';
 import { VOLUME_CONTROLS, type VolumeControl } from '../audio/audio-settings';
 import { el, requireElement } from './dom';
+
+/** Elenco di crediti: titolo con il link alla fonte, autore e licenza. */
+function creditList(credits: readonly { title: string; author: string; source: string; license: AudioLicense }[]): HTMLElement {
+  const list = el('ul');
+  for (const credit of credits) {
+    const item = el('li');
+    const link = el('a', '', credit.title);
+    link.href = credit.source;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    item.append(link, el('span', '', ` · ${credit.author} · ${AUDIO_LICENSES[credit.license].name}`));
+    list.append(item);
+  }
+  return list;
+}
 
 const VOLUME_LABELS: Record<VolumeControl, string> = {
   master: 'Generale',
@@ -82,23 +98,21 @@ export class AudioPanel {
   }
 
   /**
-   * Crediti richiusi in fondo al pannello: una riga per registrazione (titolo, autore, licenza). Le licenze CC BY chiedono
-   * di citare autore e licenza e di dire che il file e' stato modificato: lo dice l'ultima riga, i dettagli stanno nel codice.
+   * Crediti richiusi in fondo al pannello, per suoni e grafica: una riga per opera (titolo, autore, licenza). Le licenze
+   * CC BY chiedono di citare autore e licenza e di dire che l'opera e' stata modificata: lo dice la riga sotto ogni
+   * elenco, i dettagli stanno nel codice (`audio-credits.ts`, `art-credits.ts`).
    */
   private renderCredits(): HTMLElement {
     const section = el('details', 'audio-credits');
-    section.append(el('summary', '', 'Crediti'));
-    const list = el('ul');
-    for (const credit of Object.values(AUDIO_CREDITS)) {
-      const item = el('li');
-      const link = el('a', '', credit.title);
-      link.href = credit.source;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      item.append(link, el('span', '', ` · ${credit.author} · ${AUDIO_LICENSES[credit.license].name}`));
-      list.append(item);
-    }
-    section.append(list, el('small', '', 'Registrazioni tagliate e convertite per il gioco.'));
+    section.append(
+      el('summary', '', 'Crediti'),
+      el('p', 'credits-heading', 'Suoni'),
+      creditList(Object.values(AUDIO_CREDITS)),
+      el('small', '', 'Registrazioni tagliate e convertite per il gioco.'),
+      el('p', 'credits-heading', 'Grafica dei boss'),
+      creditList(Object.values(ART_CREDITS)),
+      el('small', '', 'Sprite ritagliati e ricolorati per il gioco.'),
+    );
     return section;
   }
 

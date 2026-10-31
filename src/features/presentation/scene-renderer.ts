@@ -44,6 +44,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
       flash: effects.bossFlash / FEEDBACK.hitFlash,
       offset: effects.bossOffset(),
       death: death === null ? null : 1 - death.remaining / death.total,
+      transform: effects.bossTransform > 0 ? 1 - effects.bossTransform / FEEDBACK.bossTransform : null,
       clock,
     });
   }

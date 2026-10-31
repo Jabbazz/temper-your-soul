@@ -1,0 +1,67 @@
+/*
+ * Crediti della grafica di terzi usata dal gioco. Regole (docs/risorse-libere.md): licenze CC0, pubblico dominio o CC BY,
+ * mai grafica generata da IA; la licenza si legge sulla pagina della fonte e, se c'e', nel file dentro il pacchetto.
+ * Le licenze CC BY chiedono di citare autore e licenza e di dire che l'opera e' stata modificata: il pannello dei
+ * crediti mostra autore e licenza, qui sotto ci sono le modifiche.
+ */
+
+/** Licenze ammesse per la grafica (stessi nomi di quelle dell'audio, per mostrarle allo stesso modo). */
+export type ArtLicense = 'CC0-1.0' | 'CC-BY-3.0' | 'CC-BY-4.0';
+
+export interface ArtCredit {
+  /** Titolo come sulla pagina della fonte. */
+  readonly title: string;
+  readonly author: string;
+  /** Pagina della fonte (non il link diretto al file). */
+  readonly source: string;
+  readonly license: ArtLicense;
+  /** Data di consultazione della pagina e di scaricamento (AAAA-MM-GG). */
+  readonly retrieved: string;
+  /** Per che cosa si usa nel gioco. */
+  readonly use: string;
+  /** Modifiche fatte (ritaglio, colori, contorno): le licenze CC BY chiedono di indicarle. */
+  readonly changes: string;
+}
+
+/** Modifica comune ai fogli dei boss (`tools/arte/prepara_boss.py`). */
+const BOSS_EDIT = 'animazioni scelte ritagliate in un unico foglio e ricolorate con la tavolozza del gioco, in calma e in furia';
+
+/** Crediti per id (`<fonte>-<opera>`), consultati e scaricati il 1 novembre 2026. */
+export const ART_CREDITS: Readonly<Record<string, ArtCredit>> = {
+  'oga-animated-statue': {
+    title: 'Animated Statue',
+    author: 'Calciumtrice',
+    source: 'https://opengameart.org/content/animated-statue',
+    license: 'CC-BY-3.0',
+    retrieved: '2026-11-01',
+    use: 'guardiano della cripta',
+    changes: `variante grigia senza muschio; ${BOSS_EDIT}; contorno scuro aggiunto`,
+  },
+  'oga-demon-flower': {
+    title: 'Demon Flower Monster Sprite Sheet',
+    author: 'Rosswet Mobile',
+    source: 'https://opengameart.org/content/demon-flower-monster-sprite-sheet',
+    license: 'CC-BY-3.0',
+    retrieved: '2026-11-01',
+    use: 'madre delle spore',
+    changes: BOSS_EDIT,
+  },
+  'oga-enemy-galore': {
+    title: 'Enemy Galore I (golem)',
+    author: 'Admurin',
+    source: 'https://opengameart.org/content/enemy-galore-i',
+    license: 'CC-BY-4.0',
+    retrieved: '2026-11-01',
+    use: 'colosso della fornace',
+    changes: `golem corazzato in calma, senza armatura in furia; ${BOSS_EDIT}`,
+  },
+  'itch-evil-wizard-2': {
+    title: 'EVil Wizard 2',
+    author: 'LuizMelo',
+    source: 'https://luizmelo.itch.io/evil-wizard-2',
+    license: 'CC0-1.0',
+    retrieved: '2026-11-01',
+    use: 'custode del ghiaccio',
+    changes: `${BOSS_EDIT}; contorno scuro aggiunto`,
+  },
+};

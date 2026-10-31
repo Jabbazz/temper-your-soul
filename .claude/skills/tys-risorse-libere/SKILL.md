@@ -35,4 +35,8 @@ Regole complete in `docs/prompt-di-progetto.md` (sezione 5); fonti già valutate
 
 ## Grafica e caratteri
 
-Stessa procedura: file in `src/assets/<categoria>/`, crediti in un file di crediti accanto (o in `docs/risorse-libere.md` finché non esiste un catalogo grafico), niente CDN. I caratteri si servono in locale con `@font-face`.
+Stessa procedura: file in `src/assets/<categoria>/`, niente CDN. I caratteri si servono in locale con `@font-face`.
+
+- **Crediti della grafica** in `src/features/presentation/art-credits.ts` (titolo, autore, fonte, licenza, data, uso, modifiche): si vedono nel gioco (pannello Audio, «Crediti») e i test rifiutano crediti mancanti o senza uso. Un `LEGGIMI.md` accanto ai file ripete i crediti.
+- **Sprite dei boss:** `tools/arte/prepara_boss.py` ritaglia, ricolora con la tavolozza del gioco e mette in fila le animazioni in `src/assets/art/boss/`, e genera la geometria in `boss-art/boss-sheet-layout.ts` (vedi `tools/arte/LEGGIMI.md`). Scala, verso e velocita' in `boss-art/boss-sheets.ts`; se l'immagine manca resta la grafica a matrici.
+- **Pixel art:** solo ingrandimenti interi, una tavolozza per tema, un contorno coerente; preferire autori affidabili (elenco in `docs/risorse-libere.md`).

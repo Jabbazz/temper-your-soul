@@ -5,6 +5,9 @@ import { GUARDIAN_ART } from './guardian';
 import { SPORE_MOTHER_ART } from './spore-mother';
 
 export type { BossArt } from './boss-art';
+export type { BossSheet, SheetFrame, SheetState } from './boss-sheet';
+export { DEATH_ANIMATION_SHARE, sheetFrame } from './boss-sheet';
+export { BOSS_SHEETS, bossSheet } from './boss-sheets';
 
 /** La grafica dei boss, per id (`BossDefinition.art`). */
 export const BOSS_ART: Readonly<Record<string, BossArt>> = {
