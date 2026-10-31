@@ -36,7 +36,8 @@ export const WEARABLES: Readonly<Record<string, WearableArt>> = {
 export interface CharacterPixels { readonly width: number; readonly height: number; readonly pixels: readonly (readonly string[])[] }
 type Resolution = 'game' | 'portrait';
 const cache = new Map<string, CharacterPixels>();
-export const CHARACTER_ART = { gameWidth: 48, gameHeight: 48, portraitWidth: 128, portraitHeight: 128, cacheLimit: 128 } as const;
+// Quattro equipaggiamenti × otto frame × (idle, cammino e quattro attacchi), più le anteprime.
+export const CHARACTER_ART = { gameWidth: 48, gameHeight: 48, portraitWidth: 128, portraitHeight: 128, cacheLimit: 256 } as const;
 
 /** Compositore A: corpo, mantelli posteriori, armatura, stivali e oggetti, con articolazioni condivise. */
 export function characterPixels(appearance: CharacterAppearance, resolution: Resolution, pose = 0, casting = false, motion?: CharacterMotion): CharacterPixels {

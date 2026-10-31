@@ -16,11 +16,17 @@
 - [x] Hover profili scuro e leggibile; bottino condizionato 25% → 1/3 set o 2/3 verdi → 25% per pezzo.
 - [x] Ingresso T3 da 100 GS e T4 da 200 GS, controllato sia nella scheda sia all’avvio.
 - [x] Vincoli di classe per tutte le 25 famiglie; oggetti incompatibili scuri, niente equip tramite clic/drag e conservazione nello zaino dei vecchi oggetti.
+- [x] Interfaccia party in alto a destra: quattro posti, sprite del personaggio attivo, lobby locale con stato pronto e boss comune; stile Reliquiario e layout mobile.
+- [x] Server cooperativo autorevole Node/WebSocket: link, leader/destinazione/avvio, pronto, controllo GS di tutti, alleati/boss condivisi, no fuoco amico, ping, KO/disconnessioni, premi personali e combat report.
+- [x] Ottimizzazione rete/rendering: protocollo compatto v2, entità riutilizzate, raster cache, badge ping senza ricostruzione DOM, snapshot serializzato una volta per stanza e stop dopo la fine.
+- [ ] Prova giocata con amici su reti differenti; interpolazione/predizione, riconnessione e server persistente in incrementi successivi. Profilare i picchi RTT osservati nel browser in sviluppo Vite (fino a 922 ms nella prova localhost→tunnel), distinti dalle misure dirette e dalla build pubblica.
 - [ ] Provare manualmente creazione, persistenza, sensazione dei tre set iniziali, grind e premi dei quattro boss.
 - [ ] Tarare GS, livelli oggetto, probabilità e futuro effetto del livello oggetto sulle statistiche.
 - [ ] Prova manuale del grind per classe, della chiarezza delle probabilità condizionate e dei blocchi GS.
 
 Incremento vincoli e probabilità: **383 test**, tipi e build superati. Copertura delle tre classi su tutte le famiglie, dei set iniziali compatibili, della lettura di vecchi equipaggiamenti, dei confini GS e della raggiungibilità delle soglie tramite i dungeon precedenti. Browser isolato a 1440 e 390 px: hover scuro, arco non equipaggiabile al Mago da clic destro o pulsante, trascinamento disattivato, blocchi T3/T4 a 80 GS, sblocco esatto a 100/200, tooltip 33,33%/66,67% e quote per pezzo. Nessuna eccezione JavaScript; conferma giocata ancora da ricevere.
+
+Incremento cooperativa: 397 test, tipi client/server e build superati. Prove automatiche con due browser isolati: locale (sconfitta comune) e tunnel (vittoria comune, 934/866 danni), lobby/invito, autorità del leader, pronto/destinazione, movimento remoto, mana, mondo senza pausa e report identico. Premi: 100 XP personali salvati una volta, anche con snapshot finali ripetuti. Screenshot desktop e report 390 px ispezionati, nessuna eccezione JS; non è conferma manuale. RTT WebSocket su 40 campioni per percorso: locale mediana 0,34 ms, p95 1,20 ms; tunnel mediana 13,85 ms, p95 17,05 ms (misura da questo PC, non una garanzia per altre reti).
 - [ ] Provare manualmente i nuovi set, le abilità e la leggibilità delle quattro nuove forme di proiettile; resa dei nuovi strati nei due corpi ancora da approvare.
 - [ ] Definire e implementare permadeath e ricreazione dopo la morte.
 
@@ -134,3 +140,9 @@ Implementato, prova manuale da fare. Verificare: XP dopo ogni vittoria e persist
 Implementati sei ritratti base (tre classi per due sessi), agganci anatomici per armi e stivali, dita davanti alle prese, scelta persistente della classe alla creazione e migrazione al formato v4. Verifica completa: 363 test, tipi e build; controllo browser automatico di scelta, persistenza, ritratto nell’inventario e zoom; fotogrammi delle due varianti di corpo ispezionati. Da provare manualmente nell’anteprima `character-animation.html`: tutte le combinazioni preferite di armi, secondarie, armature e stivali; continuità delle gambe e leggibilità delle mani. I ritratti grandi sono statici, mentre i piccoli sprite di combattimento conservano le animazioni esistenti. Nessuna conferma manuale ricevuta per questo incremento.
 
 Revisione successiva: l’utente conferma un miglioramento ma segnala offset e profondità ancora da correggere. Implementate registrazioni specifiche per le cinque armature nei due tagli, adattamento separato di busto e gonna, tuniche davanti agli stivali, nuove basi dell’arciere a riposo e proporzioni riviste delle armi. Verifica automatica aggiornata: 365 test, tipi e build; fotogrammi delle due varianti controllati. Nuova conferma visiva ancora da ricevere.
+
+### Verifica dell’ottimizzazione multiplayer
+
+L’utente conferma che la cooperativa funziona, ma segnala un lieve calo FPS; nessuna conferma ancora della versione ottimizzata. 403 test, tipi client/server e build superati. Stress deterministico quattro giocatori: −98,3% byte. Confronto due browser sul tunnel: −94,2% traffico, −15,4% tempo CPU principale, FPS circa 60 prima/dopo. Quattro browser/classi miste: circa 59,8 FPS. Prove automatiche e screenshot non equivalgono a conferma giocata; dettagli e comando ripetibile nel README.
+
+Ultima prova pubblica con rendering sospeso per un membro: vittoria condivisa, report identico e 100 XP salvati una sola volta per entrambi. Mutazione temporanea senza rimozioni dei proiettili rilevata dal test; sorgente ripristinato. Nessuna nuova decisione sulla progressione del personaggio inclusa in questo incremento.

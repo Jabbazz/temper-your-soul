@@ -17,6 +17,7 @@ function classicScript(): Plugin {
 
 export default defineConfig({
   base: './',
+  server: { proxy: { '/party': { target: 'ws://127.0.0.1:4173', ws: true }, '/health': 'http://127.0.0.1:4173' } },
   build: {
     target: 'es2022',
     rollupOptions: { output: { format: 'iife', inlineDynamicImports: true } },

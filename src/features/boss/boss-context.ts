@@ -15,5 +15,7 @@ export interface BossContext {
   spawnProjectile(spec: ProjectileSpec, position: Vec2, angle: number): void;
   spawnZone(spec: DangerZoneSpec, position: Vec2): void;
   hurtPlayer(amount: number): void;
+  /** Cooperativa: controlla tutti i corpi vicini, anche se il bersaglio della carica si è allontanato. */
+  hurtNearbyPlayers?(amount: number): void;
   emit(event: GameEvent): void;
 }

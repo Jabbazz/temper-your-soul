@@ -34,4 +34,11 @@ export class SkillBar {
     const skill = this.skillAt(slot);
     return skill === null ? 0 : this.remaining[slot]! / skill.cooldown;
   }
+
+  /** Stato autorevole ricevuto dal server; non esegue skill lato client. */
+  restoreCooldowns(seconds: readonly number[]): void {
+    for (let i = 0; i < this.remaining.length; i++) this.remaining[i] = Math.max(0, seconds[i] ?? 0);
+  }
+
+  cooldowns(): number[] { return [...this.remaining]; }
 }

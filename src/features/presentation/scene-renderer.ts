@@ -7,9 +7,11 @@ import { drawChargeTelegraph, drawFallingSpell, drawPendingZone, drawProjectile,
 import { drawBossIndicator, drawCrosshair, drawFloatingTexts, drawGlowEffects } from './draw-effects';
 import type { Effects } from './effects';
 import type { ActorPoses } from './poses';
+import type { Player } from '../player/player';
 
 /** Tutto cio' che serve per disegnare un fotogramma. Il renderer legge e non modifica nulla. */
 export interface Scene {
+  readonly allies?: readonly { player: Player; poses: ActorPoses; name: string; appearance: CharacterAppearance }[];
   readonly appearance?: CharacterAppearance;
   readonly match: Match;
   readonly effects: Effects;
@@ -36,6 +38,19 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 
   if (!boss.health.isDead) drawBoss(ctx, boss, player, poses, match.time);
   drawPlayer(ctx, player, poses, match.time, !player.isInvulnerable || Math.floor(clock * 20) % 2 === 0, scene.appearance);
+  for (const ally of scene.allies ?? []) {
+    ctx.save();
+    ctx.globalAlpha = ally.player.health.isDead ? 0.35 : 1;
+    drawPlayer(ctx, ally.player, ally.poses, match.time, true, ally.appearance);
+    ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+    const label = ally.name + (ally.player.health.isDead ? ' · KO' : '');
+    const width = ctx.measureText(label).width + 10;
+    ctx.fillStyle = '#161321dd'; ctx.fillRect(ally.player.position.x - width / 2, ally.player.position.y - 51, width, 13);
+    ctx.fillStyle = '#c1dccb'; ctx.fillText(label, ally.player.position.x, ally.player.position.y - 41);
+    ctx.fillStyle = '#26202b'; ctx.fillRect(ally.player.position.x - 16, ally.player.position.y - 36, 32, 3);
+    ctx.fillStyle = '#83b797'; ctx.fillRect(ally.player.position.x - 16, ally.player.position.y - 36, 32 * ally.player.health.fraction, 3);
+    ctx.restore();
+  }
 
   for (const projectile of match.projectiles) drawProjectile(ctx, projectile, effects.trailOf(projectile), camera, match.time);
   for (const zone of match.zones) drawFallingSpell(ctx, zone);

@@ -10,6 +10,10 @@ Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti p
 
 ## Aperti
 
+- **Lieve calo FPS multiplayer segnalato dall’utente.** Rilevati invio ripetuto di dati statici, ricreazione delle entità a ogni snapshot, ricostruzione della lobby a ogni ping e disegno pixel per pixel per tutti gli alleati. Ottimizzati nel protocollo v2 e nel rendering con cache; controlli comparativi in README. Da confermare sul PC dell’utente. L’aggiornamento del mondo a 30 Hz resta distinto dagli FPS del canvas; interpolazione/predizione ancora fuori da questo incremento.
+
+- **Limiti cooperativa iniziale:** stanze in RAM, nessun rientro durante l’incontro dopo refresh/disconnessione; il membro uscente viene messo KO. Server senza interpolazione/predizione client: input/snapshot 30 Hz, quindi ping e intervallo dei messaggi incidono sulla risposta visiva. Gli oggetti restano locali validati ma modificabili manualmente; non è ancora un’economia autorevole persistente. HP del boss invariati per numero di membri: bilanciamento cooperativo da provare. Il report misura danno effettivo e riserva guarigione a 0 fino alle cure.
+
 - **Sprite e ritratti: difetti residui confermati dall’utente.** Offset e vestibilità delle armature, proporzioni e prese delle armi richiedono ancora revisione. Lavoro sospeso su richiesta esplicita per contenere le rigenerazioni; TODO nel codice (`portrait-rig.ts`) e nella roadmap. Nessuna nuova revisione grafica inclusa nell’incremento creazione/bottino.
 
 - **Prova manuale della Fase 0 confermata solo in generale.** L'utente ha dichiarato che "funziona tutto correttamente" (2026-10-30), senza dettaglio per voce della checklist in `docs/roadmap.md`: non sono stati segnalati problemi. I controlli automatici, la prova di fumo in Edge headless e i fotogrammi renderizzati non coprono da soli sensazione di gioco, leggibilita', interfaccia in DOM e prestazioni.

@@ -10,14 +10,14 @@ Leggere prima [README.md](README.md), in particolare «Prima di lavorare», stat
 - Non fare commit/push senza autorizzazione esplicita; quando autorizzati, ricontrollare remoto e stato prima della pubblicazione. Coordinare lavori simultanei su rami separati.
 - Rispettare la direzione UI **C — Reliquiario**. La revisione dei ritratti/sprite è sospesa: non consumare crediti per rigenerazioni senza una nuova richiesta esplicita.
 
-Gioco d'azione 2D per browser in **TypeScript** (Canvas 2D, nessuna dipendenza a runtime, nessun motore di gioco).
+Gioco d'azione 2D per browser in **TypeScript** (Canvas 2D, nessuna dipendenza runtime nel browser, nessun motore di gioco). La cooperativa usa un server Node/WebSocket: `npm run build` e `npm run server` (porta 4173); Vite in sviluppo inoltra `/party` a quel server. Vedere README per inviti, autorità della simulazione e limiti della prima versione.
 Nato come prototipo JavaScript generato con ChatGPT ("Emberfall", un mago contro un guardiano in un'arena), poi riscritto con la struttura e i principi di Ashen Realm.
 Decisioni di gioco: `docs/game-design.md`. Fasi e criteri: `docs/roadmap.md`. Problemi noti: `docs/bugs.md`.
 Repository: https://github.com/Jabbazz/temper-your-soul (remote `origin` configurato, branch `main`).
 
 ## Il prototipo originale
 
-Resta in `legacy/emberfall-prototype/` (HTML + JS classico, si apre con doppio clic) **solo come riferimento storico**: non fa parte del build, non e' coperto da `tsc` ne' dai test. Il codice attuale e' tutto in `src/`.
+Resta in `legacy/emberfall-prototype/` (HTML + JS classico, si apre con doppio clic) **solo come riferimento storico**: non fa parte del build, non e' coperto da `tsc` ne' dai test. Il client e il dominio condiviso sono in `src/`; il trasporto HTTP/WebSocket è in `server/`.
 
 ## Strumenti
 
@@ -30,9 +30,11 @@ Resta in `legacy/emberfall-prototype/` (HTML + JS classico, si apre con doppio c
 
 ```powershell
 npm install        # una sola volta
-npm run dev        # server di sviluppo con ricarica (http://localhost:5173)
+npm run dev        # sviluppo con ricarica (5173); cooperativa richiede anche il server su 4173
+npm run server     # serve dist/ e WebSocket /party su 4173, dopo npm run build
+npm run benchmark:network # confronto ripetibile snapshot completi/protocollo compatto
 npm run build      # controllo dei tipi + build di produzione in dist/
-npm run typecheck  # solo tsc --noEmit
+npm run typecheck  # controllo TypeScript client, server e benchmark
 npm test           # tutti i test (Vitest)
 npm run verify     # tipi + test + build: esce con codice 0 solo se tutto riesce
 .\tools\verify.ps1 # come npm run verify, ma trova Node da solo e stampa "VERIFICA COMPLETA: OK"
@@ -67,17 +69,22 @@ src/features/
   ui/            hud, overlay (pausa e fine), screens, main-menu, dungeon-select, inventory-screen + inventory-view (ordinamento/filtri, testabile),
                  item-card, loot-view, fullscreen, dom
   audio/         audio-player.ts (Web Audio, ascolta gli eventi)
+server/index.ts  server HTTP/WebSocket autorevole; stanze in memoria, PUBLIC_URL per inviti pubblici da localhost
+src/features/network/  lobby, client, protocollo v2, codec ordinato, test di sincronizzazione/efficienza
+tools/network-benchmark.ts  fixture di stress ripetibile, senza salvataggi
 src/testing.ts   aiuti per i test (partite con seme e dungeon, intenzioni, esecuzione a passo fisso, contesto del boss)
 ```
 
-Flusso: `Game` tiene il personaggio (caricato da `SaveStore`) e la schermata corrente (menu, dungeon, equipaggiamento, partita, pausa, fine). Avviare un dungeon crea un `Match` con `character.loadout()`; `Game.frame` accumula il tempo e chiama a 60 Hz `Match.step(dt, intent)`; `Match` modifica solo se stessa ed emette `GameEvent`; effetti, pose e audio ascoltano gli eventi; alla vittoria `Game` tira il bottino (`rollLoot`), lo aggiunge al personaggio, registra il record e salva PRIMA di mostrare la schermata; `renderScene` disegna leggendo lo stato.
+Flusso singolo: `Game` tiene il personaggio (caricato da `SaveStore`) e la schermata corrente (menu, dungeon, equipaggiamento, partita, pausa, fine). Avviare un dungeon crea un `Match` con `character.loadout()`; `Game.frame` accumula il tempo e chiama a 60 Hz `Match.step(dt, intent)`; `Match` modifica solo se stessa ed emette `GameEvent`; effetti, pose e audio ascoltano gli eventi; alla vittoria `Game` tira il bottino (`rollLoot`), lo aggiunge al personaggio, registra il record e salva PRIMA di mostrare la schermata; `renderScene` disegna leggendo lo stato.
+
+In cooperativa il server esegue `Match.stepParty(dt, intents)` a 60 Hz; i client inviano intenzioni e ricevono aggiornamenti a 30 Hz tramite `SnapshotEncoder`/`SnapshotDecoder`. I delta sono ordinati: non saltarli in silenzio e non cambiare il protocollo senza incrementare `NETWORK.protocolVersion`. Definizioni e nascite si inviano una sola volta; report/premi nel frame finale. Il client rappresenta lo stato più recente e salva immediatamente i premi finali anche se il rendering è sospeso. La lobby controlla leader, pronto e GS di tutti. Non introdurre regole di combattimento nel trasporto o nel rendering. Stanze non persistenti, nessuna riconnessione in corso e nessun salvataggio cloud; dettagli e limiti nel README.
 
 ## Convenzioni
 
 - TypeScript **strict**: niente `any`, parametri inutilizzati con prefisso `_`. File in `kebab-case`, classi in `PascalCase`.
 - Testi visibili al giocatore e documentazione in italiano; identificatori nel codice in inglese.
 - **La simulazione non conosce il DOM, il canvas, il tempo reale ne' `Math.random`**: tutto cio' che e' casuale nelle regole passa da un `Rng` iniettato (`SeededRng` nei test e nelle partite), cosi' una partita e' riproducibile con il seme. La casualita' estetica (`cosmeticRng`) vale solo in `presentation/`.
-- **Passo fisso**: la logica avanza solo in `Match.step(dt, intent)` a 1/60 s (mai dipendente dal frame rate); disegno e HUD a ogni fotogramma. Il tempo di partita (`Match.time`) si ferma alla fine.
+- **Passo fisso**: la logica avanza solo in `Match.step(dt, intent)` (singolo) / `Match.stepParty(dt, intents)` (server cooperativo) a 1/60 s (mai dipendente dal frame rate); disegno e HUD a ogni fotogramma. Il tempo di partita (`Match.time`) si ferma alla fine.
 - **Dati / comportamento / rappresentazione separati**: i dati (`SkillDefinition`, `ItemFamily`, `ProjectileSpec`, `DangerZoneSpec`, `ArenaDefinition`, `BossDefinition`/`BossStats`, tabelle degli schemi) sono di sola lettura a runtime; il comportamento sta in `skill-effects.ts`, `boss.ts`, `boss-patterns.ts`, `match.ts`; l'aspetto in `presentation/`. I dati scelgono l'aspetto con un id (`ProjectileVisual`), mai con un colore o con un numero (non identificare un proiettile dal raggio). Non mettere regole nella rappresentazione ne' aspetto nei dati.
 - **Eventi**: la simulazione dice cosa e' successo (`GameEvent`), non cosa disegnare o suonare. Aggiungere un effetto o un suono = ascoltare un evento esistente; se manca l'evento, aggiungerlo a `events.ts` e coprirlo con un test.
 - **Valori provvisori**: i valori stanno in tabelle di dati con nome (`PLAYER_STATS`, le `BossStats` di ogni boss, `MAGE_SKILLS`, `item-skills.ts`, `RARITY_STATS`, `LOOT_TABLES`, le tabelle degli schemi, le `ArenaDefinition`, `HIT_RADIUS`), non sepolti nel codice. Sono tutti provvisori (vedi `docs/game-design.md`): non inventare valori definitivi, usare un valore regolabile e segnalarlo.

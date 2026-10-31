@@ -1080,3 +1080,74 @@ button:disabled { cursor:default; opacity:.45; transform:none; }
 .class-option[aria-pressed=true] { border-color:#e5b782; background:#65424a; }
 .class-option:disabled { opacity:.45; cursor:default; }
 #inventory-appearance .class-choice { gap:5px; }
+
+/* Party cooperativo: interfaccia locale, pronta per il futuro collegamento di rete. */
+.party-panel { position:fixed; top:14px; right:16px; z-index:32; width:264px; padding:9px 11px 7px; border:1px solid var(--relic-border); border-radius:7px 19px; color:var(--relic-ivory); background:linear-gradient(145deg,#352430f5,#1b1521f5); box-shadow:inset 0 0 0 3px #17121c,0 6px 20px #0005; }
+.party-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:7px; }
+.party-open { padding:1px 0; background:none; color:#edc7a5; font:16px var(--relic-title); border:0; }
+.party-open:hover { color:#f2dbc0; background:none; }
+.party-local-badge { color:#bba8b7; font-size:9px; letter-spacing:.25px; }
+.party-slots { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+.party-slot { position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0; padding:4px; color:#ead7c3; background:linear-gradient(#382a37,#211a28); border:1px solid #8e6b78; border-radius:5px 11px; font-weight:normal; }
+.party-slot:hover { background:linear-gradient(#493542,#2d2332); }
+.party-slot-empty { color:#71616f; border:1px dashed #5e4b5c; background:#1c1721; }
+.party-slot-empty:hover { background:#2a202e; color:#a48b9b; }
+.party-member-art { display:block; position:relative; width:40px; height:40px; background:radial-gradient(ellipse,#80617344,transparent 72%); }
+.party-member-art svg { width:100%; height:100%; image-rendering:pixelated; }
+.party-slot-empty .party-member-art { opacity:.55; }
+.party-slot-plus { position:absolute; right:-1px; bottom:-1px; width:14px; height:14px; line-height:13px; color:#b9a2ad; border-radius:50%; background:#302331; font-size:14px; font-weight:normal; }
+.party-member-name { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; font-size:10px; line-height:12px; }
+.party-widget-status { display:block; color:#c1aaaf; margin-top:4px; font-size:9px; text-align:left; }
+.party-dialog { width:min(660px,calc(100vw - 28px)); max-height:calc(100vh - 28px); overflow:auto; padding:23px; background:linear-gradient(145deg,#352330,#19131f); border:1px solid var(--relic-copper); border-radius:12px 28px; color:var(--text); box-shadow:inset 0 0 0 4px #17121c,0 20px 60px #0008; }
+.party-dialog::backdrop { background:#0b0811b8; }
+.party-dialog-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.party-dialog h2 { margin:8px 0 0; font:29px var(--relic-title); color:var(--relic-ivory); }
+.party-dialog .eyebrow { font-size:9px; color:#c3927d; }
+.party-intro { font-size:13px; line-height:1.6; color:#d0bcc7; }
+.party-lobby-slots { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:18px 0; }
+.party-slot-detailed { padding:12px 6px; min-height:175px; cursor:default; }
+.party-slot-detailed .party-member-art { width:86px; height:86px; }
+.party-slot-detailed .party-member-name { font:16px var(--relic-title); line-height:20px; }
+.party-slot-detailed small { font-size:10px; color:#b8a4b5; }
+.party-member-status { font-size:10px; color:#c8b8b9; margin-top:4px; }
+.party-leader { margin-top:5px; color:#d8b38d; font-size:9px; }
+.party-objective { display:flex; align-items:center; gap:14px; background:#211923; border:1px solid var(--relic-border); border-radius:6px 16px; overflow:hidden; }
+.party-objective .boss-artwork { width:125px; height:84px; flex:0 0 125px; border:0; border-radius:0; }
+.party-objective > div { display:grid; gap:5px; padding:8px 8px 8px 0; min-width:0; }
+.party-objective strong { font:17px var(--relic-title); color:#e8c5a3; }
+.party-objective span { font-size:11px; color:#bdabb9; }
+.party-preview-note { padding:10px 12px; border-left:2px solid #976f77; font-size:11px; line-height:1.6; color:#baa6b6; }
+.party-lobby-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:9px; }
+.party-dialog button { padding:9px 13px; border:1px solid var(--relic-copper); border-radius:6px 14px; color:var(--relic-ivory); background:var(--relic-control); box-shadow:inset 0 0 0 2px #291e28,0 3px 0 #090b12; font-size:12px; }
+.party-dialog button:hover { background:linear-gradient(#75444a,#482c38); }
+.party-dialog button.secondary { background:linear-gradient(#3a2d3f,#221a2b); border-color:var(--relic-border); color:#dac4d6; }
+.party-dialog button:disabled { cursor:default; opacity:.45; }
+.party-ready[aria-pressed=true] { border-color:#a1b78f; color:#d5dec6; }
+.actions { top:148px; }
+.screen { padding-top:162px; }
+@media(max-width:600px){
+  .party-panel { top:8px; right:8px; width:202px; padding:7px 8px 5px; }
+  .party-member-art { width:30px; height:30px; }
+  .party-slots { gap:4px; }.party-slot { padding:3px 2px; }
+  .party-member-name { font-size:9px; }
+  .party-local-badge { font-size:8px; }.party-open { font-size:14px; }
+  .party-lobby-slots { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .party-dialog { padding:16px; }.party-dialog h2 { font-size:24px; }
+  .party-dialog-heading { gap:8px; }.party-dialog .eyebrow { font-size:8px; }
+  .party-lobby-actions button { flex:1 1 130px; }
+  .party-objective .boss-artwork { width:94px; flex-basis:94px; }
+  .party-objective strong { font-size:15px; }
+  .actions { top:180px; right:8px; }.hud-boss { top:117px; }
+  .screen { padding-top:165px; }
+  .global-menu-button { left:8px; top:12px; padding:8px; font-size:10px; }
+}
+
+.party-destination { display:block; margin:14px 0; color:var(--text); }
+.party-destination select { width:100%; margin-top:8px; padding:10px 12px; background:#211a26; color:#eadbc5; border:1px solid #72566a; border-radius:8px 18px 8px 18px; }
+.party-link { width:100%; box-sizing:border-box; padding:10px 12px; color:#d7bfa6; background:#19151f; border:1px solid #654e60; border-radius:8px; font-size:12px; }
+.combat-report-scroll { overflow-x:auto; margin:18px 0; }
+.combat-report-table { width:100%; border-collapse:collapse; text-align:right; color:#eadbc5; }
+.combat-report-table th,.combat-report-table td { padding:12px 10px; border-bottom:1px solid #594452; white-space:nowrap; }
+.combat-report-table th { font-size:12px; color:#c5a383; font-weight:normal; }
+.combat-report-table th:first-child,.combat-report-table td:first-child { text-align:left; }
+.combat-report-table tbody tr:nth-child(odd) { background:#332532; }

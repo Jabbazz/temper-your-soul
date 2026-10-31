@@ -1,11 +1,25 @@
 import type { CharacterAppearance } from '../character/appearance';
-import { characterPixels, DEFAULT_APPEARANCE } from './character-art';
+import { characterPixels, DEFAULT_APPEARANCE, type CharacterPixels } from './character-art';
 import type { Boss } from '../boss/boss';
 import type { Player } from '../player/player';
 import { bossArt } from './boss-art';
 import type { ActorPoses } from './poses';
 import { PLAYER_CAST_POSE } from './poses';
 import { drawSprite } from './sprites';
+
+/** Un raster per fotogramma/equipaggiamento, liberato insieme all'art dalla cache.
+ * Evita migliaia di cambi di colore/fillRect per ogni giocatore e fotogramma. */
+const rasterFrames = new WeakMap<CharacterPixels, HTMLCanvasElement>();
+function rasterOf(art: CharacterPixels): HTMLCanvasElement {
+  let raster = rasterFrames.get(art); if (raster) return raster;
+  raster = document.createElement('canvas'); raster.width = art.width; raster.height = art.height;
+  const ctx = raster.getContext('2d')!;
+  for (let y = 0; y < art.height; y++) for (let x = 0; x < art.width; x++) {
+    const color = art.pixels[y]![x]; if (!color) continue;
+    ctx.fillStyle = color; ctx.fillRect(x, y, 1, 1);
+  }
+  rasterFrames.set(art, raster); return raster;
+}
 
 function drawShadow(ctx: CanvasRenderingContext2D, x: number, y: number, radiusX: number, radiusY: number, color: string): void {
   ctx.fillStyle = color;
@@ -39,10 +53,7 @@ export function drawPlayer(
   ctx.translate(Math.round(player.position.x), Math.round(player.position.y));
   ctx.scale(facing, 1);
   const art=characterPixels(appearance,'game',0,false,motion);
-  for(let y=0;y<art.height;y++) for(let x=0;x<art.width;x++) {
-    const color=art.pixels[y]![x];if(!color) continue;
-    ctx.fillStyle=color;ctx.fillRect(x-art.width/2,y-art.height+15,1,1);
-  }
+  ctx.drawImage(rasterOf(art), -art.width / 2, -art.height + 15);
   ctx.restore();
 }
 

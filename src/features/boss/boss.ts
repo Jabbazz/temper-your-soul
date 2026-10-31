@@ -101,7 +101,8 @@ export class Boss {
       this.charge = null;
       return;
     }
-    if (this.position.distanceTo(ctx.target) < this.stats.chargeHitDistance) ctx.hurtPlayer(this.stats.chargeDamage);
+    if (ctx.hurtNearbyPlayers) ctx.hurtNearbyPlayers(this.stats.chargeDamage);
+    else if (this.position.distanceTo(ctx.target) < this.stats.chargeHitDistance) ctx.hurtPlayer(this.stats.chargeDamage);
     if (u === 1) {
       ctx.emit({ type: 'boss_charge_finished', position: this.position });
       this.charge = null;

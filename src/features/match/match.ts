@@ -35,6 +35,7 @@ export interface MatchOptions {
   readonly dungeon: DungeonDefinition;
   /** Le skill del giocatore per slot (derivano dall'equipaggiamento). */
   readonly loadout: Loadout;
+  readonly members?: readonly { id: string; loadout: Loadout }[];
 }
 
 /**
@@ -47,7 +48,12 @@ export class Match {
   readonly dungeon: DungeonDefinition;
   readonly arena: ArenaDefinition;
   readonly rng: Rng;
-  readonly player: Player;
+  readonly players = new Map<string, Player>();
+  readonly report = new Map<string, { damageDealt: number; damageReceived: number; healing: number }>();
+  viewPlayerId = 'local';
+  get player(): Player { return this.players.get(this.viewPlayerId) ?? this.players.values().next().value!; }
+  private readonly owners = new Map<number, string>();
+  private actingId = 'local';
   readonly boss: Boss;
   projectiles: Projectile[] = [];
   zones: DangerZone[] = [];
@@ -56,62 +62,92 @@ export class Match {
   time = 0;
 
   private nextId = 1;
-  private readonly skillContext: SkillContext;
+
 
   constructor(options: MatchOptions) {
     this.dungeon = options.dungeon;
     this.arena = options.dungeon.arena;
     this.rng = options.rng;
-    this.player = new Player(this.arena, options.loadout);
+    const members = options.members ?? [{ id: 'local', loadout: options.loadout }];
+    this.viewPlayerId = members[0].id;
+    for (const member of members) {
+      this.players.set(member.id, new Player(this.arena, member.loadout));
+      this.report.set(member.id, { damageDealt: 0, damageReceived: 0, healing: 0 });
+    }
     this.boss = new Boss(options.dungeon.boss, this.arena);
-    this.skillContext = {
-      player: this.player,
-      spawnProjectile: (spec, position, angle) => this.spawnProjectile(spec, position, angle),
-      spawnZone: (spec, position) => this.spawnZone(spec, position),
+  }
+
+  private context(id: string, player: Player): SkillContext {
+    return {
+      player,
+      spawnProjectile: (spec, position, angle) => { this.spawnProjectile(spec, position, angle); this.owners.set(this.nextId - 1, id); },
+      spawnZone: (spec, position) => { this.spawnZone(spec, position); this.owners.set(this.nextId - 1, id); },
       strikeArc: (origin, angle, range, arc, damage) => this.strikeArc(origin, angle, range, arc, damage),
-      emit: (event) => this.events.emit(event),
+      emit: event => this.events.emit({ ...event, playerId: id }),
     };
   }
 
   /** Un passo di simulazione di `dt` secondi. Dopo la fine della partita non fa nulla. */
   step(dt: number, intent: PlayerIntent): void {
+    this.stepParty(dt, new Map([[this.viewPlayerId, intent]]));
+  }
+
+  /** Simulazione cooperativa autorevole: tutti agiscono prima dell'unico passo del boss. */
+  stepParty(dt: number, intents: ReadonlyMap<string, PlayerIntent>): void {
     if (this.status !== 'playing') return;
     this.time += dt;
 
-    this.player.tick(dt);
     this.boss.tick(dt);
-
-    this.player.moveBy(dt, intent.move);
-    const syncAim = (): void => {
-      this.player.aim = this.player.position.add(intent.aimOffset);
-    };
-    syncAim();
-    for (let slot = 0; slot < intent.skills.length; slot++) {
-      if (!intent.skills[slot]) continue;
-      // Ridondante con le skill attuali (lo scatto e' l'ultimo slot), ma una skill che sposta il giocatore prima di
-      // un'altra deve far mirare la successiva dalla nuova posizione, come `syncAim()` in `cast()` del prototipo.
+    for (const [id, player] of this.players) {
+      if (player.health.isDead) continue;
+      player.tick(dt);
+      const intent = intents.get(id);
+      player.moving = false;
+      if (!intent) continue;
+      this.actingId = id;
+      player.moveBy(dt, intent.move);
+      const syncAim = (): void => { player.aim = player.position.add(intent.aimOffset); };
       syncAim();
-      tryCastSkill(slot, this.skillContext);
+      for (let slot = 0; slot < intent.skills.length && this.status === 'playing'; slot++) {
+        if (!intent.skills[slot]) continue;
+        syncAim();
+        tryCastSkill(slot, this.context(id, player));
+      }
+      syncAim();
     }
-    syncAim();
-
-    this.boss.step(dt, this.bossContext());
-    if (this.player.position.distanceTo(this.boss.position) < this.boss.stats.contactDistance) {
-      this.hurtPlayer(this.boss.stats.contactDamage);
+    if (this.status !== 'playing') return;
+    let target: Player | undefined;
+    let nearest = Infinity;
+    for (const p of this.players.values()) {
+      if (p.health.isDead) continue;
+      const distance = p.position.distanceTo(this.boss.position);
+      if (distance < nearest) { nearest = distance; target = p; }
+    }
+    if (!target) { this.end(false); return; }
+    this.boss.step(dt, this.bossContext(target));
+    for (const player of this.players.values()) {
+      if (player.position.distanceTo(this.boss.position) < this.boss.stats.contactDistance) this.hurtPlayer(this.boss.stats.contactDamage, player);
     }
 
     this.stepProjectiles(dt);
     this.stepZones(dt);
   }
 
-  private bossContext(): BossContext {
+  private bossContext(target: Player): BossContext {
     return {
-      target: this.player.position,
+      target: target.position,
       time: this.time,
       rng: this.rng,
       spawnProjectile: (spec, position, angle) => this.spawnProjectile(spec, position, angle),
       spawnZone: (spec, position) => this.spawnZone(spec, position),
-      hurtPlayer: (amount) => this.hurtPlayer(amount),
+      hurtPlayer: amount => {
+        this.hurtPlayer(amount, target);
+      },
+      hurtNearbyPlayers: amount => {
+        for (const player of this.players.values()) {
+          if (player.position.distanceTo(this.boss.position) < this.boss.stats.chargeHitDistance) this.hurtPlayer(amount, player);
+        }
+      },
       emit: (event) => this.events.emit(event),
     };
   }
@@ -147,20 +183,27 @@ export class Match {
         continue;
       }
       if (projectile.team === 'enemy') {
-        if (projectile.position.distanceTo(this.player.position) < projectile.radius + HIT_RADIUS.player) {
-          this.hurtPlayer(projectile.damage);
+        let victim: Player | undefined;
+        for (const p of this.players.values()) {
+          if (!p.health.isDead && projectile.position.distanceTo(p.position) < projectile.radius + HIT_RADIUS.player) { victim = p; break; }
+        }
+        if (victim) {
+          this.hurtPlayer(projectile.damage, victim);
           this.emitProjectileHit(projectile);
           projectile.expire();
         }
       } else if (projectile.position.distanceTo(this.boss.position) < projectile.radius + this.boss.stats.hitRadius) {
-        this.hitBoss(projectile.damage);
+        this.hitBoss(projectile.damage, this.owners.get(projectile.id));
         if (projectile.spec.slowSeconds !== undefined) this.boss.slowFor = projectile.spec.slowSeconds;
         this.emitProjectileHit(projectile);
         projectile.expire();
       }
       if (isOutsideProjectileBounds(this.arena, projectile.position)) projectile.expire();
     }
-    this.projectiles = this.projectiles.filter((projectile) => !projectile.isExpired);
+    this.projectiles = this.projectiles.filter(projectile => {
+      if (projectile.isExpired) this.owners.delete(projectile.id);
+      return !projectile.isExpired;
+    });
   }
 
   /** Fa scoppiare le zone arrivate a fine conto alla rovescia e le rimuove. */
@@ -182,12 +225,15 @@ export class Match {
       if (zone.team === 'player') {
         const reach = zone.radius + this.boss.stats.hitRadius - ZONE_EDGE_FORGIVENESS;
         if (zone.position.distanceTo(this.boss.position) < reach) {
-          this.hitBoss(zone.spec.damage);
+          this.hitBoss(zone.spec.damage, this.owners.get(zone.id));
           if (zone.spec.slowSeconds !== undefined) this.boss.slowFor = zone.spec.slowSeconds;
         }
-      } else if (zone.position.distanceTo(this.player.position) < zone.radius + HIT_RADIUS.player - ZONE_EDGE_FORGIVENESS) {
-        this.hurtPlayer(zone.spec.damage);
+      } else {
+        for (const player of this.players.values()) {
+          if (zone.position.distanceTo(player.position) < zone.radius + HIT_RADIUS.player - ZONE_EDGE_FORGIVENESS) this.hurtPlayer(zone.spec.damage, player);
+        }
       }
+      this.owners.delete(zone.id);
     }
     this.zones = pending;
   }
@@ -203,18 +249,22 @@ export class Match {
   }
 
   /** Danno al giocatore: ignorato se e' invulnerabile o la partita e' finita. */
-  private hurtPlayer(amount: number): void {
-    if (this.status !== 'playing') return;
-    if (!this.player.tryHurt(amount)) return;
-    this.events.emit({ type: 'damage_dealt', target: 'player', amount, position: this.player.position });
-    if (this.player.health.isDead) this.end(false);
+  private hurtPlayer(amount: number, player: Player = this.player): void {
+    if (this.status !== 'playing' || player.health.isDead) return;
+    const actual = Math.min(player.health.current, amount);
+    if (!player.tryHurt(amount)) return;
+    const id = [...this.players].find(([, p]) => p === player)![0];
+    this.report.get(id)!.damageReceived += actual;
+    this.events.emit({ type: 'damage_dealt', target: 'player', amount, position: player.position, playerId: id });
+    if ([...this.players.values()].every(p => p.health.isDead)) this.end(false);
   }
 
-  /** Danno al boss. L'evento porta il danno del colpo anche se supera gli HP rimasti. */
-  private hitBoss(amount: number): void {
+  private hitBoss(amount: number, owner = this.actingId): void {
     if (this.status !== 'playing' || this.boss.health.isDead) return;
-    this.boss.health.takeDamage(amount);
-    this.events.emit({ type: 'damage_dealt', target: 'boss', amount, position: this.boss.position });
+    const actual = this.boss.health.takeDamage(amount);
+    const stats = this.report.get(owner);
+    if (stats) stats.damageDealt += actual;
+    this.events.emit({ type: 'damage_dealt', target: 'boss', amount, position: this.boss.position, playerId: owner });
     if (this.boss.health.isDead) {
       this.events.emit({ type: 'boss_defeated', position: this.boss.position });
       this.end(true);

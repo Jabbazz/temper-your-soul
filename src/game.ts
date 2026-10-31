@@ -17,7 +17,7 @@ import { rollLoot } from './features/loot/roll-loot';
 import { Match, type PlayerIntent } from './features/match/match';
 import { Effects } from './features/presentation/effects';
 import { ActorPoses } from './features/presentation/poses';
-import { renderScene } from './features/presentation/scene-renderer';
+import { renderScene, type Scene } from './features/presentation/scene-renderer';
 import { DungeonSelect } from './features/ui/dungeon-select';
 import { requireElement } from './features/ui/dom';
 import { FullscreenToggle } from './features/ui/fullscreen';
@@ -27,6 +27,12 @@ import { renderLoot } from './features/ui/loot-view';
 import { MainMenu } from './features/ui/main-menu';
 import { Overlay } from './features/ui/overlay';
 import { Screens } from './features/ui/screens';
+import { PartyPanel } from './features/ui/party-panel';
+import { applySnapshot, type BattleSnapshot, type PartyMember } from './features/network/protocol';
+import { deserializeCharacter } from './features/character/save-format';
+import { dungeonById } from './features/dungeons/dungeons';
+import type { ItemRoll } from './features/items/item';
+import { showCombatReport } from './features/ui/combat-report';
 
 /** Passo fisso della simulazione: la logica gira a 60 Hz qualunque sia la frequenza di disegno. */
 const STEP = 1 / 60;
@@ -62,6 +68,15 @@ export class Game {
   private readonly hud = new Hud();
   private readonly overlay = new Overlay();
   private readonly screens = new Screens();
+  private readonly party = new PartyPanel(() => this.pauseIfPlaying(), snapshot => this.receiveSnapshot(snapshot), () => {
+    if (this.networkBattleId) { this.networkBattleId = ''; this.showToast('Hai lasciato il combattimento cooperativo.'); this.showMenu(); }
+  });
+  private networkBattleId = '';
+  private readonly completedBattles = new Set<string>();
+  private battleMembers: PartyMember[] = [];
+  private readonly allyPoses = new Map<string, ActorPoses>();
+  private allyVisuals: Scene['allies'] = [];
+  private renderAppearance: Scene['appearance'];
   private readonly fullscreen: FullscreenToggle;
   private readonly menu: MainMenu;
   private readonly dungeonSelect: DungeonSelect;
@@ -73,6 +88,10 @@ export class Game {
   private draft:Character|null=null;
   private get character():Character {return this.draft??this.roster.active?.character??this.newDraft();}
   private newDraft():Character {this.draft=Character.createStarter();return this.draft;}
+  private updateParty():void {
+    const phase=this.screen==='playing'?'playing':this.screen==='paused'?'paused':this.screen==='ended'?'ended':'idle';
+    this.party.update(this.character,this.draft?null:this.roster.activeId,this.dungeon,phase);
+  }
   private readonly loadStatus: LoadStatus;
   private dungeon: DungeonDefinition = CRYPT;
   private match: Match;
@@ -138,6 +157,8 @@ export class Game {
   // --- Navigazione tra le schermate ------------------------------------------------------------------------------
 
   private showMenu(): void {
+    if (this.networkBattleId && this.screen === 'playing') this.party.client.leave();
+    this.networkBattleId = '';
     this.input.releaseAll();
     this.screen = 'menu';
     this.overlay.hide();
@@ -165,6 +186,7 @@ export class Game {
     this.screen = 'dungeons';
     this.screens.show('dungeons');
     this.dungeonSelect.render(this.character);
+    this.updateParty();
   }
 
   private openInventory(): void {
@@ -172,24 +194,33 @@ export class Game {
     this.screen = 'inventory';
     this.screens.show('inventory');
     this.inventoryScreen.render(this.character);
+    this.updateParty();
   }
 
   /** Sfondo delle schermate fuori dalla partita: la mappa e il boss del dungeon indicato, fermi. */
   private preview(dungeon: DungeonDefinition): void {
+    this.renderAppearance = undefined; this.allyVisuals = [];
     this.dungeon = dungeon;
     this.match = this.createMatch(dungeon);
     this.effects.clear();
     this.poses.reset();
     this.camera.follow(this.match.player.position);
+    this.updateParty();
   }
 
   private startDungeon(dungeon: DungeonDefinition): void {
+    if (this.party.client.state) {
+      this.party.client.send({ type: 'choose', dungeonId: dungeon.id }); this.party.openDialog(); return;
+    }
     this.dungeon = dungeon;
     this.startMatch();
   }
 
   /** Nuova partita nel dungeon corrente, con le skill dell'equipaggiamento attuale. */
   private startMatch(): void {
+    if (this.party.client.state) { this.party.openDialog(); return; }
+    this.networkBattleId = '';
+    this.renderAppearance = undefined; this.allyVisuals = [];
     if(!this.character.created)return;
     if(!canEnterDungeon(this.dungeon,this.character.gearScore)){
       this.showToast(`Servono almeno ${minimumDungeonGearScore(this.dungeon)} GS equipaggiati per questo dungeon.`);return;
@@ -206,6 +237,7 @@ export class Game {
     this.camera.follow(this.match.player.position);
     this.hud.update(this.match, levelProgress(this.character.totalXp));
     this.canvas.focus();
+    this.updateParty();
   }
 
   private restartIfInGame(): void {
@@ -234,13 +266,13 @@ export class Game {
 
   // --- Fine partita, bottino e salvataggio -----------------------------------------------------------------------
 
-  private onMatchEnded(match: Match, won: boolean): void {
+  private onMatchEnded(match: Match, won: boolean, networkRolls?: readonly ItemRoll[]): void {
     this.screen = 'ended';
     this.input.releaseAll();
     let extra: HTMLElement | null = null;
     if (won) {
       // Il bottino si assegna e si salva PRIMA di mostrarlo: se la pagina si chiude ora, non si perde.
-      const rolls = rollLoot(lootTableFor(match.dungeon.id), new SeededRng(Math.floor(Math.random() * 0x100000000)));
+      const rolls = networkRolls ?? rollLoot(lootTableFor(match.dungeon.id), new SeededRng(Math.floor(Math.random() * 0x100000000)));
       const items = this.character.addRolls(rolls);
       this.character.totalXp += PROGRESSION.rewards[match.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100;
       const record = this.character.recordVictory(match.dungeon.id, match.time);
@@ -258,11 +290,47 @@ export class Game {
       healthLeft: match.player.health.current,
       extra,
     });
+    this.updateParty();
+    if (!this.networkBattleId) showCombatReport(Object.fromEntries(match.report), [{ id: 'local', name: this.character.name ?? 'Tu' }], match.time, won);
+  }
+
+  private receiveSnapshot(snapshot: BattleSnapshot): void {
+    if (this.completedBattles.has(snapshot.id) || !snapshot.players.some(p => p.id === this.party.client.playerId)) return;
+    if (snapshot.id !== this.networkBattleId) {
+      const state = this.party.client.state, dungeon = dungeonById(snapshot.dungeonId);
+      if (!state || !dungeon) return;
+      this.networkBattleId = snapshot.id; this.dungeon = dungeon; this.battleMembers = [...state.members];
+      const members = state.members.map(m => ({ id: m.id, loadout: deserializeCharacter(m.character)!.loadout() }));
+      this.match = new Match({ rng: new SeededRng(1), dungeon, loadout: members[0].loadout, members });
+      this.match.viewPlayerId = this.party.client.playerId;
+      this.allyPoses.clear(); for (const member of members) this.allyPoses.set(member.id, new ActorPoses());
+      this.allyVisuals = this.battleMembers.filter(m => m.id !== this.party.client.playerId).map(member => ({
+        player: this.match.players.get(member.id)!, poses: this.allyPoses.get(member.id)!, name: member.name, appearance: member.appearance,
+      }));
+      this.renderAppearance = this.character.appearance();
+      this.effects.clear(); this.poses.reset(); this.input.releaseAll();
+      this.screen = 'playing'; this.screens.show(null); this.overlay.hide(); this.party.close();
+      this.hud.buildSkills(this.match.player.skillBar.skills); this.hud.setBossName(this.match.boss.definition.name); this.canvas.focus();
+    }
+    applySnapshot(this.match, snapshot);
+    for (const event of snapshot.events) {
+      this.effects.handle(event); this.audio.handle(event);
+      if (!event.playerId || event.playerId === this.party.client.playerId) this.poses.handle(event);
+      if (event.playerId) this.allyPoses.get(event.playerId)?.handle(event);
+    }
+    this.camera.follow(this.match.player.position);
+    if (snapshot.status !== 'playing') {
+      this.completedBattles.add(snapshot.id);
+      this.onMatchEnded(this.match, snapshot.status === 'won', snapshot.rewards[this.party.client.playerId] ?? []);
+      showCombatReport(snapshot.report, this.battleMembers, snapshot.time, snapshot.status === 'won');
+    }
   }
 
   /** Salva il personaggio; se non riesce avvisa una volta sola. Restituisce se il salvataggio e' riuscito. */
   private persist(): boolean {
+    this.renderAppearance = undefined;
     const saved = this.saveStore.saveRoster(this.roster);
+    this.updateParty();
     if (!saved && !this.saveWarningShown) {
       this.saveWarningShown = true;
       this.showToast('Impossibile salvare in questo browser: i progressi andranno persi alla chiusura.');
@@ -281,6 +349,7 @@ export class Game {
   // --- Pausa, audio, ridimensionamento ---------------------------------------------------------------------------
 
   private togglePause(): void {
+    if (this.networkBattleId && this.screen === 'playing') { this.party.openDialog(); return; }
     if (this.screen === 'playing') {
       this.screen = 'paused';
       this.overlay.showPaused(this.dungeon.name);
@@ -292,10 +361,11 @@ export class Game {
       return;
     }
     this.input.releaseAll();
+    this.updateParty();
   }
 
   private pauseIfPlaying(): void {
-    if (this.screen === 'playing') this.togglePause();
+    if (this.screen === 'playing' && !this.networkBattleId) this.togglePause();
   }
 
   private toggleAudio(): void {
@@ -327,11 +397,15 @@ export class Game {
     const { match } = this;
     if (this.screen === 'playing' || this.screen === 'ended') {
       this.poses.update(STEP, match.player.moving);
+      for (const [id, poses] of this.allyPoses) poses.update(STEP, match.players.get(id)?.moving ?? false);
       this.effects.update(STEP, match, this.camera);
     }
     if (this.screen === 'playing') {
-      match.step(STEP, this.readIntent());
-      this.input.takeLatched();
+      if (this.networkBattleId) {
+        if (this.party.client.input(this.readIntent())) this.input.takeLatched();
+      } else {
+        match.step(STEP, this.readIntent()); this.input.takeLatched();
+      }
     } else if (IDLE_SCREENS.includes(this.screen)) {
       // Dietro i menu la mira segue comunque il mouse, cosi' il mirino e' al suo posto appena si entra.
       match.player.aim = match.player.position.add(this.camera.pointerOffset(this.input.pointer));
@@ -340,6 +414,7 @@ export class Game {
   }
 
   private frame(time: number): void {
+    this.party.client.flushSnapshot();
     const delta = Math.min((time - this.lastTime) / 1000, MAX_FRAME_TIME);
     this.lastTime = time;
     this.clock += delta;
@@ -357,7 +432,8 @@ export class Game {
       poses: this.poses,
       camera: this.camera,
       clock: this.clock,
-      appearance: this.character.appearance(),
+      appearance: this.renderAppearance ??= this.character.appearance(),
+      allies: this.allyVisuals,
     });
     requestAnimationFrame((next) => this.frame(next));
   }

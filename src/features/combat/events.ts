@@ -6,7 +6,7 @@ import type { Team } from './team';
  * Eventi che la simulazione emette e che rappresentazione (particelle, numeri, pose) e audio ascoltano.
  * Sono dati semplici: la simulazione non sa chi li ascolta e non dipende dal disegno.
  */
-export type GameEvent =
+export type GameEvent = (
   /**
    * Il giocatore ha usato una skill. `visual` e' l'id dell'aspetto/suono della skill, `kind` il tipo di effetto,
    * `origin` il punto di emissione, `destination` dove e' finito (scatto: punto d'arrivo). `range` e `arc` solo per
@@ -37,4 +37,4 @@ export type GameEvent =
   /** Il boss si sposta di colpo (teletrasporto): la rappresentazione puo' mostrare un'esplosione nei due punti. */
   | { type: 'boss_teleported'; from: Vec2; to: Vec2 }
   | { type: 'boss_defeated'; position: Vec2 }
-  | { type: 'match_ended'; won: boolean };
+  | { type: 'match_ended'; won: boolean }) & { readonly playerId?: string };
