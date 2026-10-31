@@ -185,9 +185,9 @@ export class AudioPlayer {
     this.ambience.update(dt, channelGain(this.settings, 'ambience'), allowed);
   }
 
-  /** Ascolta gli eventi della simulazione. */
-  handle(event: GameEvent): void {
-    for (const cue of cuesForEvent(event)) this.play(cue.sound, cue.position);
+  /** Ascolta gli eventi della simulazione; in cooperativa `localPlayerId` e' il giocatore di questo client. */
+  handle(event: GameEvent, localPlayerId?: string): void {
+    for (const cue of cuesForEvent(event, localPlayerId)) this.play(cue.sound, cue.position);
   }
 
   /** Fa partire un suono del catalogo, eventualmente posizionato nel mondo. */

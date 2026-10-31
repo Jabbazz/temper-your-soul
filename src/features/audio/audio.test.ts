@@ -93,6 +93,17 @@ describe('regia: eventi della simulazione -> suoni', () => {
     expect(cuesForEvent({ type: 'boss_pose', seconds: 0.5 })).toEqual([]);
   });
 
+  it('in cooperativa il colpo subito suona solo per il giocatore di questo client; gli alleati colpiti fanno un impatto', () => {
+    const hurt = (playerId?: string): GameEvent => ({ type: 'damage_dealt', target: 'player', amount: 10, position: HERE, ...(playerId ? { playerId } : {}) });
+    expect(cuesForEvent(hurt('p1'), 'p1')).toEqual([{ sound: 'player_hurt', position: HERE }]);
+    expect(cuesForEvent(hurt('p2'), 'p1')).toEqual([{ sound: 'impact', position: HERE }]);
+    // Partita singola (o evento senza giocatore): sempre il proprio colpo subito.
+    expect(cuesForEvent(hurt('local'))).toEqual([{ sound: 'player_hurt', position: HERE }]);
+    expect(cuesForEvent(hurt(), 'p1')).toEqual([{ sound: 'player_hurt', position: HERE }]);
+    const bossHit: GameEvent = { type: 'damage_dealt', target: 'boss', amount: 5, position: HERE, playerId: 'p2' };
+    expect(cuesForEvent(bossHit, 'p1')).toEqual([{ sound: 'boss_hit', position: HERE }]);
+  });
+
   it('il lancio di una skill suona per materiale; senza voce nel catalogo, per tipo di effetto', () => {
     const cast = (visual: string, kind: 'projectile' | 'ground_blast' | 'dash' | 'melee_arc'): GameEvent => ({
       type: 'skill_cast',

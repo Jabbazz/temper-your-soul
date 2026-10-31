@@ -334,7 +334,7 @@ export class Game {
     }
     applySnapshot(this.match, snapshot);
     for (const event of snapshot.events) {
-      this.effects.handle(event); this.audio.handle(event);
+      this.effects.handle(event); this.audio.handle(event, this.party.client.playerId);
       if (!event.playerId || event.playerId === this.party.client.playerId) this.poses.handle(event);
       if (event.playerId) this.allyPoses.get(event.playerId)?.handle(event);
     }
@@ -355,6 +355,9 @@ export class Game {
     const roster = rosterFromExternalSave(key, newValue, this.roster.activeId);
     if (roster === null) return;
     this.roster = roster;
+    // Come dopo un salvataggio: l'aspetto disegnato e il pannello del party seguono il personaggio aggiornato.
+    this.renderAppearance = undefined;
+    this.updateParty();
     // Durante la creazione non si ridisegna il menu: il nome che si sta scrivendo andrebbe perso.
     if (this.screen === 'menu' && this.draft === null) this.showMenu();
     else if (this.screen === 'dungeons') this.dungeonSelect.render(this.character);

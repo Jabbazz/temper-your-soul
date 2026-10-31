@@ -167,6 +167,8 @@ Checklist manuale:
 
 Verifiche: 402 test (anche esistenza, peso e crediti di ogni file, provati con mutazioni), tipi e build (41 file copiati, 7 incorporati). Prova automatica nel browser: decodifica di tutti gli effetti, musica del menu dopo il primo clic, passaggio a cripta e ambiente in partita, brano della furia sotto metà vita, vittoria, crediti nel pannello, nessun errore in console. **Nessun ascolto fatto da me: il giudizio sui suoni è dell'utente.**
 
+Riallineamento alla cooperativa (`a8c49ec`): i tre commit del ramo sono stati riportati sopra il main con un rebase; 430 test, tipi client/server e build verdi. In cooperativa il colpo subito suona solo per il giocatore del client, quelli degli alleati come impatti; il pannello Audio si apre sotto i comandi, spostati da Jabbaz sotto il pannello del party. **La cooperativa con l'audio non è stata provata in rete.**
+
 Checklist manuale (ascolto):
 
 - [ ] Menu: l'Aria parte al primo clic, a volume gradevole; dietro si sente appena l'ambiente del dungeon mostrato.
