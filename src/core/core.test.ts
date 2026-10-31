@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Camera } from './camera';
-import { Input, isBrowserShortcut, SKILL_ACTIONS, type Action } from './input';
+import { blocksBrowserDefault, Input, isBrowserShortcut, SKILL_ACTIONS, type Action } from './input';
 import { SeededRng } from './rng';
 import { Signal } from './signal';
 import { clamp, TAU, Vec2 } from './vec2';
@@ -133,6 +133,15 @@ describe('Input', () => {
     expect(isBrowserShortcut({ ...none, ctrlKey: true })).toBe(true);
     expect(isBrowserShortcut({ ...none, metaKey: true })).toBe(true);
     expect(isBrowserShortcut({ ...none, altKey: true })).toBe(true);
+  });
+
+  it('lo Spazio e\' bloccato solo fuori dai pulsanti (sui pulsanti li attiva); i tasti legati sempre', () => {
+    expect(blocksBrowserDefault('Space', false)).toBe(true);
+    expect(blocksBrowserDefault('Space', true)).toBe(false);
+    expect(blocksBrowserDefault('KeyW', true)).toBe(true);
+    expect(blocksBrowserDefault('Escape', false)).toBe(true);
+    expect(blocksBrowserDefault('Enter', false)).toBe(false);
+    expect(blocksBrowserDefault('Tab', false)).toBe(false);
   });
 
   it('releaseAll azzera tasti tenuti e pressioni registrate', () => {

@@ -60,6 +60,19 @@ export const CORRUPT_BACKUP_KEY = `${SAVE_KEY}:corrupt`;
 export const PRE_ROSTER_BACKUP_KEY=`${SAVE_KEY}:before-roster`;
 
 /**
+ * La raccolta salvata da un'altra scheda dello stesso browser (dall'evento `storage`: `key`, `newValue`), da adottare al
+ * posto di quella in memoria: cosi' il prossimo salvataggio di questa scheda non cancella in silenzio i progressi
+ * dell'altra. `null` se la modifica non riguarda il salvataggio, lo cancella o non e' leggibile: allora si tiene la
+ * raccolta attuale. Il profilo attivo di questa scheda resta attivo se esiste ancora. Non scrive nulla.
+ */
+export function rosterFromExternalSave(key: string | null, newValue: string | null, keepActiveId: string | null): CharacterRoster | null {
+  if (key !== SAVE_KEY || newValue === null) return null;
+  const roster = deserializeRoster(newValue);
+  if (roster !== null && keepActiveId !== null) roster.select(keepActiveId);
+  return roster;
+}
+
+/**
  * Legge e scrive il personaggio. Non lancia mai eccezioni. Con `store` null il gioco funziona in memoria:
  * `load()` da' sempre un personaggio iniziale e `save()` restituisce false.
  */

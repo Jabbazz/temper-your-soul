@@ -4,7 +4,7 @@ import { resolveItemSkill } from '../items/item';
 import { familyById } from '../items/item-families';
 import { MAGE_SKILLS } from '../skills/mage-skills';
 import { Character } from './character';
-import { deserializeCharacter, serializeCharacter } from './save-format';
+import { deserializeCharacter, MAX_ITEM_NUMBER, serializeCharacter } from './save-format';
 import { browserStorage, CORRUPT_BACKUP_KEY, MemoryStore, SAVE_KEY, SAVE_VERSION, SaveStore, type KeyValueStore } from './save-store';
 
 /** Un archivio che fallisce come un browser con dati del sito bloccati o quota piena. */
@@ -269,6 +269,32 @@ describe('formato di salvataggio', () => {
     const character = deserializeCharacter(saveText({ items, nextItemNumber: 2 }))!;
     const [added] = character.addRolls([{ familyId: 'ember_aegis', rarity: 'rare' }]);
     expect(character.inventory.filter((item) => item.uid === added!.uid)).toHaveLength(1);
+  });
+
+  it('un nextItemNumber o un numero di uid enormi non producono uid duplicati', () => {
+    const items = [
+      { uid: 'i3', familyId: 'arcane_staff', rarity: 'common' },
+      { uid: 'i99999999999999999999', familyId: 'hunter_bow', rarity: 'common' },
+    ];
+    for (const nextItemNumber of [2 ** 53, Number.MAX_SAFE_INTEGER, 1e300, MAX_ITEM_NUMBER + 1]) {
+      const character = deserializeCharacter(saveText({ items, nextItemNumber }))!;
+      expect(character.nextItemNumber, String(nextItemNumber)).toBe(4);
+      character.addRolls([
+        { familyId: 'ember_aegis', rarity: 'rare' },
+        { familyId: 'wind_boots', rarity: 'common' },
+      ]);
+      const uids = character.inventory.map((item) => item.uid);
+      expect(new Set(uids).size, String(nextItemNumber)).toBe(uids.length);
+    }
+    expect(deserializeCharacter(saveText({ items, nextItemNumber: MAX_ITEM_NUMBER }))!.nextItemNumber).toBe(MAX_ITEM_NUMBER);
+  });
+
+  it('addRolls salta un uid gia\' presente anche se nextItemNumber e\' rimasto indietro', () => {
+    const character = Character.createStarter();
+    character.nextItemNumber = 2;
+    const [added] = character.addRolls([{ familyId: 'ember_aegis', rarity: 'rare' }]);
+    expect(added!.uid).toBe('i5');
+    expect(character.nextItemNumber).toBe(6);
   });
 
   it('i record di dungeon sconosciuti si scartano e i numeri non validi tornano a valori validi', () => {

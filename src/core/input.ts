@@ -43,6 +43,20 @@ export function isBrowserShortcut(event: { ctrlKey: boolean; metaKey: boolean; a
   return event.ctrlKey || event.metaKey || event.altKey;
 }
 
+/**
+ * Vero se il gioco deve impedire il comportamento del browser per il tasto `code`: i tasti legati sempre, lo Spazio
+ * (che farebbe scorrere la pagina) solo se il focus non e' su un pulsante, altrimenti non lo attiverebbe.
+ */
+export function blocksBrowserDefault(code: string, onButton: boolean): boolean {
+  if (code in BINDINGS) return true;
+  return code === 'Space' && !onButton;
+}
+
+/** Vero se l'elemento e' (o sta dentro) un pulsante o un collegamento che lo Spazio o l'Invio attivano. */
+function isButtonTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('button, a[href], summary') !== null;
+}
+
 export class Input {
   /** Emesso a ogni nuova pressione di un'azione (non per la ripetizione automatica dei tasti). */
   readonly actionPressed = new Signal<[Action]>();
@@ -109,7 +123,7 @@ export class Input {
       if (isBrowserShortcut(event)) return;
       // I nomi e i controlli dei menu devono ricevere i propri tasti, anche WASD, F, M e Spazio.
       if(event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
-      if (event.code in BINDINGS || event.code === 'Space') event.preventDefault();
+      if (blocksBrowserDefault(event.code, isButtonTarget(event.target))) event.preventDefault();
       this.press(event.code, event.repeat);
     };
     const onKeyUp = (event: KeyboardEvent): void => this.release(event.code);

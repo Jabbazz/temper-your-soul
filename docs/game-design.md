@@ -55,7 +55,7 @@ Tutti i valori sono provvisori e modificabili: stanno in tabelle di dati con nom
 
 I valori di ogni boss (`BossStats`: vita, velocità, raggio di colpo, danno da contatto e carica, intervalli) e di ogni schema (`ByPhase`: normale / furia) stanno in `features/boss/guardian.ts` e `features/dungeons/<id>/`. Regole comuni: seconda fase (furia) sotto il 50% di vita; un boss lancia i propri schemi in rotazione e non ne inizia uno nuovo finché carica e azioni programmate non sono finite; il boss **ignora i pilastri** (vola) e può teletrasportarsi (Custode).
 
-- **Pilastri**: bloccano il movimento del giocatore (che scivola lungo la superficie) e **assorbono i proiettili di entrambe le squadre**, quindi sono ripari. Non fermano le zone a terra.
+- **Pilastri**: bloccano il movimento del giocatore (che scivola lungo la superficie) e **assorbono i proiettili di entrambe le squadre**, quindi sono ripari. Fermano anche il colpo ravvicinato se tagliano la linea fino al bordo del boss. Non fermano le zone a terra.
 - Vincoli verificati dai test per ogni dungeon: mappa 2000-4000 di lato, partenze libere, nessuna fessura più stretta del corpo del giocatore, danno per colpo <= 30 (proiettili) / 40 (zone) / 30 (contatto) / 40 (carica), zone con avviso >= 0,5 s, almeno 3 schemi esclusivi per boss.
 
 ### Skill base del mago (`features/skills/mage-skills.ts`)
@@ -67,7 +67,7 @@ La dotazione iniziale (oggetti Comuni di base): corrisponde esattamente alle ski
 | 1 | Dardo arcano (`arcane_bolt`) | 0,2 s | proiettile, 19 danni, 440/s, raggio 4 |
 | 2 | Globo di gelo (`frost_orb`) | 2,4 s | proiettile, 100 danni, 310/s, raggio 8; rallenta il boss 2 s |
 | 3 | Meteora (`meteor`) | 5 s | zona di raggio 66 sul mirino, scoppia dopo 0,65 s, 210 danni |
-| 4 | Passo astrale (`astral_step`) | 3,5 s | scatto di 125 verso la mira, invulnerabile 0,55 s |
+| 4 | Passo astrale (`astral_step`) | 3,5 s | scatto di 125 verso la mira, invulnerabile 0,55 s (non accorcia un'invulnerabilità più lunga già in corso) |
 
 Tipi di effetto disponibili (`SkillEffect`): **proiettile** (anche a ventaglio con `count` e `spread`), **zona a terra** (sul mirino o attorno al lanciatore, con rallentamento opzionale), **scatto** e **colpo ravvicinato ad arco**. Ogni skill ha ricarica propria (nessuna ricarica globale).
 
@@ -113,7 +113,7 @@ Il porting della Fase 0 conservava regole e valori; restano queste differenze (t
 - **Progressione**: livelli ed esperienza, tier T1-T15 come in Ashen Realm (qui la potenza viene dalla rarità), sblocco dei dungeon (oggi sono tutti disponibili), difficoltà scalabile.
 - **Altri slot**: anello e collana come modificatori delle skill, ali sulla velocità, pantaloni, peso dell'armatura (come in Ashen Realm). Oggi gli slot sono 4, uno per skill.
 - **Oggetti**: capienza dell'inventario (oggi illimitata), vendita o riforgiatura, confronto tra oggetti, modificatori casuali, oggetti identici duplicati, eventuali oggetti unici con nome proprio.
-- **Salvataggio**: cloud, esportazione/importazione del salvataggio e cosa fare con due schede aperte contemporaneamente (oggi l'ultima che salva vince). Profili multipli e rimozione individuale sono implementati localmente.
+- **Salvataggio**: cloud, esportazione/importazione del salvataggio e due schede aperte contemporaneamente (oggi una scheda adotta i salvataggi dell'altra appena avvengono; due salvataggi quasi simultanei restano "l'ultimo vince"). Profili multipli e rimozione individuale sono implementati localmente.
 - Tutti i valori numerici (vita, danni, velocità, ricariche, pesi del bottino, scalatura delle rarità), da tarare con la prova manuale; equilibrio tra le famiglie e tra i dungeon.
 - Ambientazione e lore: nomi dei dungeon e dei boss, "Ordine della Brace", "Emberfall".
 - Raggi di collisione (oggi incoerenti di 1 tra proiettili e zone), perforazione e rimbalzo dei proiettili, pilastri distruttibili o che fermano anche le zone.

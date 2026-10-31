@@ -11,6 +11,12 @@ import { cleanItemLevel } from '../items/gear-score';
 /** Versione del formato di salvataggio. Se cambia la struttura, alzarla e aggiungere la migrazione in `deserializeCharacter`. */
 export const SAVE_VERSION = 6;
 
+/**
+ * Tetto per i numeri degli `uid` (`i1`, `i2`, ...): lascia un ampio margine sotto 2^53, oltre cui gli interi non sono
+ * piu' esatti e `nextItemNumber + 1` potrebbe restare uguale (uid duplicati). Nessuna partita vera ci arriva.
+ */
+export const MAX_ITEM_NUMBER = 1_000_000_000;
+
 /** Dati del singolo personaggio v6, inclusi nel roster locale. GS e skill restano derivati. */
 export function serializeCharacter(character: Character): string {
   return JSON.stringify({
@@ -39,7 +45,7 @@ function isObject(value: unknown): value is Json {
  *  - oggetti con famiglia o rarita' sconosciute, `uid` non stringa o duplicati: scartati;
  *  - equipaggiamento verso `uid` inesistenti o di una famiglia di un altro slot: slot vuoto;
  *  - record di dungeon sconosciuti: scartati; numeri non validi riportati a valori validi;
- *  - `nextItemNumber` sempre maggiore di ogni numero degli `uid` presenti;
+ *  - `nextItemNumber` sempre maggiore di ogni numero degli `uid` presenti e mai oltre `MAX_ITEM_NUMBER`;
  *  - nessun oggetto valido: inventario ed equipaggiamento del personaggio iniziale (i record restano).
  */
 export function deserializeCharacter(text: string): Character | null {
@@ -85,9 +91,12 @@ export function deserializeCharacter(text: string): Character | null {
   let highest = 0;
   for (const { uid } of character.inventory) {
     const match = /^i(\d+)$/.exec(uid);
-    if (match !== null) highest = Math.max(highest, Number(match[1]));
+    const number = match === null ? 0 : Number(match[1]);
+    // Un numero oltre il tetto non puo' coincidere con gli uid nuovi, che restano sotto: non conta.
+    if (number <= MAX_ITEM_NUMBER) highest = Math.max(highest, number);
   }
-  const saved = typeof nextItemNumber === 'number' && Number.isInteger(nextItemNumber) ? nextItemNumber : 1;
+  const saved =
+    typeof nextItemNumber === 'number' && Number.isInteger(nextItemNumber) && nextItemNumber <= MAX_ITEM_NUMBER ? nextItemNumber : 1;
   character.nextItemNumber = Math.max(saved, highest + 1, 1);
 
   if (character.inventory.length === 0) {

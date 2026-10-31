@@ -2,7 +2,7 @@ import { describe,expect,it } from 'vitest';
 import { Character } from './character';
 import { CharacterRoster,deserializeRoster,serializeRoster } from './character-roster';
 import { serializeCharacter } from './save-format';
-import { SaveStore,MemoryStore,SAVE_KEY,PRE_ROSTER_BACKUP_KEY,CORRUPT_BACKUP_KEY } from './save-store';
+import { SaveStore,MemoryStore,SAVE_KEY,PRE_ROSTER_BACKUP_KEY,CORRUPT_BACKUP_KEY,rosterFromExternalSave } from './save-store';
 
 function character(name:string){const c=Character.createStarter();c.completeCreation(name,'female','mage');return c;}
 describe('profili locali indipendenti',()=>{
@@ -49,5 +49,27 @@ describe('profili locali indipendenti',()=>{
     expect(loaded.status).toBe('recovered');expect(memory.getItem(CORRUPT_BACKUP_KEY)).toBe('broken');
     loaded.roster.add(character('Nuova'));expect(store.saveRoster(loaded.roster)).toBe(true);expect(store.loadRoster().roster.profiles).toHaveLength(1);
     expect(new SaveStore(null).loadRoster().roster.profiles).toEqual([]);expect(new SaveStore(null).saveRoster(loaded.roster)).toBe(false);
+  });
+});
+
+describe('salvataggio da un\'altra scheda',()=>{
+  it('si adotta la raccolta salvata altrove, con il bottino nuovo, tenendo il profilo attivo di questa scheda',()=>{
+    const roster=new CharacterRoster(),a=roster.add(character('Aria'));roster.add(character('Brina'));
+    // L'altra scheda vince con Brina (attiva li') e salva.
+    const other=deserializeRoster(serializeRoster(roster))!;
+    other.active!.character.addRolls([{familyId:'frost_lance',rarity:'epic'}]);
+    const adopted=rosterFromExternalSave(SAVE_KEY,serializeRoster(other),a.id)!;
+    expect(adopted.activeId).toBe(a.id);
+    expect(adopted.profiles[1]!.character.inventory).toHaveLength(5);
+    // Il profilo attivo qui e' stato rimosso altrove: resta quello scelto dall'altra scheda.
+    other.remove(a.id);
+    expect(rosterFromExternalSave(SAVE_KEY,serializeRoster(other),a.id)!.activeId).toBe(other.activeId);
+  });
+  it('chiavi diverse, cancellazioni e testi illeggibili non toccano la raccolta attuale',()=>{
+    const text=serializeRoster(new CharacterRoster());
+    expect(rosterFromExternalSave('altra-chiave',text,null)).toBeNull();
+    expect(rosterFromExternalSave(null,null,null)).toBeNull();
+    expect(rosterFromExternalSave(SAVE_KEY,null,null)).toBeNull();
+    expect(rosterFromExternalSave(SAVE_KEY,'rotto',null)).toBeNull();
   });
 });

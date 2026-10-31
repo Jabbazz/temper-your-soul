@@ -8,7 +8,7 @@ import { AudioPlayer } from './features/audio/audio-player';
 import { Character } from './features/character/character';
 import type { CharacterRoster } from './features/character/character-roster';
 import { renderCharacterProfiles } from './features/ui/character-profiles';
-import { browserStorage, SaveStore, type LoadStatus } from './features/character/save-store';
+import { browserStorage, rosterFromExternalSave, SaveStore, type LoadStatus } from './features/character/save-store';
 import { CRYPT } from './features/dungeons/crypt';
 import type { DungeonDefinition } from './features/dungeons/dungeon-definition';
 import { canEnterDungeon,minimumDungeonGearScore } from './features/dungeons/dungeon-access';
@@ -84,7 +84,7 @@ export class Game {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly saveStore: SaveStore;
 
-  private readonly roster:CharacterRoster;
+  private roster:CharacterRoster;
   private draft:Character|null=null;
   private get character():Character {return this.draft??this.roster.active?.character??this.newDraft();}
   private newDraft():Character {this.draft=Character.createStarter();return this.draft;}
@@ -141,6 +141,7 @@ export class Game {
       () => (this.screen === 'paused' ? this.togglePause() : this.startMatch()),
       () => this.showMenu(),
     );
+    window.addEventListener('storage', (event) => this.adoptExternalSave(event.key, event.newValue));
     window.addEventListener('blur', () => this.pauseIfPlaying());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.pauseIfPlaying();
@@ -193,6 +194,8 @@ export class Game {
     if(!this.character.created)return;
     this.screen = 'inventory';
     this.screens.show('inventory');
+    // Si riapre da capo: uno scarto chiesto prima di uscire (anche con ESC) non resta in attesa di conferma.
+    this.inventoryScreen.reset();
     this.inventoryScreen.render(this.character);
     this.updateParty();
   }
@@ -324,6 +327,25 @@ export class Game {
       this.onMatchEnded(this.match, snapshot.status === 'won', snapshot.rewards[this.party.client.playerId] ?? []);
       showCombatReport(snapshot.report, this.battleMembers, snapshot.time, snapshot.status === 'won');
     }
+  }
+
+  /**
+   * Un'altra scheda ha salvato: si adotta la sua raccolta (con il profilo attivo di questa scheda, se esiste ancora) e
+   * si ridisegna la schermata aperta. Una partita in corso prosegue con le skill che aveva; il bottino va al personaggio
+   * aggiornato. Il personaggio in creazione (`draft`) non e' nella raccolta e resta com'e'.
+   */
+  private adoptExternalSave(key: string | null, newValue: string | null): void {
+    const roster = rosterFromExternalSave(key, newValue, this.roster.activeId);
+    if (roster === null) return;
+    this.roster = roster;
+    // Durante la creazione non si ridisegna il menu: il nome che si sta scrivendo andrebbe perso.
+    if (this.screen === 'menu' && this.draft === null) this.showMenu();
+    else if (this.screen === 'dungeons') this.dungeonSelect.render(this.character);
+    else if (this.screen === 'inventory') {
+      this.inventoryScreen.reset();
+      this.inventoryScreen.render(this.character);
+    }
+    this.showToast('Progressi aggiornati da un\'altra scheda di questo browser.');
   }
 
   /** Salva il personaggio; se non riesce avvisa una volta sola. Restituisce se il salvataggio e' riuscito. */

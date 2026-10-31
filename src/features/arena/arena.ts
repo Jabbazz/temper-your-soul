@@ -51,6 +51,17 @@ export function pillarAt(arena: ArenaDefinition, point: Vec2, extra = 0): Pillar
   return arena.pillars.find((pillar) => point.distanceTo(pillar.position) < pillar.radius + extra);
 }
 
+/** Il pilastro che taglia il segmento da `from` a `to` (linea di vista bloccata), se c'e'. */
+export function pillarBetween(arena: ArenaDefinition, from: Vec2, to: Vec2): Pillar | undefined {
+  const segment = to.sub(from);
+  const lengthSquared = segment.lengthSquared();
+  return arena.pillars.find((pillar) => {
+    const offset = pillar.position.sub(from);
+    const u = lengthSquared > 0 ? clamp((offset.x * segment.x + offset.y * segment.y) / lengthSquared, 0, 1) : 0;
+    return from.add(segment.mul(u)).distanceTo(pillar.position) < pillar.radius;
+  });
+}
+
 /** Spinge un corpo circolare di raggio `bodyRadius` fuori dai pilastri (scivola lungo la superficie). */
 export function pushOutOfPillars(arena: ArenaDefinition, point: Vec2, bodyRadius: number): Vec2 {
   let result = point;
