@@ -6,7 +6,8 @@ Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti p
 
 - **Prova manuale della Fase 0 confermata solo in generale.** L'utente ha dichiarato che "funziona tutto correttamente" (2026-10-30), senza dettaglio per voce della checklist in `docs/roadmap.md`: non sono stati segnalati problemi. I controlli automatici, la prova di fumo in Edge headless e i fotogrammi renderizzati non coprono da soli sensazione di gioco, leggibilita', interfaccia in DOM e prestazioni.
 - **Interfaccia in DOM, ciclo del browser e disegno non coperti dai test automatici.** `Hud`, `Overlay`, `FullscreenToggle`, `Game` e le funzioni `draw-*` non hanno test (la suite gira in Node, senza DOM ne' canvas). Sono stati solo esercitati dalla prova di fumo in un browser vero (rieseguita anche dopo le correzioni della revisione, senza errori in console).
-- **Voci della revisione indipendente non corrette**: vedi la sezione "Revisione indipendente del porting".
+- **Voci della revisione indipendente non corrette**: vedi le sezioni "Revisione indipendente del porting" e "Revisione indipendente della Fase 1 (parziale)" (quest'ultima non copre dungeon, mappe e boss).
+- **Prova manuale della Fase 1 da eseguire** (menu, 4 dungeon, boss, oggetti, salvataggio): nulla e' confermato a mano; checklist in `docs/roadmap.md`. Equita' e leggibilita' degli attacchi dei 3 nuovi boss sono verificate solo da test automatici e fotogrammi, non giocate.
 - **Raggi di collisione incoerenti (ereditati).** I proiettili usano raggio + 9 sul giocatore e + 26 sul boss; le zone raggio + 8 e + 25 (`features/combat/collision.ts`). Da unificare con la prova manuale.
 - **Valori provvisori.** Tutti i valori di gioco sono quelli del prototipo e non sono tarati (vedi `docs/game-design.md`).
 - **Lo scatto puo' accorciare l'invulnerabilita'.** `Passo astrale` imposta l'invulnerabilita' a 0,55 s anche se dopo un colpo restavano piu' di 0,55 s dei 0,65 s (comportamento del prototipo, coperto da un test che lo documenta). Da decidere se tenere il valore maggiore.
@@ -42,6 +43,20 @@ Non corrette, da decidere:
 - **`Game` (ciclo, pausa, ripartenza), `Hud`, `Overlay`, `AudioPlayer` senza test**, e nessun controllo automatico che la simulazione non usi `Math.random` o il DOM (oggi non succede: l'unico `Math.random` e' in `cosmeticRng` e nel seme di `Game`). Possibile estrazione di un `FixedStepLoop` puro da testare.
 - **La mira dipende dalla camera centrata sul giocatore**: `PlayerIntent.aimOffset` e' l'offset del mouse dal centro della vista. Se la camera avra' smorzamento o limiti, la mira andra' ricalcolata.
 - **Mutante equivalente**: la ressincronizzazione della mira prima di ogni skill (`match.ts`) e' ridondante con le skill attuali; resta per quando una skill che sposta il giocatore precedera' un'altra.
+
+## Revisione indipendente della Fase 1 (parziale)
+
+Quattro revisori dovevano guardare salvataggio e bottino, flusso delle schermate, dungeon e boss, architettura e test, con uno scettico per ogni segnalazione. **La revisione si e' interrotta per il limite orario del servizio**: hanno finito le prospettive "salvataggio e bottino" e "flusso e interfaccia"; **non e' girata quella su dungeon, mappe e boss** (equita' degli attacchi, giocatore incastrato, schemi inevitabili) e solo in parte quella su architettura e test (alcune verifiche sono fallite). Gli esiti qui sotto sono quindi incompleti. Nessuna correzione e' stata applicata: sono tutte di gravita' bassa dopo la verifica e vanno decise.
+
+- **Due schede aperte si sovrascrivono il salvataggio** ("l'ultima che salva vince"): il bottino o i progressi dell'altra scheda vanno persi in silenzio. Gia' dichiarato nei punti aperti; mitigazione economica: ascoltare l'evento `storage` e ricaricare il personaggio.
+- **Salvataggio riparato in parte senza copia di sicurezza**: oggetti con famiglia o rarita' sconosciute, equipaggiamento verso uid scartati e record di dungeon sconosciuti vengono scartati e al primo salvataggio la perdita diventa definitiva, senza avviso. Succede solo con dati manomessi o dopo aver rinominato una famiglia senza alzare `SAVE_VERSION`. Proposta: far restituire a `deserializeCharacter` un flag "riparato" e copiare il testo originale in un backup.
+- **La copia `...:corrupt` puo' essere sovrascritta** da un nuovo salvataggio illeggibile (perdendo un backup valido, per esempio di una versione futura); una versione piu' recente del formato verrebbe sovrascritta alla prima vittoria. Da gestire quando si introduce la versione 2.
+- **`nextItemNumber` enorme (>= 2^53) nel salvataggio** produce uid duplicati e puo' far perdere oggetti: accettare solo interi sicuri sotto un tetto.
+- **La barra spaziatrice e' bloccata a livello globale** (`preventDefault` in `core/input.ts`): con il focus su un pulsante la tastiera non lo attiva. Il gioco non usa lo Spazio.
+- **La conferma dello scarto resta armata** se si esce dall'equipaggiamento e si rientra: il primo clic su "Scarta" dopo il rientro scarta davvero. Proposta: un metodo `open()` di `InventoryScreen` che azzera lo stato (non applicata).
+- **L'HUD tiene in memoria** le barre di ricarica di ogni partita (mappa `last`, crescita lenta): usare una `WeakMap`.
+
+Nessuna di queste e' stata riprodotta a mano.
 
 ## Risolti
 

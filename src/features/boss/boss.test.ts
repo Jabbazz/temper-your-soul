@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Rng } from '../../core/rng';
 import { TAU, Vec2 } from '../../core/vec2';
-import { ARENA } from '../arena/arena';
-import { createBossHarness, eventsOfType, STEP } from '../../testing';
-import { Boss, BOSS_STATS } from './boss';
-import { BOSS_PATTERNS } from './boss-patterns';
+import { CRYPT_ARENA } from '../dungeons/crypt';
+import { createBoss, createBossHarness, eventsOfType, STEP } from '../../testing';
+import { GUARDIAN, GUARDIAN_STATS as BOSS_STATS } from './guardian';
+
+const BOSS_PATTERNS = GUARDIAN.patterns;
 
 const MIDDLE: Rng = { next: () => 0.5 };
 
 /** Fa partire subito lo schema numero `index` e restituisce il boss (gia' un passo avanti). */
 function startPattern(index: number, options: { enraged?: boolean; target?: Vec2; rng?: Rng } = {}) {
-  const boss = new Boss();
+  const boss = createBoss();
   const harness = createBossHarness(options.target, options.rng);
   if (options.enraged) boss.phase = 2;
   boss.attackCount = index;
@@ -21,7 +22,7 @@ function startPattern(index: number, options: { enraged?: boolean; target?: Vec2
 
 describe('movimento del boss', () => {
   it('lontano dal giocatore lo insegue a 100 unita\' al secondo', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     boss.attackTimer = Infinity;
     const { ctx } = createBossHarness(new Vec2(1600, 1500));
     boss.step(1, ctx);
@@ -30,7 +31,7 @@ describe('movimento del boss', () => {
   });
 
   it('con il gelo la velocita\' e\' 30', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     boss.attackTimer = Infinity;
     boss.slowFor = 1;
     const { ctx } = createBossHarness(new Vec2(1600, 1500));
@@ -39,7 +40,7 @@ describe('movimento del boss', () => {
   });
 
   it('entro 180 unita\' smette di avvicinarsi e gira attorno al giocatore a 0,38 della velocita\'', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     boss.attackTimer = Infinity;
     const { ctx } = createBossHarness(new Vec2(1600, 1200));
     boss.step(1, ctx);
@@ -49,13 +50,13 @@ describe('movimento del boss', () => {
   });
 
   it('la soglia tra inseguire e girare attorno e\' 180: a 150 gira, a 200 insegue', () => {
-    const orbiting = new Boss();
+    const orbiting = createBoss();
     orbiting.attackTimer = Infinity;
     orbiting.step(1, createBossHarness(new Vec2(1600, 1250)).ctx);
     expect(orbiting.position.y).toBeCloseTo(1100, 6);
     expect(orbiting.position.x).not.toBe(1600);
 
-    const chasing = new Boss();
+    const chasing = createBoss();
     chasing.attackTimer = Infinity;
     chasing.step(1, createBossHarness(new Vec2(1600, 1300)).ctx);
     expect(chasing.position.y).toBeCloseTo(1200, 6);
@@ -63,16 +64,16 @@ describe('movimento del boss', () => {
   });
 
   it('non esce dall\'arena (margine 60)', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     boss.attackTimer = Infinity;
     boss.position = new Vec2(60.5, 60.5);
     const { ctx } = createBossHarness(new Vec2(-1000, -1000));
     boss.step(1, ctx);
-    expect(boss.position).toEqual(new Vec2(ARENA.bossMargin, ARENA.bossMargin));
+    expect(boss.position).toEqual(new Vec2(CRYPT_ARENA.bossMargin, CRYPT_ARENA.bossMargin));
   });
 
   it('tick consuma il rallentamento senza scendere sotto zero', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     boss.slowFor = 2;
     boss.tick(1.5);
     expect(boss.isSlowed).toBe(true);
@@ -84,7 +85,7 @@ describe('movimento del boss', () => {
 
 describe('fasi', () => {
   it('sotto la meta\' della vita entra in furia, una sola volta e non a meta\' esatta', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     boss.attackTimer = Infinity;
     const { ctx, events } = createBossHarness();
     boss.health.current = 900;
@@ -99,7 +100,7 @@ describe('fasi', () => {
   });
 
   it('la fase non torna indietro', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     boss.attackTimer = Infinity;
     boss.health.current = 100;
     const { ctx } = createBossHarness();
@@ -112,7 +113,7 @@ describe('fasi', () => {
 
 describe('cadenza degli attacchi', () => {
   it('il primo attacco parte dopo circa 1,8 secondi', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     const { ctx } = createBossHarness();
     let steps = 0;
     while (boss.attackCount === 0 && steps < 600) {
@@ -129,11 +130,11 @@ describe('cadenza degli attacchi', () => {
   });
 
   it('gli schemi girano in ordine e, dopo l\'ultimo, ricominciano dal primo', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     const { ctx, events } = createBossHarness();
     for (let i = 0; i < 12; i++) {
       boss.charge = null;
-      boss.volleys = [];
+      boss.scheduled = [];
       boss.attackTimer = 0;
       boss.step(STEP, ctx);
     }
@@ -189,7 +190,7 @@ describe('nova di brace', () => {
   });
 
   it('la rotazione dipende dal tempo di partita, cosi\' i varchi cambiano', () => {
-    const boss = new Boss();
+    const boss = createBoss();
     const harness = createBossHarness();
     harness.ctx.time = 10;
     boss.attackTimer = 0;
@@ -207,7 +208,7 @@ describe('raffica', () => {
   it('sette proiettili a ventaglio di 0,15 rad verso il giocatore; in furia piu\' veloci', () => {
     const { projectiles, boss } = startPattern(1);
     expect(projectiles).toHaveLength(7);
-    const toTarget = boss.position.angleTo(ARENA.playerSpawn);
+    const toTarget = boss.position.angleTo(CRYPT_ARENA.playerSpawn);
     projectiles.forEach((shot, i) => {
       expect(shot.angle).toBeCloseTo(toTarget + (i - 3) * 0.15, 10);
       expect(shot.spec).toMatchObject({ speed: 165, damage: 15, radius: 6, visual: 'ember_volley' });
@@ -220,7 +221,7 @@ describe('frattura', () => {
   it('3 zone (5 in furia): la prima esattamente sul giocatore, le altre attorno', () => {
     const normal = startPattern(2, { rng: MIDDLE });
     expect(normal.zones).toHaveLength(3);
-    expect(normal.zones[0]!.position).toEqual(ARENA.playerSpawn);
+    expect(normal.zones[0]!.position).toEqual(CRYPT_ARENA.playerSpawn);
     expect(normal.zones[0]!.spec).toEqual({ team: 'enemy', radius: 42, delay: 1.15, damage: 24 });
     expect(startPattern(2, { enraged: true, rng: MIDDLE }).zones).toHaveLength(5);
   });
@@ -228,8 +229,8 @@ describe('frattura', () => {
   it('le altre zone cadono entro +-225 in x e +-175 in y dal giocatore, riproducibili con il seme', () => {
     const { zones } = startPattern(2, { enraged: true });
     for (const zone of zones.slice(1)) {
-      expect(Math.abs(zone.position.x - ARENA.playerSpawn.x)).toBeLessThanOrEqual(225);
-      expect(Math.abs(zone.position.y - ARENA.playerSpawn.y)).toBeLessThanOrEqual(175);
+      expect(Math.abs(zone.position.x - CRYPT_ARENA.playerSpawn.x)).toBeLessThanOrEqual(225);
+      expect(Math.abs(zone.position.y - CRYPT_ARENA.playerSpawn.y)).toBeLessThanOrEqual(175);
     }
     const again = startPattern(2, { enraged: true });
     expect(again.zones.map((z) => z.position)).toEqual(zones.map((z) => z.position));
@@ -237,16 +238,16 @@ describe('frattura', () => {
 
   it('agli estremi della casualita\' le altre zone cadono a -225/-175 e appena sotto +225/+175', () => {
     const low = startPattern(2, { rng: { next: () => 0 } });
-    expect(low.zones[1]!.position).toEqual(new Vec2(ARENA.playerSpawn.x - 225, ARENA.playerSpawn.y - 175));
+    expect(low.zones[1]!.position).toEqual(new Vec2(CRYPT_ARENA.playerSpawn.x - 225, CRYPT_ARENA.playerSpawn.y - 175));
     const high = startPattern(2, { rng: { next: () => 0.999999 } });
-    expect(high.zones[1]!.position.x).toBeCloseTo(ARENA.playerSpawn.x + 225, 2);
-    expect(high.zones[1]!.position.x).toBeLessThan(ARENA.playerSpawn.x + 225);
-    expect(high.zones[1]!.position.y).toBeCloseTo(ARENA.playerSpawn.y + 175, 2);
+    expect(high.zones[1]!.position.x).toBeCloseTo(CRYPT_ARENA.playerSpawn.x + 225, 2);
+    expect(high.zones[1]!.position.x).toBeLessThan(CRYPT_ARENA.playerSpawn.x + 225);
+    expect(high.zones[1]!.position.y).toBeCloseTo(CRYPT_ARENA.playerSpawn.y + 175, 2);
   });
 
   it('le zone restano dentro l\'arena (margine 60)', () => {
     const { zones } = startPattern(2, { target: new Vec2(5, 5), rng: MIDDLE });
-    for (const zone of zones) expect(zone.position).toEqual(new Vec2(ARENA.bossMargin, ARENA.bossMargin));
+    for (const zone of zones) expect(zone.position).toEqual(new Vec2(CRYPT_ARENA.bossMargin, CRYPT_ARENA.bossMargin));
   });
 });
 
@@ -254,7 +255,7 @@ describe('carica', () => {
   it('fissa il punto d\'arrivo sul giocatore e annuncia la posa lunga', () => {
     const { boss, events } = startPattern(3);
     expect(boss.charge).not.toBeNull();
-    expect(boss.charge!.target).toEqual(ARENA.playerSpawn);
+    expect(boss.charge!.target).toEqual(CRYPT_ARENA.playerSpawn);
     expect(boss.charge!.windup).toBe(0.95);
     expect(boss.charge!.duration).toBe(0.48);
     expect(eventsOfType(events, 'boss_pose').map((event) => event.seconds)).toEqual([0.5, 0.95]);
@@ -276,8 +277,8 @@ describe('carica', () => {
       steps++;
     }
     expect(boss.charge).toBeNull();
-    expect(boss.position.x).toBeCloseTo(ARENA.playerSpawn.x, 6);
-    expect(boss.position.y).toBeCloseTo(ARENA.playerSpawn.y, 6);
+    expect(boss.position.x).toBeCloseTo(CRYPT_ARENA.playerSpawn.x, 6);
+    expect(boss.position.y).toBeCloseTo(CRYPT_ARENA.playerSpawn.y, 6);
     expect(eventsOfType(events, 'boss_charge_finished')).toHaveLength(1);
     expect(hurts.length).toBeGreaterThan(0);
     for (const amount of hurts) expect(amount).toBe(25);
@@ -285,7 +286,7 @@ describe('carica', () => {
 
   it('la carica ferisce il giocatore sotto 37 di distanza dal punto d\'arrivo e non a 38', () => {
     for (const [distance, hurt] of [[36, true], [38, false]] as const) {
-      const boss = new Boss();
+      const boss = createBoss();
       boss.attackTimer = Infinity;
       // Percorso verticale lungo x = 1000, fino a y = 1100; il giocatore e' di lato, a `distance` dal punto d'arrivo.
       boss.position = new Vec2(1000, 1000);
@@ -312,13 +313,13 @@ describe('spirale del vuoto', () => {
   it('programma 16 raffiche (22 in furia) ogni 0,085 s, ciascuna ruotata di 0,29 rad, senza sparare subito', () => {
     const { boss, projectiles } = startPattern(4);
     expect(projectiles).toHaveLength(0);
-    expect(boss.volleys).toHaveLength(16);
-    boss.volleys.forEach((volley, i) => {
+    expect(boss.scheduled).toHaveLength(16);
+    boss.scheduled.forEach((volley, i) => {
       expect(volley.delay).toBeCloseTo(i * 0.085, 10);
-      expect(volley.kind).toBe('spiral');
+      expect(volley.tag).toBe('spiral');
     });
-    expect(boss.volleys[1]!.angle - boss.volleys[0]!.angle).toBeCloseTo(0.29, 10);
-    expect(startPattern(4, { enraged: true }).boss.volleys).toHaveLength(22);
+    expect(boss.scheduled[1]!.angle! - boss.scheduled[0]!.angle!).toBeCloseTo(0.29, 10);
+    expect(startPattern(4, { enraged: true }).boss.scheduled).toHaveLength(22);
   });
 
   it('ogni raffica spara tre proiettili a 120 gradi; in totale 48 (66 in furia), piu\' veloci in furia', () => {
@@ -353,9 +354,9 @@ describe('triplice ventaglio', () => {
   it('programma tre ventagli a 0,5 / 0,88 / 1,26 s, ruotati di 0,25 rad', () => {
     const { boss, projectiles } = startPattern(5);
     expect(projectiles).toHaveLength(0);
-    expect(boss.volleys.map((volley) => volley.delay)).toEqual([0.5, 0.88, 1.26].map((d) => expect.closeTo(d, 10)));
-    expect(boss.volleys[1]!.angle - boss.volleys[0]!.angle).toBeCloseTo(0.25, 10);
-    expect(boss.volleys.every((volley) => volley.kind === 'fan')).toBe(true);
+    expect(boss.scheduled.map((volley) => volley.delay)).toEqual([0.5, 0.88, 1.26].map((d) => expect.closeTo(d, 10)));
+    expect(boss.scheduled[1]!.angle! - boss.scheduled[0]!.angle!).toBeCloseTo(0.25, 10);
+    expect(boss.scheduled.every((volley) => volley.tag === 'fan')).toBe(true);
   });
 
   it('ogni ventaglio spara cinque proiettili a 0,13 rad; in tutto quindici, con una posa breve a ogni sparo', () => {

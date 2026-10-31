@@ -1,49 +1,34 @@
-import { TAU, Vec2 } from '../../core/vec2';
+import { Vec2 } from '../../core/vec2';
 import { centered } from '../../core/rng';
-import { ARENA, clampToArena } from '../arena/arena';
+import { clampToArena } from '../arena/arena';
 import type { DangerZoneSpec } from '../combat/danger-zone';
-import type { ProjectileSpec } from '../combat/projectile';
 import type { Boss } from './boss';
 import type { BossContext } from './boss-context';
+import { pick, type BossDefinition, type BossPattern, type BossStats, type ByPhase } from './boss-definition';
+import { enemyShot, schedule, spawnFan, spawnRing, startCharge } from './pattern-kit';
 
 /*
- * I sei schemi di attacco del guardiano, in rotazione. Valori ereditati dal prototipo, provvisori
- * (vedi docs/game-design.md). In furia (seconda fase) alcuni schemi diventano piu' fitti o piu' veloci:
- * i valori per fase sono `{ normal, rage }`.
+ * Il guardiano della cripta: il boss del prototipo e dei suoi sei schemi di attacco in rotazione.
+ * Valori ereditati dal prototipo, provvisori (vedi docs/game-design.md). In furia (seconda fase) alcuni schemi
+ * diventano piu' fitti o piu' veloci: i valori per fase sono `{ normal, rage }`.
  */
 
-interface ByPhase<T> {
-  readonly normal: T;
-  readonly rage: T;
-}
-
-const pick = <T>(values: ByPhase<T>, boss: Boss): T => (boss.isEnraged ? values.rage : values.normal);
-
-/** Una raffica programmata: spara quando `delay` arriva a zero. */
-export interface Volley {
-  delay: number;
-  angle: number;
-  kind: 'spiral' | 'fan';
-}
-
-export interface BossPattern {
-  readonly id: string;
-  /** Testo mostrato sopra il boss quando lo schema parte (in italiano). */
-  readonly name: string;
-  readonly labelColor: string;
-  /** Scostamento verticale del testo rispetto al boss (negativo = sopra). */
-  readonly labelOffsetY: number;
-  execute(boss: Boss, ctx: BossContext): void;
-}
-
-const enemyShot = (speed: number, damage: number, radius: number, visual: ProjectileSpec['visual']): ProjectileSpec => ({
-  team: 'enemy',
-  speed,
-  damage,
-  radius,
-  lifetime: 5,
-  visual,
-});
+export const GUARDIAN_STATS: BossStats = {
+  maxHealth: 1800,
+  phaseTwoThreshold: 0.5,
+  speed: 100,
+  slowedSpeed: 30,
+  orbitDistance: 180,
+  orbitSpeedFactor: 0.38,
+  firstAttackDelay: 1.8,
+  attackInterval: { normal: 2.15, rage: 1.65 },
+  attackPose: 0.5,
+  hitRadius: 26,
+  contactDistance: 29,
+  contactDamage: 18,
+  chargeDamage: 25,
+  chargeHitDistance: 37,
+};
 
 // --- Nova di brace: anelli di proiettili in tutte le direzioni ----------------------------------------------------
 
@@ -68,10 +53,7 @@ const EMBER_NOVA: BossPattern = {
   execute(boss, ctx) {
     for (let ring = 0; ring < pick(NOVA.rings, boss); ring++) {
       const spec = enemyShot(NOVA.firstRingSpeed + ring * NOVA.speedStepPerRing, NOVA.damage, NOVA.radius, 'ember_nova');
-      for (let i = 0; i < NOVA.shotsPerRing; i++) {
-        const angle = (i * TAU) / NOVA.shotsPerRing + ctx.time * NOVA.spinPerSecond + ring * NOVA.ringTwist;
-        ctx.spawnProjectile(spec, boss.position, angle);
-      }
+      spawnRing(ctx, boss.position, spec, NOVA.shotsPerRing, ctx.time * NOVA.spinPerSecond + ring * NOVA.ringTwist);
     }
   },
 };
@@ -94,7 +76,7 @@ const EMBER_BURST: BossPattern = {
   execute(boss, ctx) {
     const angle = boss.position.angleTo(ctx.target);
     const spec = enemyShot(pick(BURST.speed, boss), BURST.damage, BURST.radius, 'ember_volley');
-    for (let i = -BURST.half; i <= BURST.half; i++) ctx.spawnProjectile(spec, boss.position, angle + i * BURST.spread);
+    spawnFan(ctx, boss.position, spec, angle, BURST.half, BURST.spread);
   },
 };
 
@@ -118,7 +100,10 @@ const FRACTURE_PATTERN: BossPattern = {
       // L'ordine delle estrazioni (x poi y) e' parte del comportamento riproducibile con il seme.
       const dx = i ? centered(ctx.rng) * FRACTURE.spreadX : 0;
       const dy = i ? centered(ctx.rng) * FRACTURE.spreadY : 0;
-      ctx.spawnZone(FRACTURE.zone, clampToArena(new Vec2(ctx.target.x + dx, ctx.target.y + dy), ARENA.bossMargin));
+      ctx.spawnZone(
+        FRACTURE.zone,
+        clampToArena(boss.arena, new Vec2(ctx.target.x + dx, ctx.target.y + dy), boss.arena.bossMargin),
+      );
     }
   },
 };
@@ -133,14 +118,7 @@ const CHARGE_PATTERN: BossPattern = {
   labelColor: '#ffb177',
   labelOffsetY: -45,
   execute(boss, ctx) {
-    boss.charge = {
-      start: boss.position,
-      target: clampToArena(ctx.target, ARENA.bossMargin),
-      elapsed: 0,
-      windup: CHARGE.windup,
-      duration: CHARGE.duration,
-    };
-    ctx.emit({ type: 'boss_pose', seconds: CHARGE.windup });
+    startCharge(boss, ctx, CHARGE.windup, CHARGE.duration);
   },
 };
 
@@ -156,6 +134,14 @@ const SPIRAL = {
   radius: 4,
 };
 
+function fireSpiralVolley(angle: number): (boss: Boss, ctx: BossContext) => void {
+  return (boss, ctx) => {
+    // La velocita' dipende dalla fase nel momento dello sparo, come nel prototipo.
+    const spec = enemyShot(pick(SPIRAL.speed, boss), SPIRAL.damage, SPIRAL.radius, 'void_spiral');
+    spawnRing(ctx, boss.position, spec, SPIRAL.shotsPerVolley, angle);
+  };
+}
+
 const VOID_SPIRAL: BossPattern = {
   id: 'void_spiral',
   name: 'SPIRALE DEL VUOTO',
@@ -164,7 +150,8 @@ const VOID_SPIRAL: BossPattern = {
   execute(boss, ctx) {
     const angle = boss.position.angleTo(ctx.target);
     for (let i = 0; i < pick(SPIRAL.volleys, boss); i++) {
-      boss.volleys.push({ delay: i * SPIRAL.volleyInterval, angle: angle + i * SPIRAL.angleStep, kind: 'spiral' });
+      const volleyAngle = angle + i * SPIRAL.angleStep;
+      schedule(boss, i * SPIRAL.volleyInterval, 'spiral', fireSpiralVolley(volleyAngle), volleyAngle);
     }
   },
 };
@@ -182,9 +169,17 @@ const FAN = {
   speed: 185,
   damage: 14,
   radius: 5,
-  /** Secondi di posa di lancio a ogni ventaglio sparato (quella d'inizio e' `BOSS_STATS.attackPose`). */
+  /** Secondi di posa di lancio a ogni ventaglio sparato (quella d'inizio e' `attackPose`). */
   firePose: 0.18,
 };
+
+function fireFan(angle: number): (boss: Boss, ctx: BossContext) => void {
+  return (boss, ctx) => {
+    const spec = enemyShot(FAN.speed, FAN.damage, FAN.radius, 'ember_fan');
+    spawnFan(ctx, boss.position, spec, angle, FAN.half, FAN.spread);
+    ctx.emit({ type: 'boss_pose', seconds: FAN.firePose });
+  };
+}
 
 const TRIPLE_FAN: BossPattern = {
   id: 'triple_fan',
@@ -194,35 +189,18 @@ const TRIPLE_FAN: BossPattern = {
   execute(boss, ctx) {
     const angle = boss.position.angleTo(ctx.target);
     for (let i = 0; i < FAN.fans; i++) {
-      boss.volleys.push({
-        delay: FAN.firstDelay + i * FAN.fanInterval,
-        angle: angle + (i - 1) * FAN.fanTwist,
-        kind: 'fan',
-      });
+      const fanAngle = angle + (i - 1) * FAN.fanTwist;
+      schedule(boss, FAN.firstDelay + i * FAN.fanInterval, 'fan', fireFan(fanAngle), fanAngle);
     }
   },
 };
 
-/** Gli schemi nell'ordine di rotazione: dopo l'ultimo si riparte dal primo. */
-export const BOSS_PATTERNS: readonly BossPattern[] = [
-  EMBER_NOVA,
-  EMBER_BURST,
-  FRACTURE_PATTERN,
-  CHARGE_PATTERN,
-  VOID_SPIRAL,
-  TRIPLE_FAN,
-];
-
-/** Spara una raffica programmata dal punto in cui si trova il boss. */
-export function fireVolley(volley: Volley, boss: Boss, ctx: BossContext): void {
-  if (volley.kind === 'spiral') {
-    const spec = enemyShot(pick(SPIRAL.speed, boss), SPIRAL.damage, SPIRAL.radius, 'void_spiral');
-    for (let k = 0; k < SPIRAL.shotsPerVolley; k++) {
-      ctx.spawnProjectile(spec, boss.position, volley.angle + (k * TAU) / SPIRAL.shotsPerVolley);
-    }
-    return;
-  }
-  const spec = enemyShot(FAN.speed, FAN.damage, FAN.radius, 'ember_fan');
-  for (let k = -FAN.half; k <= FAN.half; k++) ctx.spawnProjectile(spec, boss.position, volley.angle + k * FAN.spread);
-  ctx.emit({ type: 'boss_pose', seconds: FAN.firePose });
-}
+/** Il guardiano della cripta, con gli schemi nell'ordine di rotazione. */
+export const GUARDIAN: BossDefinition = {
+  id: 'guardian',
+  name: 'GUARDIANO DELLA CRIPTA',
+  art: 'guardian',
+  rageText: 'IL GUARDIANO SI INFURIA',
+  stats: GUARDIAN_STATS,
+  patterns: [EMBER_NOVA, EMBER_BURST, FRACTURE_PATTERN, CHARGE_PATTERN, VOID_SPIRAL, TRIPLE_FAN],
+};

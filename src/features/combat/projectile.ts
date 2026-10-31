@@ -3,9 +3,10 @@ import type { Team } from './team';
 
 /**
  * Identificatore dell'aspetto di un proiettile. I dati scelgono l'aspetto per id; colori e forme stanno nella
- * rappresentazione (`presentation/visuals.ts`), cosi' le regole non dipendono dal disegno.
+ * rappresentazione (`presentation/visuals.ts`), cosi' le regole non dipendono dal disegno. E' una stringa libera
+ * (ogni dungeon ne aggiunge); un test controlla che ogni id usato dai dati abbia un aspetto.
  */
-export type ProjectileVisual = 'arcane_bolt' | 'frost_orb' | 'ember_nova' | 'ember_volley' | 'void_spiral' | 'ember_fan';
+export type ProjectileVisual = string;
 
 /** Dati di un tipo di proiettile. Di sola lettura: lo stato variabile vive in `Projectile`. */
 export interface ProjectileSpec {
@@ -59,7 +60,7 @@ export class Projectile {
     this.lifetime -= dt;
   }
 
-  /** Termina il proiettile (colpo a segno o uscita dall'arena). */
+  /** Termina il proiettile (colpo a segno, ostacolo o uscita dall'arena). */
   expire(): void {
     this.lifetime = 0;
   }

@@ -1,5 +1,27 @@
 import type { GameEvent } from '../combat/events';
 
+/** Suono di un lancio: frequenza e durata. */
+interface CastSound {
+  readonly frequency: number;
+  readonly duration: number;
+}
+
+/** Suoni delle skill base, per id di aspetto (valori del prototipo). */
+const CAST_SOUNDS: Readonly<Record<string, CastSound>> = {
+  arcane_bolt: { frequency: 650, duration: 0.08 },
+  frost_orb: { frequency: 320, duration: 0.08 },
+  meteor: { frequency: 180, duration: 0.2 },
+  astral_step: { frequency: 850, duration: 0.15 },
+};
+
+/** Suono generico per tipo di effetto, per le skill senza un suono proprio. */
+const DEFAULT_SOUNDS: Readonly<Record<'projectile' | 'ground_blast' | 'dash' | 'melee_arc', CastSound>> = {
+  projectile: { frequency: 520, duration: 0.08 },
+  ground_blast: { frequency: 200, duration: 0.2 },
+  dash: { frequency: 800, duration: 0.15 },
+  melee_arc: { frequency: 420, duration: 0.1 },
+};
+
 /**
  * Suoni sintetizzati con Web Audio: nessun file audio. Spento all'avvio (il browser richiede un gesto dell'utente
  * prima di far partire l'audio, e si attiva con M). Ascolta gli eventi della simulazione.
@@ -17,22 +39,11 @@ export class AudioPlayer {
 
   handle(event: GameEvent): void {
     switch (event.type) {
-      case 'skill_cast':
-        switch (event.skillId) {
-          case 'arcane_bolt':
-            this.tone(650);
-            break;
-          case 'frost_orb':
-            this.tone(320);
-            break;
-          case 'meteor':
-            this.tone(180, 0.2);
-            break;
-          case 'astral_step':
-            this.tone(850, 0.15);
-            break;
-        }
+      case 'skill_cast': {
+        const sound = CAST_SOUNDS[event.visual] ?? DEFAULT_SOUNDS[event.kind];
+        this.tone(sound.frequency, sound.duration);
         break;
+      }
       case 'damage_dealt':
         if (event.target === 'player') this.tone(100, 0.15);
         break;

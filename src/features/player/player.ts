@@ -1,8 +1,9 @@
 import { Vec2 } from '../../core/vec2';
-import { ARENA, clampToArena } from '../arena/arena';
+import { clampToArena, pushOutOfPillars, type ArenaDefinition } from '../arena/arena';
+import { BODY_RADIUS } from '../combat/collision';
 import { Health } from '../combat/health';
-import { MAGE_SKILLS } from '../skills/mage-skills';
 import { SkillBar } from '../skills/skill-bar';
+import type { Loadout } from '../skills/skill-definition';
 
 /** Valori del giocatore. Provvisori, ereditati dal prototipo (vedi docs/game-design.md). */
 export const PLAYER_STATS = {
@@ -14,15 +15,24 @@ export const PLAYER_STATS = {
 } as const;
 
 export class Player {
-  position: Vec2 = ARENA.playerSpawn;
+  position: Vec2;
   /** Punto del mondo verso cui si mira (sempre l'ultimo ricevuto). */
-  aim: Vec2 = ARENA.playerSpawn;
+  aim: Vec2;
   readonly health = new Health(PLAYER_STATS.maxHealth);
-  readonly skillBar = new SkillBar(MAGE_SKILLS);
+  readonly skillBar: SkillBar;
   /** Secondi di invulnerabilita' rimasti. */
   invulnerableFor = 0;
   /** Vero se nell'ultimo passo il giocatore ha cercato di muoversi. */
   moving = false;
+
+  constructor(
+    readonly arena: ArenaDefinition,
+    loadout: Loadout,
+  ) {
+    this.position = arena.playerSpawn;
+    this.aim = arena.playerSpawn;
+    this.skillBar = new SkillBar(loadout);
+  }
 
   get isInvulnerable(): boolean {
     return this.invulnerableFor > 0;
@@ -34,10 +44,11 @@ export class Player {
     this.skillBar.tick(dt);
   }
 
-  /** Si muove con la direzione `move` (lunghezza al massimo 1) restando nell'arena. */
+  /** Si muove con la direzione `move` (lunghezza al massimo 1) restando nell'arena e fuori dai pilastri. */
   moveBy(dt: number, move: Vec2): void {
     this.moving = move.x !== 0 || move.y !== 0;
-    this.position = clampToArena(this.position.add(move.mul(PLAYER_STATS.moveSpeed * dt)), ARENA.playerMargin);
+    const moved = clampToArena(this.arena, this.position.add(move.mul(PLAYER_STATS.moveSpeed * dt)), this.arena.playerMargin);
+    this.position = pushOutOfPillars(this.arena, moved, BODY_RADIUS.player);
   }
 
   /**

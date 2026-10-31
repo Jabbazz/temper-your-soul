@@ -4,7 +4,7 @@ Le fasi sono una **proposta di ordine di lavoro**, non una pianificazione vincol
 
 Criterio valido per tutte le fasi: `npm run verify` con esito positivo (tipi, test, build), test estesi quando serve, **prova manuale da parte dell'utente**, `docs/bugs.md` aggiornato.
 
-## Fase 0: fondamenta e porting del prototipo (implementata, prova manuale da fare)
+## Fase 0: fondamenta e porting del prototipo (implementata, prova manuale confermata in generale)
 
 Il prototipo "Emberfall" (JavaScript classico, variabili globali, regole e disegno mescolati) e' stato riscritto in **TypeScript** con la struttura di Ashen Realm, mantenendo le stesse regole e gli stessi valori: arena, mago con quattro skill, guardiano a due fasi con sei attacchi, particelle, pixel art, HUD, menu/pausa/fine partita, audio sintetizzato. Aggiunti: simulazione a passo fisso senza DOM e riproducibile con un seme, eventi dalla simulazione verso effetti/audio, dati separati da comportamento e aspetto, suite di test, `verify`, documentazione, repository dedicato. Il prototipo originale e' in `legacy/emberfall-prototype/`. Le differenze volute di comportamento sono elencate in `docs/game-design.md`.
 
@@ -31,15 +31,47 @@ Checklist manuale (non spuntata voce per voce; vedi lo stato sopra):
 - [ ] Il gioco si adatta al ridimensionamento della finestra e allo schermo intero; la pixel art resta nitida.
 - [ ] Nessuna differenza di sensazione evidente rispetto al prototipo (`legacy/emberfall-prototype/index.html`) a parte quelle elencate in `docs/game-design.md`.
 
+## Fase 1: menu, dungeon, oggetti e salvataggio locale (implementata, prova manuale da fare)
+
+Il gioco passa da un duello singolo a un ciclo completo: **menu iniziale**, **scelta tra 4 dungeon** (la cripta più palude, fucina e ghiacciaio, ognuno con mappa e boss unici), **oggetti che cadono dai boss** con 5 rarità, **abilità che dipendono dall'equipaggiamento** (4 slot, 17 famiglie, come in Ashen Realm) e **personaggio salvato in locale**. Refactor di base: arena, boss e skill sono ora definizioni di dati (`ArenaDefinition`, `BossDefinition`, `SkillDefinition`), la partita (`Match`) riceve dungeon e skill; nuovi tipi di effetto (ventaglio, zona sul lanciatore, colpo ravvicinato), pilastri che bloccano movimento e proiettili, azioni programmate del boss (onde, teletrasporti). Regole e valori della cripta e delle skill base sono rimasti identici al prototipo. Valori e struttura in `docs/game-design.md`.
+
+Completa quando: `npm run verify` termina con codice 0 **e** la prova manuale dell'utente (checklist sotto) è superata.
+
+**Stato: controlli automatici superati; prova manuale ancora da fare** (nulla è confermato a mano).
+
+Controlli automatici eseguiti: controllo dei tipi, suite Vitest (regole, boss, skill, giocatore, partita, dungeon, oggetti, bottino, salvataggio, effetti, vista inventario), test generici validi per ogni dungeon registrato (mappa, schemi, simulazione lunga senza stati invalidi), build, prova di mutazione, revisione indipendente con verifica avversa (esito in `docs/bugs.md`) e una prova nel browser vero (Edge headless): menu, i 4 dungeon avviati, pausa e abbandono, vittoria forzata con bottino e record in tutti e 4 i dungeon, salvataggio presente in `localStorage` prima di mostrare il bottino, inventario intatto dopo il ricaricamento, equipaggiare un oggetto cambia le skill in partita. Fotogrammi renderizzati hanno mostrato menu, mappe e boss, ma **non sono una prova giocata**: non coprono leggibilità degli attacchi, difficoltà, sensazione di gioco e prestazioni.
+
+Checklist manuale (da eseguire; nessuna voce è spuntata):
+
+- [ ] Il gioco si apre sul menu "Temper your soul" con "Dungeon" ed "Equipaggiamento"; la nota sotto i pulsanti indica lo stato del salvataggio.
+- [ ] "Dungeon" mostra 4 schede (cripta, palude, fucina, ghiacciaio) con pericolo, descrizione, boss e record; passando sopra una scheda lo sfondo mostra la mappa; un clic avvia la partita.
+- [ ] **Cripta**: identica al prototipo (stessi attacchi e tempi del guardiano, stesse skill).
+- [ ] **Palude**: mappa verde con alberi morti che fermano i movimenti e i proiettili; la Madre delle spore è lenta; gli attacchi sono leggibili e schivabili (cerchi di zone con il centro sicuro, tentacoli, anelli che si chiudono, pioggia, balzo).
+- [ ] **Fucina**: mappa larga con lava e pilastri di ferro che fanno da riparo; il Colosso è enorme e lento con zone molto grandi; la martellata lascia un anello di schegge.
+- [ ] **Ghiacciaio**: colonne di cristallo; il Custode è veloce e si teletrasporta (con segnale a terra prima), spirali opposte, nova doppia, carica con zone sul percorso.
+- [ ] I pilastri bloccano il mago (scivola lungo il bordo, non resta incastrato) e fermano i proiettili del boss e i propri; lo scatto non finisce dentro un pilastro.
+- [ ] Ogni boss ha una grafica diversa e il testo "… SI INFURIA" con il proprio nome sotto metà vita; gli attacchi hanno un nome sopra il boss.
+- [ ] Le difficoltà crescono da cripta a ghiacciaio in modo percepibile ma sensato (nessun attacco ingiusto o inevitabile).
+- [ ] Alla vittoria compare "Vittoria." con 1 o 2 oggetti (colorati per rarità), eventuali record ("Prima vittoria", "Nuovo record") e la scritta "Salvato in questo browser".
+- [ ] Ricaricando la pagina gli oggetti, l'equipaggiamento e i record sono ancora lì; la nota del menu dice che i progressi sono stati caricati.
+- [ ] "Equipaggiamento": 4 slot con la skill di ciascuno e le statistiche; equipaggiare un oggetto dell'inventario cambia la skill (anche la HUD in partita: nomi e comandi); "Rimuovi" svuota lo slot (la skill sparisce e la scheda in partita mostra "— vuoto —"); "Scarta" chiede conferma e non permette di scartare un oggetto equipaggiato; i filtri per slot funzionano.
+- [ ] Le skill nuove si sentono diverse: arco veloce, scettro lento e pesante, talismano e ventaglio a più proiettili, Lama del guardiano a corto raggio con arco visibile, esplosioni attorno a te, scatti con invulnerabilità diverse.
+- [ ] Le rarità più alte si sentono più forti (danno e ricarica) senza rompere il gioco.
+- [ ] ESC in partita mette in pausa; "Abbandona e torna al menu" funziona; ESC nelle schermate del menu torna indietro; R ricomincia solo durante una partita.
+- [ ] Dopo la sconfitta "Riprova" riparte pulita; dopo la vittoria "Riprova" non assegna di nuovo il bottino senza una nuova vittoria.
+- [ ] Il menu e le schermate sono usabili a finestra stretta o bassa (scorrono, i pulsanti sono raggiungibili).
+- [ ] Se si blocca il salvataggio (finestra in incognito/privata o dati del sito disabilitati) il gioco funziona e avvisa che i progressi non si conserveranno.
+
 ## Fasi successive (proposta, nessuna avviata)
 
-L'ordine dipende dalle risposte ai punti aperti di `docs/game-design.md`, soprattutto la **direzione del gioco**.
+L'ordine dipende dalle risposte ai punti aperti di `docs/game-design.md`, soprattutto la **direzione del gioco** ("temprare l'anima") e le regole di **morte** e **progressione**.
 
-1. **Messa a punto e sensazione di gioco**: tarare i valori provvisori con la prova manuale, unificare i raggi di collisione, interpolare il disegno tra i passi di simulazione, feedback di colpo (lampeggio, pause brevi), limiti di camera. Completa quando l'utente ritiene il duello piacevole.
-2. **Incontri guidati dai dati**: una `EncounterDefinition` (boss, vita, schemi, arena) cosi' che aggiungere un boss sia aggiungere dati e, solo se serve, un nuovo tipo di schema. Completa quando esistono almeno due boss diversi giocabili.
-3. **Skill, equipaggiamento e build**: rendere le skill intercambiabili (slot, famiglie, tier) come in Ashen Realm, se la direzione lo richiede.
-4. **Progressione e "tempra"**: il meccanismo che da' senso al nome del gioco (da definire con l'utente), con regole di morte e salvataggio.
-5. **Struttura del mondo**: stanze, percorso o hub, nemici comuni, navigazione.
-6. **Grafica e audio definitivi**: sostituzione delle forme e della pixel art provvisorie, musica.
-7. **Controlli e piattaforme**: rimappatura tasti, controller, touch.
-8. **Sviluppi successivi**: classifiche, co-op, altro.
+1. **Messa a punto e sensazione di gioco**: tarare con la prova manuale valori di boss, skill, rarità e bottino; unificare i raggi di collisione; interpolare il disegno tra i passi; feedback di colpo; limiti di camera. Completa quando l'utente ritiene i dungeon piacevoli e ben bilanciati tra loro.
+2. **Progressione e "tempra"**: il meccanismo che dà senso al nome del gioco (da definire con l'utente), con regole di morte, livelli ed eventuali tier T1-T15, sblocco o scalatura della difficoltà dei dungeon.
+3. **Altri slot e modificatori**: anello e collana che modificano le skill, ali sulla velocità, pantaloni e peso dell'armatura (come in Ashen Realm); modificatori casuali sugli oggetti.
+4. **Gestione dell'inventario**: capienza, confronto tra oggetti, vendita o riforgiatura, ordinamento.
+5. **Altri dungeon e boss**: aggiungere dungeon è aggiungere una cartella in `features/dungeons/` (mappa, boss, tema, grafica, tabella di bottino) e farli passare dai test generici.
+6. **Salvataggio avanzato**: esportazione/importazione, più profili, cloud (richiede un backend), gestione di due schede aperte.
+7. **Grafica e audio definitivi**: sostituzione delle forme e della pixel art provvisorie, musica.
+8. **Controlli e piattaforme**: rimappatura tasti, controller, touch.
+9. **Sviluppi successivi**: classifiche, co-op, altro.

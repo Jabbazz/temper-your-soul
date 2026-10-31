@@ -30,6 +30,16 @@ export function drawGlowEffects(ctx: CanvasRenderingContext2D, effects: Effects)
     ctx.arc(w.x, w.y, w.radius * Math.sqrt(u), 0, TAU);
     ctx.stroke();
   }
+  for (const slash of effects.slashes) {
+    const u = 1 - slash.remaining / slash.total;
+    ctx.globalAlpha = (1 - u) * 0.9;
+    ctx.strokeStyle = slash.color;
+    ctx.lineWidth = 3 + (1 - u) * 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(slash.position.x, slash.position.y, slash.range * (0.75 + u * 0.25), slash.angle - slash.arc / 2, slash.angle + slash.arc / 2);
+    ctx.stroke();
+  }
   for (const f of effects.particles) {
     const alpha = clamp(f.remaining / f.total, 0, 1);
     const size = Math.max(1, f.size * Math.sqrt(alpha));

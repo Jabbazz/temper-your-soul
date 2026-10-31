@@ -3,6 +3,14 @@ export const TAU = Math.PI * 2;
 export const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
 export const lerp = (from: number, to: number, weight: number): number => from + (to - from) * weight;
 
+/** Differenza tra due angoli, riportata in [-PI, PI]. */
+export const angleDifference = (from: number, to: number): number => {
+  let difference = (to - from) % TAU;
+  if (difference > Math.PI) difference -= TAU;
+  else if (difference < -Math.PI) difference += TAU;
+  return difference;
+};
+
 /** Vettore 2D immutabile. Ogni operazione restituisce un nuovo vettore. */
 export class Vec2 {
   static readonly ZERO = new Vec2(0, 0);

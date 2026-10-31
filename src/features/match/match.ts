@@ -1,14 +1,16 @@
 import type { Rng } from '../../core/rng';
 import { Signal } from '../../core/signal';
-import type { Vec2 } from '../../core/vec2';
-import { isOutsideProjectileBounds } from '../arena/arena';
-import { Boss, BOSS_STATS } from '../boss/boss';
+import { angleDifference, type Vec2 } from '../../core/vec2';
+import { isOutsideProjectileBounds, pillarAt, type ArenaDefinition } from '../arena/arena';
+import { Boss } from '../boss/boss';
 import type { BossContext } from '../boss/boss-context';
-import { CONTACT_DISTANCE, HIT_RADIUS, ZONE_PADDING } from '../combat/collision';
+import { HIT_RADIUS, ZONE_EDGE_FORGIVENESS } from '../combat/collision';
 import { DangerZone, type DangerZoneSpec } from '../combat/danger-zone';
 import type { GameEvent } from '../combat/events';
 import { Projectile, type ProjectileSpec } from '../combat/projectile';
+import type { DungeonDefinition } from '../dungeons/dungeon-definition';
 import { Player } from '../player/player';
+import type { Loadout } from '../skills/skill-definition';
 import { tryCastSkill, type SkillContext } from '../skills/skill-effects';
 
 /** Che cosa vuole fare il giocatore in questo passo. Lo produce l'input (o un test). */
@@ -27,15 +29,26 @@ export interface PlayerIntent {
 
 export type MatchStatus = 'playing' | 'won' | 'lost';
 
+export interface MatchOptions {
+  /** Casualita' della simulazione: con lo stesso seme e gli stessi comandi la partita e' identica. */
+  readonly rng: Rng;
+  readonly dungeon: DungeonDefinition;
+  /** Le skill del giocatore per slot (derivano dall'equipaggiamento). */
+  readonly loadout: Loadout;
+}
+
 /**
- * Una partita: il giocatore contro il guardiano nell'arena. E' la simulazione completa, senza DOM ne' disegno:
+ * Una partita: il giocatore contro il boss di un dungeon. E' la simulazione completa, senza DOM ne' disegno:
  * avanza a passo fisso con `step()` e racconta cio' che accade con gli eventi (`events`).
  */
 export class Match {
   /** Eventi della simulazione, per rappresentazione e audio. */
   readonly events = new Signal<[GameEvent]>();
-  readonly player = new Player();
-  readonly boss = new Boss();
+  readonly dungeon: DungeonDefinition;
+  readonly arena: ArenaDefinition;
+  readonly rng: Rng;
+  readonly player: Player;
+  readonly boss: Boss;
   projectiles: Projectile[] = [];
   zones: DangerZone[] = [];
   status: MatchStatus = 'playing';
@@ -43,15 +56,22 @@ export class Match {
   time = 0;
 
   private nextId = 1;
+  private readonly skillContext: SkillContext;
 
-  private readonly skillContext: SkillContext = {
-    player: this.player,
-    spawnProjectile: (spec, position, angle) => this.spawnProjectile(spec, position, angle),
-    spawnZone: (spec, position) => this.spawnZone(spec, position),
-    emit: (event) => this.events.emit(event),
-  };
-
-  constructor(readonly rng: Rng) {}
+  constructor(options: MatchOptions) {
+    this.dungeon = options.dungeon;
+    this.arena = options.dungeon.arena;
+    this.rng = options.rng;
+    this.player = new Player(this.arena, options.loadout);
+    this.boss = new Boss(options.dungeon.boss, this.arena);
+    this.skillContext = {
+      player: this.player,
+      spawnProjectile: (spec, position, angle) => this.spawnProjectile(spec, position, angle),
+      spawnZone: (spec, position) => this.spawnZone(spec, position),
+      strikeArc: (origin, angle, range, arc, damage) => this.strikeArc(origin, angle, range, arc, damage),
+      emit: (event) => this.events.emit(event),
+    };
+  }
 
   /** Un passo di simulazione di `dt` secondi. Dopo la fine della partita non fa nulla. */
   step(dt: number, intent: PlayerIntent): void {
@@ -76,7 +96,9 @@ export class Match {
     syncAim();
 
     this.boss.step(dt, this.bossContext());
-    if (this.player.position.distanceTo(this.boss.position) < CONTACT_DISTANCE) this.hurtPlayer(BOSS_STATS.contactDamage);
+    if (this.player.position.distanceTo(this.boss.position) < this.boss.stats.contactDistance) {
+      this.hurtPlayer(this.boss.stats.contactDamage);
+    }
 
     this.stepProjectiles(dt);
     this.stepZones(dt);
@@ -102,23 +124,41 @@ export class Match {
     this.zones.push(new DangerZone(this.nextId++, spec, position));
   }
 
-  /** Muove i proiettili, risolve i colpi e rimuove quelli finiti. Un colpo a segno consuma il proiettile. */
+  /** Colpo ravvicinato del giocatore: ferisce il boss se e' entro `range` dal suo bordo e nell'arco attorno a `angle`. */
+  private strikeArc(origin: Vec2, angle: number, range: number, arc: number, damage: number): void {
+    const offset = this.boss.position.sub(origin);
+    const distance = offset.length();
+    if (distance > range + this.boss.stats.hitRadius) return;
+    // Il boss addosso al giocatore (centri sovrapposti) viene colpito a prescindere dalla direzione.
+    if (distance > 0 && Math.abs(angleDifference(angle, offset.angle())) > arc / 2) return;
+    this.hitBoss(damage);
+  }
+
+  /**
+   * Muove i proiettili, risolve i colpi e rimuove quelli finiti. Un colpo a segno o un ostacolo consumano il
+   * proiettile (i pilastri fermano i proiettili di entrambe le squadre).
+   */
   private stepProjectiles(dt: number): void {
     for (const projectile of this.projectiles) {
       projectile.advance(dt);
+      if (pillarAt(this.arena, projectile.position) !== undefined) {
+        this.emitProjectileHit(projectile);
+        projectile.expire();
+        continue;
+      }
       if (projectile.team === 'enemy') {
         if (projectile.position.distanceTo(this.player.position) < projectile.radius + HIT_RADIUS.player) {
           this.hurtPlayer(projectile.damage);
           this.emitProjectileHit(projectile);
           projectile.expire();
         }
-      } else if (projectile.position.distanceTo(this.boss.position) < projectile.radius + HIT_RADIUS.boss) {
+      } else if (projectile.position.distanceTo(this.boss.position) < projectile.radius + this.boss.stats.hitRadius) {
         this.hitBoss(projectile.damage);
         if (projectile.spec.slowSeconds !== undefined) this.boss.slowFor = projectile.spec.slowSeconds;
         this.emitProjectileHit(projectile);
         projectile.expire();
       }
-      if (isOutsideProjectileBounds(projectile.position)) projectile.expire();
+      if (isOutsideProjectileBounds(this.arena, projectile.position)) projectile.expire();
     }
     this.projectiles = this.projectiles.filter((projectile) => !projectile.isExpired);
   }
@@ -132,10 +172,20 @@ export class Match {
         pending.push(zone);
         continue;
       }
-      this.events.emit({ type: 'zone_detonated', position: zone.position, radius: zone.radius, team: zone.team });
+      this.events.emit({
+        type: 'zone_detonated',
+        position: zone.position,
+        radius: zone.radius,
+        team: zone.team,
+        ...(zone.spec.visual !== undefined ? { visual: zone.spec.visual } : {}),
+      });
       if (zone.team === 'player') {
-        if (zone.position.distanceTo(this.boss.position) < zone.radius + ZONE_PADDING.vsBoss) this.hitBoss(zone.spec.damage);
-      } else if (zone.position.distanceTo(this.player.position) < zone.radius + ZONE_PADDING.vsPlayer) {
+        const reach = zone.radius + this.boss.stats.hitRadius - ZONE_EDGE_FORGIVENESS;
+        if (zone.position.distanceTo(this.boss.position) < reach) {
+          this.hitBoss(zone.spec.damage);
+          if (zone.spec.slowSeconds !== undefined) this.boss.slowFor = zone.spec.slowSeconds;
+        }
+      } else if (zone.position.distanceTo(this.player.position) < zone.radius + HIT_RADIUS.player - ZONE_EDGE_FORGIVENESS) {
         this.hurtPlayer(zone.spec.damage);
       }
     }

@@ -5,7 +5,7 @@ import type { DangerZone } from '../combat/danger-zone';
 import type { Projectile } from '../combat/projectile';
 import type { Vec2 } from '../../core/vec2';
 import type { ZoneFlash } from './effects';
-import { PROJECTILE_LOOKS, ZONE_LOOKS } from './visuals';
+import { projectileLook, zoneLook } from './visuals';
 
 /** Segnale a terra della carica del boss: la fascia di percorso e il punto d'arrivo. Solo durante la preparazione. */
 export function drawChargeTelegraph(ctx: CanvasRenderingContext2D, charge: Charge): void {
@@ -32,7 +32,7 @@ export function drawChargeTelegraph(ctx: CanvasRenderingContext2D, charge: Charg
 export function drawPendingZone(ctx: CanvasRenderingContext2D, zone: DangerZone, time: number): void {
   const u = zone.progress;
   const friendly = zone.team === 'player';
-  const look = ZONE_LOOKS[zone.team];
+  const look = zoneLook(zone.team, zone.spec.visual);
   ctx.save();
   ctx.translate(zone.position.x, zone.position.y);
   ctx.fillStyle = look.fill;
@@ -74,7 +74,7 @@ export function drawPendingZone(ctx: CanvasRenderingContext2D, zone: DangerZone,
 
 /** Bagliore che resta per un attimo dopo lo scoppio di una zona. */
 export function drawZoneFlash(ctx: CanvasRenderingContext2D, flash: ZoneFlash): void {
-  const color = ZONE_LOOKS[flash.team].ring;
+  const color = flash.look.ring;
   const fade = clamp(flash.remaining / flash.total, 0, 1);
   const r = flash.radius;
   ctx.save();
@@ -150,7 +150,7 @@ export function drawProjectile(
   time: number,
 ): void {
   if (!camera.isVisible(projectile.position, 80)) return;
-  const look = PROJECTILE_LOOKS[projectile.spec.visual];
+  const look = projectileLook(projectile.spec.visual);
   const r = projectile.radius;
   ctx.save();
   ctx.strokeStyle = look.color;
@@ -200,6 +200,32 @@ export function drawProjectile(
     ctx.beginPath();
     ctx.moveTo(-4, 0);
     ctx.lineTo(6, 0);
+    ctx.stroke();
+  } else if (look.shape === 'arrow') {
+    ctx.strokeStyle = look.color;
+    ctx.lineWidth = Math.max(2, r * 0.8);
+    ctx.beginPath();
+    ctx.moveTo(-14, 0);
+    ctx.lineTo(9, 0);
+    ctx.stroke();
+    ctx.fillStyle = '#fff6dc';
+    ctx.beginPath();
+    ctx.moveTo(13, 0);
+    ctx.lineTo(6, -3.5);
+    ctx.lineTo(6, 3.5);
+    ctx.closePath();
+    ctx.fill();
+  } else if (look.shape === 'shard') {
+    ctx.fillStyle = look.color;
+    ctx.beginPath();
+    ctx.moveTo(14, 0);
+    ctx.lineTo(0, -4.5);
+    ctx.lineTo(-10, 0);
+    ctx.lineTo(0, 4.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
   } else {
     ctx.fillStyle = look.color;

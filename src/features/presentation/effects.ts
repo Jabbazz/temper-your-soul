@@ -3,9 +3,8 @@ import { cosmeticRng, type Rng } from '../../core/rng';
 import { TAU, Vec2 } from '../../core/vec2';
 import type { GameEvent } from '../combat/events';
 import type { Projectile } from '../combat/projectile';
-import type { Team } from '../combat/team';
 import type { Match } from '../match/match';
-import { PROJECTILE_LOOKS, ZONE_LOOKS } from './visuals';
+import { projectileLook, zoneLook, type ZoneLook } from './visuals';
 
 /** Numero massimo di particelle e di onde contemporanee. */
 const MAX_PARTICLES = 1400;
@@ -13,6 +12,16 @@ const MAX_WAVES = 80;
 /** Ogni quanti secondi un proiettile lascia un punto della scia e una particella. */
 const TRAIL_INTERVAL = 0.025;
 const TRAIL_LENGTH = 9;
+
+/**
+ * Colore dello scoppio al lancio, per id di aspetto della skill, dove differisce dal colore del proiettile
+ * (valori del prototipo per le skill base). Se manca si usa il colore del proiettile.
+ */
+const CAST_COLORS: Readonly<Record<string, string>> = {
+  arcane_bolt: '#c8a7ff',
+  frost_orb: '#a5efff',
+  meteor: '#cba5ff',
+};
 
 export interface Particle {
   x: number;
@@ -49,11 +58,23 @@ export interface FloatingText {
 export interface ZoneFlash {
   readonly position: Vec2;
   readonly radius: number;
-  readonly team: Team;
+  readonly look: ZoneLook;
   remaining: number;
   readonly total: number;
 }
 
+/** Fendente visibile di un colpo ravvicinato: un arco davanti al giocatore che svanisce in fretta. */
+export interface Slash {
+  readonly position: Vec2;
+  readonly angle: number;
+  readonly range: number;
+  readonly arc: number;
+  readonly color: string;
+  remaining: number;
+  readonly total: number;
+}
+
+const SLASH_LIFE = 0.18;
 const TEXT_LIFE = 0.9;
 const FLASH_LIFE = 0.65;
 
@@ -66,6 +87,7 @@ export class Effects {
   waves: Wave[] = [];
   texts: FloatingText[] = [];
   flashes: ZoneFlash[] = [];
+  slashes: Slash[] = [];
   /** Intensita' della scossa dello schermo, in unita' di vista: decade da sola. */
   shake = 0;
 
@@ -78,6 +100,7 @@ export class Effects {
     this.waves = [];
     this.texts = [];
     this.flashes = [];
+    this.slashes = [];
     this.shake = 0;
     this.trails.clear();
   }
@@ -102,7 +125,7 @@ export class Effects {
         }
         break;
       case 'projectile_hit': {
-        const color = PROJECTILE_LOOKS[event.visual].color;
+        const color = projectileLook(event.visual).color;
         const big = event.radius > 6;
         this.burst(event.position, color, big ? 24 : 9);
         this.wave(event.position, big ? 35 : 19, color, 0.28);
@@ -115,10 +138,16 @@ export class Effects {
         break;
       }
       case 'zone_detonated':
-        this.onZoneDetonated(event.position, event.radius, event.team);
+        this.onZoneDetonated(event.position, event.radius, zoneLook(event.team, event.visual));
+        break;
+      case 'boss_teleported':
+        for (const point of [event.from, event.to]) {
+          this.burst(point, '#d9c6ff', 22);
+          this.wave(point, 46, '#e8dcff', 0.4);
+        }
         break;
       case 'boss_phase_changed':
-        this.text(event.position.x, event.position.y - 48, 'IL GUARDIANO SI INFURIA', '#ff785d');
+        this.text(event.position.x, event.position.y - 48, event.text, '#ff785d');
         this.burst(event.position, '#ff735b', 40);
         this.shake = 6;
         break;
@@ -163,6 +192,8 @@ export class Effects {
     this.texts = this.texts.filter((t) => t.remaining > 0);
     for (const flash of this.flashes) flash.remaining -= dt;
     this.flashes = this.flashes.filter((flash) => flash.remaining > 0);
+    for (const slash of this.slashes) slash.remaining -= dt;
+    this.slashes = this.slashes.filter((slash) => slash.remaining > 0);
     this.shake = Math.max(0, this.shake - dt * 25);
   }
 
@@ -174,17 +205,18 @@ export class Effects {
 
   private onSkillCast(event: Extract<GameEvent, { type: 'skill_cast' }>): void {
     const { origin, destination } = event;
-    switch (event.skillId) {
-      case 'arcane_bolt':
-      case 'frost_orb': {
-        const color = event.skillId === 'frost_orb' ? '#a5efff' : '#c8a7ff';
+    switch (event.kind) {
+      case 'projectile': {
+        const color = CAST_COLORS[event.visual] ?? projectileLook(event.visual).color;
         this.burst(origin.add(Vec2.fromAngle(event.angle, 14)), color, 8);
         this.wave(origin, 16, color, 0.18);
         break;
       }
-      case 'meteor':
+      case 'ground_blast':
+        // Il segnale e lo scoppio sono della zona; attorno al lanciatore si vede solo un anello.
+        if (origin.equals(destination)) this.wave(origin, 30, CAST_COLORS[event.visual] ?? '#cba5ff', 0.3);
         break;
-      case 'astral_step':
+      case 'dash':
         this.burst(origin, '#b8a4ef');
         this.wave(origin, 24, '#b8a4ef');
         for (let j = 0; j < 30; j++) {
@@ -203,11 +235,25 @@ export class Effects {
         this.wave(destination, 28, '#dfccff');
         this.burst(destination, '#b8a4ef');
         break;
+      case 'melee_arc': {
+        const color = CAST_COLORS[event.visual] ?? '#ffd9a0';
+        const range = event.range ?? 80;
+        this.slashes.push({
+          position: origin,
+          angle: event.angle,
+          range,
+          arc: event.arc ?? 1.6,
+          color,
+          remaining: SLASH_LIFE,
+          total: SLASH_LIFE,
+        });
+        this.burst(origin.add(Vec2.fromAngle(event.angle, range * 0.8)), color, 6);
+        break;
+      }
     }
   }
 
-  private onZoneDetonated(position: Vec2, radius: number, team: Team): void {
-    const look = ZONE_LOOKS[team];
+  private onZoneDetonated(position: Vec2, radius: number, look: ZoneLook): void {
     this.wave(position, radius, look.burst, 0.55);
     this.wave(position, radius * 0.8, '#fff1ce', 0.3);
     for (let i = 0; i < 65; i++) {
@@ -236,7 +282,7 @@ export class Effects {
         3,
       );
     }
-    this.flashes.push({ position, radius, team, remaining: FLASH_LIFE, total: FLASH_LIFE });
+    this.flashes.push({ position, radius, look, remaining: FLASH_LIFE, total: FLASH_LIFE });
     this.shake = 3;
   }
 
@@ -261,7 +307,7 @@ export class Effects {
             projectile.position.y + (this.rng.next() - 0.5) * r,
             -projectile.velocity.x * 0.07 + (this.rng.next() - 0.5) * 22,
             -projectile.velocity.y * 0.07 + (this.rng.next() - 0.5) * 22,
-            PROJECTILE_LOOKS[projectile.spec.visual].color,
+            projectileLook(projectile.spec.visual).color,
             0.18 + this.rng.next() * 0.16,
             projectile.team === 'enemy' ? 2 : 3,
           );

@@ -1,9 +1,9 @@
 # Temper your soul
 
 Gioco d'azione 2D per browser, scritto in **TypeScript** (Canvas 2D, nessuna dipendenza a runtime).
-Un mago affronta il guardiano di una cripta: schiva gli attacchi, usa quattro abilita' e abbatti il boss.
+Scegli un dungeon, sconfiggi il suo boss, ottieni oggetti di rarita' diverse e cambia le tue abilita' con l'equipaggiamento. Il personaggio si salva nel browser.
 
-> Stato: **fondamenta e porting del prototipo** (Fase 0). Il gioco e' il duello del prototipo originale, riscritto con una struttura pulita. Vedi `docs/roadmap.md`.
+> Stato: **Fase 1** (menu, 4 dungeon con boss e mappe uniche, oggetti con rarita', salvataggio locale). Vedi `docs/roadmap.md`.
 
 ## Provarlo
 
@@ -20,14 +20,16 @@ Oppure `npm run build` e aprire `dist/index.html` con doppio clic (funziona anch
 | --- | --- |
 | WASD | movimento |
 | Mouse | mira |
-| Clic sinistro (tenuto) | Dardo arcano |
-| Clic destro | Globo di gelo (rallenta il boss) |
-| Q | Meteora (esplode nel punto mirato) |
-| E | Passo astrale (scatto con invulnerabilita') |
-| ESC | pausa |
-| R | ricomincia |
+| Clic sinistro (tenuto) | skill 1: mano primaria |
+| Clic destro | skill 2: mano secondaria |
+| Q | skill 3: armatura |
+| E | skill 4: stivali |
+| ESC | pausa (nei menu: indietro) |
+| R | ricomincia (durante una partita) |
 | M | audio on/off |
 | F | schermo intero |
+
+Le skill dipendono dall'equipaggiamento (dalla schermata "Equipaggiamento"); la dotazione iniziale e' quella del mago: dardo arcano, globo di gelo, meteora e passo astrale.
 
 ## Sviluppo
 

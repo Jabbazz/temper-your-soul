@@ -1,40 +1,48 @@
 import type { Match } from '../match/match';
-import type { SkillDefinition } from '../skills/skill-definition';
+import type { Loadout } from '../skills/skill-definition';
 import { requireElement } from './dom';
 
 /**
  * Interfaccia in DOM sopra il canvas: barre della vita, skill e ricariche. Mostra solo lo stato della partita,
  * senza regole di gioco, e tocca il DOM soltanto quando un valore cambia.
  */
+/** Etichette dei comandi per slot di skill (i tasti veri sono nell'Input Map). */
+const SLOT_LABELS = ['MOUSE SX', 'MOUSE DX', 'Q', 'E'];
+
 export class Hud {
   private readonly playerBar = requireElement('player-bar');
   private readonly playerText = requireElement('player-text');
   private readonly bossBar = requireElement('boss-bar');
   private readonly bossText = requireElement('boss-text');
+  private readonly bossName = requireElement('boss-name');
   private readonly cooldownBars: HTMLElement[] = [];
   private readonly last = new Map<HTMLElement, string>();
 
-  /** Crea una scheda per ogni skill, nell'ordine degli slot. */
-  buildSkills(skills: readonly SkillDefinition[]): void {
+  setBossName(name: string): void {
+    this.setText(this.bossName, name);
+  }
+
+  /** Crea una scheda per ogni slot, nell'ordine degli slot; uno slot vuoto mostra solo il comando. */
+  buildSkills(skills: Loadout): void {
     const list = requireElement('skills');
     list.replaceChildren();
     this.cooldownBars.length = 0;
-    for (const skill of skills) {
+    skills.forEach((skill, slot) => {
       const item = document.createElement('li');
-      item.className = 'skill';
+      item.className = skill === null ? 'skill skill-empty' : 'skill';
       const key = document.createElement('span');
       key.className = 'key';
-      key.textContent = skill.keyLabel;
+      key.textContent = SLOT_LABELS[slot] ?? '';
       const name = document.createElement('b');
-      name.textContent = skill.name;
+      name.textContent = skill === null ? '— vuoto —' : skill.name;
       const description = document.createElement('small');
-      description.textContent = skill.description;
+      description.textContent = skill === null ? 'Equipaggia un oggetto' : skill.description;
       const cooldown = document.createElement('div');
       cooldown.className = 'cool';
       item.append(key, name, description, cooldown);
       list.append(item);
       this.cooldownBars.push(cooldown);
-    }
+    });
   }
 
   update(match: Match): void {

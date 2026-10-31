@@ -35,23 +35,32 @@ npm run verify     # tipi + test + build: esce con codice 0 solo se tutto riesce
 Organizzazione per funzionalita', non per tipo di file. Test accanto al codice (`*.test.ts`).
 
 ```
-index.html, src/main.ts, src/game.ts, src/style.css   pagina, avvio, ciclo (passo fisso 60 Hz), collegamento di tutte le parti, stile
+index.html, src/main.ts, src/game.ts, src/style.css   pagina, avvio, ciclo (passo fisso 60 Hz), macchina delle schermate, collegamento di tutte le parti
 src/core/        vec2, rng (Rng + SeededRng), signal, input (azioni), camera (+ ZOOM)
 src/features/
-  arena/         arena.ts (dimensioni, margini, clamp: regole), arena-layout.ts (decorazione: solo aspetto)
-  combat/        health, team, collision (raggi e distanze), projectile (+ ProjectileSpec), danger-zone (+ DangerZoneSpec), events (GameEvent)
-  skills/        skill-definition (dati), mage-skills (le 4 skill del mago), skill-bar (ricariche), skill-effects (comportamento)
-  player/        player.ts (movimento, vita, invulnerabilita')
-  boss/          boss.ts (stato, movimento, fasi, carica, raffiche), boss-patterns.ts (6 schemi: dati + comportamento), boss-context.ts
-  match/         match.ts: la partita completa e senza DOM (orchestra tutto, un solo ordine di passo, emette eventi)
-  presentation/  tutto cio' che e' aspetto: visuals (colori e forme per id), effects (particelle, onde, testi, scie, scossa), poses,
-                 sprites (pixel art), draw-*.ts (arena, attori, combattimento, effetti), scene-renderer.ts
-  ui/            hud.ts (barre e skill in DOM), overlay.ts (menu, pausa, fine), fullscreen.ts, dom.ts
+  arena/         arena.ts: ArenaDefinition (mappa: dimensioni, partenze, margini, pilastri), clamp, pilastri (pillarAt, pushOutOfPillars)
+  combat/        health, team, collision (raggi), projectile (+ ProjectileSpec), danger-zone (+ DangerZoneSpec), events (GameEvent)
+  skills/        skill-definition (SkillDefinition, SkillEffect: projectile | ground_blast | dash | melee_arc, Loadout), mage-skills (le 4 base),
+                 skill-bar (ricariche, slot anche vuoti), skill-effects (comportamento)
+  player/        player.ts (movimento con pilastri, vita, invulnerabilita', loadout)
+  boss/          boss-definition (BossDefinition/BossStats/BossPattern/ScheduledAction/ByPhase), boss.ts (stato, movimento, fasi, carica, azioni
+                 programmate), pattern-kit.ts (anelli, ventagli, schedule, carica), guardian.ts (il boss della cripta), boss-context.ts
+  dungeons/      dungeon-definition, crypt.ts, dungeons.ts (registro DUNGEONS), e una cartella per dungeon (swamp/, forge/, glacier/) con
+                 mappa, boss, schemi e test; dungeons.test.ts valida OGNI dungeon registrato
+  items/         rarity, equipment-slot, item-family + item-families (catalogo), item-skills (valori delle skill), item (Item, resolveItemSkill,
+                 describeSkillStats), scaling (rarita' -> valori)
+  loot/          loot-table + loot-tables (per dungeon), roll-loot (deterministico con Rng)
+  character/     character.ts (inventario, equipaggiamento, record), save-format (serializzazione e VALIDAZIONE), save-store (localStorage)
+  match/         match.ts: la partita (dungeon + loadout) senza DOM, un solo ordine di passo, emette eventi
+  presentation/  visuals + looks/ (aspetti per id), themes/ (disegno delle mappe), boss-art/ (grafica dei boss), effects, poses, sprites, draw-*.ts,
+                 scene-renderer.ts
+  ui/            hud, overlay (pausa e fine), screens, main-menu, dungeon-select, inventory-screen + inventory-view (ordinamento/filtri, testabile),
+                 item-card, loot-view, fullscreen, dom
   audio/         audio-player.ts (Web Audio, ascolta gli eventi)
-src/testing.ts   aiuti per i test (partite con seme, intenzioni, esecuzione a passo fisso, contesto del boss)
+src/testing.ts   aiuti per i test (partite con seme e dungeon, intenzioni, esecuzione a passo fisso, contesto del boss)
 ```
 
-Flusso: `Game.frame` accumula il tempo e chiama a 60 Hz `Match.step(dt, intent)`; `Match` modifica solo se stessa ed emette `GameEvent`; effetti, pose e audio ascoltano gli eventi; `renderScene` disegna leggendo lo stato (non lo modifica mai).
+Flusso: `Game` tiene il personaggio (caricato da `SaveStore`) e la schermata corrente (menu, dungeon, equipaggiamento, partita, pausa, fine). Avviare un dungeon crea un `Match` con `character.loadout()`; `Game.frame` accumula il tempo e chiama a 60 Hz `Match.step(dt, intent)`; `Match` modifica solo se stessa ed emette `GameEvent`; effetti, pose e audio ascoltano gli eventi; alla vittoria `Game` tira il bottino (`rollLoot`), lo aggiunge al personaggio, registra il record e salva PRIMA di mostrare la schermata; `renderScene` disegna leggendo lo stato.
 
 ## Convenzioni
 
@@ -59,12 +68,15 @@ Flusso: `Game.frame` accumula il tempo e chiama a 60 Hz `Match.step(dt, intent)`
 - Testi visibili al giocatore e documentazione in italiano; identificatori nel codice in inglese.
 - **La simulazione non conosce il DOM, il canvas, il tempo reale ne' `Math.random`**: tutto cio' che e' casuale nelle regole passa da un `Rng` iniettato (`SeededRng` nei test e nelle partite), cosi' una partita e' riproducibile con il seme. La casualita' estetica (`cosmeticRng`) vale solo in `presentation/`.
 - **Passo fisso**: la logica avanza solo in `Match.step(dt, intent)` a 1/60 s (mai dipendente dal frame rate); disegno e HUD a ogni fotogramma. Il tempo di partita (`Match.time`) si ferma alla fine.
-- **Dati / comportamento / rappresentazione separati**: i dati (`SkillDefinition`, `ProjectileSpec`, `DangerZoneSpec`, `BOSS_STATS`, tabelle degli schemi) sono di sola lettura a runtime; il comportamento sta in `skill-effects.ts`, `boss.ts`, `boss-patterns.ts`, `match.ts`; l'aspetto in `presentation/`. I dati scelgono l'aspetto con un id (`ProjectileVisual`), mai con un colore o con un numero (non identificare un proiettile dal raggio). Non mettere regole nella rappresentazione ne' aspetto nei dati.
+- **Dati / comportamento / rappresentazione separati**: i dati (`SkillDefinition`, `ItemFamily`, `ProjectileSpec`, `DangerZoneSpec`, `ArenaDefinition`, `BossDefinition`/`BossStats`, tabelle degli schemi) sono di sola lettura a runtime; il comportamento sta in `skill-effects.ts`, `boss.ts`, `boss-patterns.ts`, `match.ts`; l'aspetto in `presentation/`. I dati scelgono l'aspetto con un id (`ProjectileVisual`), mai con un colore o con un numero (non identificare un proiettile dal raggio). Non mettere regole nella rappresentazione ne' aspetto nei dati.
 - **Eventi**: la simulazione dice cosa e' successo (`GameEvent`), non cosa disegnare o suonare. Aggiungere un effetto o un suono = ascoltare un evento esistente; se manca l'evento, aggiungerlo a `events.ts` e coprirlo con un test.
-- **Valori provvisori**: i valori ereditati dal prototipo stanno in tabelle di dati con nome (`PLAYER_STATS`, `BOSS_STATS`, `MAGE_SKILLS`, `NOVA`/`BURST`/..., `ARENA`, `HIT_RADIUS`), non sepolti nel codice. Sono tutti provvisori (vedi `docs/game-design.md`): non inventare valori definitivi, usare un valore regolabile e segnalarlo.
+- **Valori provvisori**: i valori stanno in tabelle di dati con nome (`PLAYER_STATS`, le `BossStats` di ogni boss, `MAGE_SKILLS`, `item-skills.ts`, `RARITY_STATS`, `LOOT_TABLES`, le tabelle degli schemi, le `ArenaDefinition`, `HIT_RADIUS`), non sepolti nel codice. Sono tutti provvisori (vedi `docs/game-design.md`): non inventare valori definitivi, usare un valore regolabile e segnalarlo.
 - Input solo tramite azioni (`Action`), mai tasti hardcoded; tasti legati per posizione fisica (`event.code`). Le pressioni piu' brevi di un passo non si perdono (`Input.isActionActive` + `takeLatched`).
 - Id stabili (`arcane_bolt`, `frost_orb`, `meteor`, `astral_step`, id degli schemi, `ProjectileVisual`): non rinominarli, li usano test, eventi e rappresentazione.
-- Per aggiungere una skill: nuovo `SkillDefinition` in `mage-skills.ts` (e, se serve un nuovo tipo di effetto, un caso in `skill-effects.ts`), un caso in `Effects.onSkillCast` e in `AudioPlayer`, test. Per aggiungere uno schema del boss: nuovo `BossPattern` in `boss-patterns.ts` e in `BOSS_PATTERNS`, test.
+- **Oggetti**: la FAMIGLIA (`ItemFamily`) decide la skill dello slot, la rarita' (`RARITY_STATS`) la scala (`scaleSkill`: a Comune la skill e' identica alla base). Un `Item` salvato e' solo `{ uid, familyId, rarity }`: la skill si ricalcola sempre dai dati, mai si salva. Per aggiungere una famiglia: skill in `item-skills.ts`, voce in `item-families.ts` (id stabile, mai rinominarlo: e' nei salvataggi), aspetti in `presentation/looks/items.ts`, e se e' esclusiva aggiungerla al `LootTable` del dungeon (si deriva da `exclusiveTo`). Per aggiungere una rarita' o uno slot cambiare anche la validazione del salvataggio.
+- **Salvataggio**: ogni dato letto da `localStorage` e' NON fidato: passa da `deserializeCharacter` (validazione rigorosa, scarta il non valido, mai crash). Dati illeggibili non si cancellano: si copiano in `...:corrupt`. Cambiando il formato incrementare `SAVE_VERSION` e gestire la migrazione.
+- **Dungeon**: per aggiungerne uno creare `features/dungeons/<id>/` con `ArenaDefinition`, `BossDefinition` (schemi con gli attrezzi di `pattern-kit.ts`), `DungeonDefinition`; un tema in `presentation/themes/`, la grafica in `presentation/boss-art/`, gli aspetti in `presentation/looks/`; registrarlo in `dungeons.ts`, nei registri di temi, grafiche e aspetti, e aggiungere la tabella di bottino. `dungeons.test.ts` e' il criterio di accettazione (mappa valida, schemi eseguibili e leggibili, danno limitato, simulazione lunga). L'id del dungeon, del boss e degli schemi e' stabile.
+- Per aggiungere una skill base: `SkillDefinition` (con `visual`) e, se serve un nuovo tipo di effetto, un caso in `skill-effects.ts`, in `Effects.onSkillCast` e (per il suono) in `AudioPlayer`; test.
 - Grafica provvisoria: pixel art come matrici di caratteri in `sprites.ts`; niente asset esterni finche' non decisi. L'interfaccia (HUD) e' in DOM sopra il canvas e mostra solo lo stato, senza regole.
 
 ## Verifica

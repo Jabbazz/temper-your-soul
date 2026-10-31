@@ -1,32 +1,8 @@
 import { clamp, Vec2 } from '../../core/vec2';
-import { ARENA, clampToArena } from '../arena/arena';
-import { CHARGE_HIT_DISTANCE } from '../combat/collision';
+import { clampToArena, type ArenaDefinition } from '../arena/arena';
 import { Health } from '../combat/health';
 import type { BossContext } from './boss-context';
-import { BOSS_PATTERNS, fireVolley, type Volley } from './boss-patterns';
-
-/** Valori del guardiano. Provvisori, ereditati dal prototipo (vedi docs/game-design.md). */
-export const BOSS_STATS = {
-  maxHealth: 1800,
-  /** Sotto questa frazione di vita il boss entra nella seconda fase (furia). */
-  phaseTwoThreshold: 0.5,
-  /** Velocita' di inseguimento, normale e con il gelo, in unita' al secondo. */
-  speed: 100,
-  slowedSpeed: 30,
-  /** Entro questa distanza dal giocatore smette di avvicinarsi e gli gira attorno. */
-  orbitDistance: 180,
-  /** Velocita' di rotazione attorno al giocatore, come frazione della velocita' di inseguimento. */
-  orbitSpeedFactor: 0.38,
-  /** Secondi prima del primo attacco. */
-  firstAttackDelay: 1.8,
-  /** Secondi tra la partenza di un attacco e quella del successivo, per fase. */
-  attackInterval: { normal: 2.15, rage: 1.65 },
-  /** Secondi di posa di lancio all'inizio di ogni attacco (alcuni schemi la prolungano o la ripetono). */
-  attackPose: 0.5,
-  /** Danno per contatto e danno della carica. */
-  contactDamage: 18,
-  chargeDamage: 25,
-} as const;
+import type { BossDefinition, BossStats, ScheduledAction } from './boss-definition';
 
 /** Carica in corso: una breve preparazione (segnalata a terra), poi uno scatto lineare verso il punto fissato. */
 export interface Charge {
@@ -39,18 +15,31 @@ export interface Charge {
 }
 
 export class Boss {
-  position: Vec2 = ARENA.bossSpawn;
-  readonly health = new Health(BOSS_STATS.maxHealth);
+  position: Vec2;
+  readonly health: Health;
   /** Secondi di rallentamento rimasti. */
   slowFor = 0;
   phase: 1 | 2 = 1;
   charge: Charge | null = null;
-  /** Raffiche programmate: sparano quando il loro ritardo arriva a zero. */
-  volleys: Volley[] = [];
+  /** Azioni programmate (raffiche, onde, teletrasporti): eseguite quando il loro ritardo arriva a zero. */
+  scheduled: ScheduledAction[] = [];
   /** Secondi al prossimo attacco. */
-  attackTimer: number = BOSS_STATS.firstAttackDelay;
+  attackTimer: number;
   /** Quanti attacchi ha lanciato: sceglie il prossimo schema in rotazione. */
   attackCount = 0;
+
+  constructor(
+    readonly definition: BossDefinition,
+    readonly arena: ArenaDefinition,
+  ) {
+    this.position = arena.bossSpawn;
+    this.health = new Health(definition.stats.maxHealth);
+    this.attackTimer = definition.stats.firstAttackDelay;
+  }
+
+  get stats(): BossStats {
+    return this.definition.stats;
+  }
 
   get isEnraged(): boolean {
     return this.phase === 2;
@@ -65,35 +54,36 @@ export class Boss {
     this.slowFor = Math.max(0, this.slowFor - dt);
   }
 
-  /** Un passo di comportamento: fase, movimento, carica, raffiche e scelta del prossimo attacco. */
+  /** Un passo di comportamento: fase, movimento, carica, azioni programmate e scelta del prossimo attacco. */
   step(dt: number, ctx: BossContext): void {
     this.updatePhase(ctx);
     if (this.charge === null) this.move(dt, ctx.target);
     this.advanceCharge(dt, ctx);
-    this.advanceVolleys(dt, ctx);
+    this.advanceScheduled(dt, ctx);
     this.attackTimer -= dt;
-    if (this.attackTimer <= 0 && this.charge === null && this.volleys.length === 0) {
+    if (this.attackTimer <= 0 && this.charge === null && this.scheduled.length === 0) {
       this.startAttack(ctx);
-      this.attackTimer = this.isEnraged ? BOSS_STATS.attackInterval.rage : BOSS_STATS.attackInterval.normal;
+      this.attackTimer = this.isEnraged ? this.stats.attackInterval.rage : this.stats.attackInterval.normal;
     }
   }
 
   private updatePhase(ctx: BossContext): void {
-    if (this.phase === 1 && this.health.current < this.health.max * BOSS_STATS.phaseTwoThreshold) {
+    if (this.phase === 1 && this.health.current < this.health.max * this.stats.phaseTwoThreshold) {
       this.phase = 2;
-      ctx.emit({ type: 'boss_phase_changed', position: this.position, phase: 2 });
+      const { name, rageText } = this.definition;
+      ctx.emit({ type: 'boss_phase_changed', position: this.position, phase: 2, text: rageText ?? `${name} SI INFURIA` });
     }
   }
 
   /** Insegue il giocatore e, da vicino, gli gira attorno. */
   private move(dt: number, target: Vec2): void {
     const angle = this.position.angleTo(target);
-    const speed = this.isSlowed ? BOSS_STATS.slowedSpeed : BOSS_STATS.speed;
+    const speed = this.isSlowed ? this.stats.slowedSpeed : this.stats.speed;
     const step =
-      this.position.distanceTo(target) > BOSS_STATS.orbitDistance
+      this.position.distanceTo(target) > this.stats.orbitDistance
         ? Vec2.fromAngle(angle, speed * dt)
-        : Vec2.fromAngle(angle + Math.PI / 2, speed * BOSS_STATS.orbitSpeedFactor * dt);
-    this.position = clampToArena(this.position.add(step), ARENA.bossMargin);
+        : Vec2.fromAngle(angle + Math.PI / 2, speed * this.stats.orbitSpeedFactor * dt);
+    this.position = clampToArena(this.arena, this.position.add(step), this.arena.bossMargin);
   }
 
   private advanceCharge(dt: number, ctx: BossContext): void {
@@ -103,27 +93,29 @@ export class Boss {
     if (charge.elapsed < charge.windup) return;
     const u = clamp((charge.elapsed - charge.windup) / charge.duration, 0, 1);
     this.position = charge.start.lerp(charge.target, u);
-    if (this.position.distanceTo(ctx.target) < CHARGE_HIT_DISTANCE) ctx.hurtPlayer(BOSS_STATS.chargeDamage);
+    if (this.position.distanceTo(ctx.target) < this.stats.chargeHitDistance) ctx.hurtPlayer(this.stats.chargeDamage);
     if (u === 1) {
       ctx.emit({ type: 'boss_charge_finished', position: this.position });
       this.charge = null;
     }
   }
 
-  private advanceVolleys(dt: number, ctx: BossContext): void {
-    const pending: Volley[] = [];
-    for (const volley of this.volleys) {
-      volley.delay -= dt;
-      if (volley.delay <= 0) fireVolley(volley, this, ctx);
-      else pending.push(volley);
+  private advanceScheduled(dt: number, ctx: BossContext): void {
+    // Istantanea: un'azione eseguita puo' programmarne altre, che partono dal passo successivo.
+    const current = this.scheduled;
+    this.scheduled = [];
+    for (const action of current) {
+      action.delay -= dt;
+      if (action.delay <= 0) action.run(this, ctx);
+      else this.scheduled.push(action);
     }
-    this.volleys = pending;
   }
 
   private startAttack(ctx: BossContext): void {
-    const pattern = BOSS_PATTERNS[this.attackCount % BOSS_PATTERNS.length]!;
+    const patterns = this.definition.patterns;
+    const pattern = patterns[this.attackCount % patterns.length]!;
     this.attackCount++;
-    ctx.emit({ type: 'boss_pose', seconds: BOSS_STATS.attackPose });
+    ctx.emit({ type: 'boss_pose', seconds: this.stats.attackPose });
     ctx.emit({
       type: 'boss_attack',
       patternId: pattern.id,

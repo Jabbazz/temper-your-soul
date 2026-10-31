@@ -1,15 +1,8 @@
 import type { Boss } from '../boss/boss';
 import type { Player } from '../player/player';
+import { bossArt } from './boss-art';
 import type { ActorPoses } from './poses';
-import {
-  drawSprite,
-  GUARDIAN_CASTING,
-  GUARDIAN_WALK,
-  guardianPalette,
-  MAGE_CASTING,
-  MAGE_PALETTE,
-  MAGE_WALK,
-} from './sprites';
+import { drawSprite, MAGE_CASTING, MAGE_PALETTE, MAGE_WALK } from './sprites';
 
 function drawShadow(ctx: CanvasRenderingContext2D, x: number, y: number, radiusX: number, radiusY: number, color: string): void {
   ctx.fillStyle = color;
@@ -51,9 +44,10 @@ export function drawPlayer(
   ctx.restore();
 }
 
-/** Disegna il guardiano, rivolto verso il giocatore. */
+/** Disegna il boss con la grafica della sua definizione, rivolto verso il giocatore. */
 export function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, player: Player, poses: ActorPoses, time: number): void {
-  drawShadow(ctx, boss.position.x, boss.position.y + 25, 30, 10, '#070c1680');
+  const art = bossArt(boss.definition.art);
+  drawShadow(ctx, boss.position.x, boss.position.y + art.shadow.offsetY, art.shadow.radiusX, art.shadow.radiusY, '#070c1680');
   const frame = Math.floor(time * (boss.isSlowed ? 2 : 5)) % 4;
   const casting = poses.bossCast > 0;
   ctx.save();
@@ -61,18 +55,12 @@ export function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, player: Play
   ctx.scale(player.position.x < boss.position.x ? -1 : 1, 1);
   drawSprite(
     ctx,
-    casting ? GUARDIAN_CASTING : GUARDIAN_WALK[frame]!,
+    casting ? art.casting : art.walk[frame]!,
     0,
-    casting ? -3 : frame % 2 ? -1 : 1,
-    3,
-    guardianPalette(boss.isSlowed, boss.isEnraged),
+    casting ? art.bob.casting : frame % 2 ? art.bob.odd : art.bob.even,
+    art.scale,
+    art.palette(boss.isSlowed, boss.isEnraged),
   );
-  if (casting) {
-    ctx.fillStyle = boss.isEnraged ? '#ff795a' : '#ffd38b';
-    for (const side of [-1, 1]) {
-      ctx.fillRect(side * 25 - 3, -13, 6, 6);
-      ctx.fillRect(side * 29 - 1, -20, 3, 3);
-    }
-  }
+  if (casting) art.drawCastFx?.(ctx, boss.isEnraged);
   ctx.restore();
 }

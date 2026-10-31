@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Vec2 } from '../../core/vec2';
-import { ARENA, isOutsideProjectileBounds } from '../arena/arena';
-import { BOSS_STATS } from '../boss/boss';
+import { isOutsideProjectileBounds } from '../arena/arena';
+import { CRYPT, CRYPT_ARENA } from '../dungeons/crypt';
+import type { DungeonDefinition } from '../dungeons/dungeon-definition';
+import type { SkillDefinition } from '../skills/skill-definition';
+import { GUARDIAN_STATS } from '../boss/guardian';
 import { DangerZone } from '../combat/danger-zone';
 import { Projectile, type ProjectileSpec } from '../combat/projectile';
 import {
@@ -22,8 +25,8 @@ describe('stato iniziale', () => {
     const match = createMatch();
     expect(match.status).toBe('playing');
     expect(match.time).toBe(0);
-    expect(match.player.position).toEqual(ARENA.playerSpawn);
-    expect(match.boss.position).toEqual(ARENA.bossSpawn);
+    expect(match.player.position).toEqual(CRYPT_ARENA.playerSpawn);
+    expect(match.boss.position).toEqual(CRYPT_ARENA.bossSpawn);
     expect(match.player.health.current).toBe(100);
     expect(match.boss.health.current).toBe(1800);
     expect(match.projectiles).toHaveLength(0);
@@ -41,7 +44,7 @@ describe('movimento e skill nella partita', () => {
   it('il movimento dell\'intenzione sposta il giocatore', () => {
     const match = createQuietMatch();
     match.step(STEP, intent(match, { move: new Vec2(1, 0) }));
-    expect(match.player.position.x).toBeCloseTo(ARENA.playerSpawn.x + 177 * STEP, 6);
+    expect(match.player.position.x).toBeCloseTo(CRYPT_ARENA.playerSpawn.x + 177 * STEP, 6);
   });
 
   it('la mira segue il mouse mentre ci si muove: e\' sempre la posizione DOPO il movimento piu\' l\'offset', () => {
@@ -209,11 +212,11 @@ describe('danni al giocatore', () => {
     const match = createQuietMatch();
     match.boss.position = match.player.position.add(new Vec2(20, 0));
     match.step(STEP, intent(match));
-    expect(match.player.health.current).toBe(100 - BOSS_STATS.contactDamage);
+    expect(match.player.health.current).toBe(100 - GUARDIAN_STATS.contactDamage);
     run(match, 0.5);
-    expect(match.player.health.current).toBe(100 - BOSS_STATS.contactDamage);
+    expect(match.player.health.current).toBe(100 - GUARDIAN_STATS.contactDamage);
     run(match, 0.3);
-    expect(match.player.health.current).toBe(100 - 2 * BOSS_STATS.contactDamage);
+    expect(match.player.health.current).toBe(100 - 2 * GUARDIAN_STATS.contactDamage);
   });
 });
 
@@ -437,15 +440,133 @@ describe('simulazione lunga (controllo di sanita\')', () => {
         if (!Number.isFinite(match.boss.position.x + match.boss.position.y)) invalid++;
         for (const projectile of match.projectiles) {
           if (!Number.isFinite(projectile.position.x + projectile.position.y)) invalid++;
-          if (isOutsideProjectileBounds(projectile.position)) invalid++;
+          if (isOutsideProjectileBounds(CRYPT_ARENA, projectile.position)) invalid++;
         }
       }
       expect(invalid).toBe(0);
       expect(match.status).toBe('playing');
       expect(match.boss.phase).toBe(2);
       expect(match.boss.attackCount).toBeGreaterThan(30);
-      expect(match.player.position.x).toBeGreaterThanOrEqual(ARENA.playerMargin);
-      expect(match.player.position.x).toBeLessThanOrEqual(ARENA.width - ARENA.playerMargin);
+      expect(match.player.position.x).toBeGreaterThanOrEqual(CRYPT_ARENA.playerMargin);
+      expect(match.player.position.x).toBeLessThanOrEqual(CRYPT_ARENA.width - CRYPT_ARENA.playerMargin);
     }
+  });
+});
+
+describe('mappe con ostacoli e boss diversi', () => {
+  const withPillar = (position: Vec2, radius = 40): DungeonDefinition => ({
+    ...CRYPT,
+    arena: { ...CRYPT_ARENA, pillars: [{ position, radius }] },
+  });
+
+  it('un pilastro ferma un proiettile nemico prima che raggiunga il giocatore, con l\'evento d\'impatto', () => {
+    const match = createQuietMatch(1, { dungeon: withPillar(new Vec2(1500, 1350)) });
+    match.player.position = new Vec2(1600, 1350);
+    // Proiettile nemico lanciato dal pilastro verso il giocatore: nasce dentro il pilastro e viene fermato subito.
+    match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, speed: 300 }, new Vec2(1450, 1350), 0));
+    const events = recordEvents(match);
+    run(match, 1);
+    expect(match.player.health.current).toBe(100);
+    expect(match.projectiles).toHaveLength(0);
+    expect(eventsOfType(events, 'projectile_hit').length).toBeGreaterThan(0);
+  });
+
+  it('un pilastro ferma anche i proiettili del giocatore: il boss dietro non viene colpito', () => {
+    const match = createQuietMatch(1, { dungeon: withPillar(new Vec2(1300, 1350)) });
+    match.player.position = new Vec2(1100, 1350);
+    match.boss.position = new Vec2(1500, 1350);
+    match.boss.attackTimer = Infinity;
+    const aim = match.boss.position;
+    for (let i = 0; i < 90; i++) match.step(STEP, i === 0 ? holding(match, [0], { aim }) : intent(match, { aim }));
+    expect(match.boss.health.current).toBe(1800);
+  });
+
+  it('senza pilastro lo stesso tiro colpisce (controllo del test precedente)', () => {
+    const match = createQuietMatch(1);
+    match.player.position = new Vec2(1100, 1350);
+    match.boss.position = new Vec2(1500, 1350);
+    const aim = match.boss.position;
+    for (let i = 0; i < 90 && match.boss.health.current === 1800; i++) {
+      match.step(STEP, i === 0 ? holding(match, [0], { aim }) : intent(match, { aim }));
+    }
+    expect(match.boss.health.current).toBeLessThan(1800);
+  });
+
+  it('il boss ignora i pilastri e il giocatore non puo\' attraversarli', () => {
+    const pillar = new Vec2(1600, 1250);
+    const match = createQuietMatch(1, { dungeon: withPillar(pillar, 60) });
+    match.boss.position = new Vec2(1600, 1100);
+    match.player.position = new Vec2(1600, 1350);
+    for (let i = 0; i < 180; i++) match.step(STEP, intent(match, { move: new Vec2(0, -1) }));
+    expect(match.player.position.distanceTo(pillar)).toBeGreaterThanOrEqual(70 - 1e-6);
+  });
+
+  it('il raggio di colpo del boss viene dai suoi dati: un boss grande si colpisce da piu\' lontano', () => {
+    const big: DungeonDefinition = {
+      ...CRYPT,
+      boss: { ...CRYPT.boss, stats: { ...CRYPT.boss.stats, hitRadius: 60, contactDistance: 10 } },
+    };
+    for (const [dungeon, hit] of [[big, true], [CRYPT, false]] as const) {
+      const match = createQuietMatch(1, { dungeon });
+      match.boss.position = new Vec2(1600, 1100);
+      match.player.position = new Vec2(1600, 1200);
+      match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss.position.add(new Vec2(0, -50)), 0));
+      match.step(STEP, intent(match));
+      expect(match.boss.health.current, dungeon.id).toBe(hit ? 1781 : 1800);
+    }
+  });
+
+  it('il colpo ravvicinato ferisce il boss solo se e\' nel raggio e nell\'arco', () => {
+    const slash: SkillDefinition = {
+      id: 'test_slash',
+      name: 'Fendente',
+      description: 'prova',
+      cooldown: 0.1,
+      visual: 'test_slash',
+      effect: { kind: 'melee_arc', range: 60, arc: Math.PI / 2, damage: 40 },
+    };
+    const cases: Array<[string, Vec2, boolean]> = [
+      ['davanti, nel raggio', new Vec2(70, 0), true],
+      ['davanti, oltre il raggio', new Vec2(100, 0), false],
+      ['di lato, fuori dall\'arco', new Vec2(0, 70), false],
+      ['dietro', new Vec2(-70, 0), false],
+      ['nell\'arco, al bordo (45 gradi)', new Vec2(49, 49), true],
+      ['sovrapposto al giocatore', new Vec2(0, 0), true],
+    ];
+    for (const [label, offset, hit] of cases) {
+      const match = createQuietMatch(1, { loadout: [slash, null, null, null] });
+      match.player.position = new Vec2(1600, 1350);
+      match.boss.position = match.player.position.add(offset);
+      const events = recordEvents(match);
+      // La mira e' a destra del giocatore: il boss non si muove nel passo perche' il suo spostamento e' minimo.
+      match.step(STEP, { move: Vec2.ZERO, aimOffset: new Vec2(100, 0), skills: [true, false, false, false] });
+      const damaged = eventsOfType(events, 'damage_dealt').some((event) => event.target === 'boss');
+      expect(damaged, label).toBe(hit);
+    }
+  });
+
+  it('una zona del giocatore con rallentamento rallenta il boss colpito', () => {
+    const nova: SkillDefinition = {
+      id: 'test_nova',
+      name: 'Nova',
+      description: 'prova',
+      cooldown: 4,
+      visual: 'test_nova',
+      effect: { kind: 'ground_blast', center: 'caster', zone: { team: 'player', radius: 110, delay: 0.2, damage: 120, slowSeconds: 3 } },
+    };
+    const match = createQuietMatch(1, { loadout: [null, null, nova, null] });
+    match.boss.position = match.player.position.add(new Vec2(0, -90));
+    match.step(STEP, holding(match, [2]));
+    run(match, 0.3);
+    expect(match.boss.health.current).toBe(1800 - 120);
+    expect(match.boss.slowFor).toBeGreaterThan(2.5);
+  });
+
+  it('con gli slot vuoti la partita funziona e il giocatore non lancia nulla', () => {
+    const match = createQuietMatch(1, { loadout: [null, null, null, null] });
+    const events = recordEvents(match);
+    run(match, 1, (m) => holding(m, [0, 1, 2, 3]));
+    expect(eventsOfType(events, 'skill_cast')).toHaveLength(0);
+    expect(match.status).toBe('playing');
   });
 });

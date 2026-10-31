@@ -1,20 +1,21 @@
 import { Vec2 } from '../../core/vec2';
-import type { SkillDefinition } from './skill-definition';
+import type { Loadout, SkillDefinition } from './skill-definition';
 
 /*
- * Le quattro skill del mago, nell'ordine degli slot (`skill_1`..`skill_4` nell'Input Map).
+ * Le quattro skill di base del mago (quelle del prototipo), nell'ordine degli slot. Sono la dotazione iniziale:
+ * le famiglie di oggetti "base" (`items/item-families.ts`) le concedono a rarita' Comune.
  * Valori ereditati dal prototipo, provvisori (vedi docs/game-design.md): non definiscono il bilanciamento.
  */
 
 /** I proiettili del giocatore partono leggermente sopra i piedi, all'altezza del bastone. */
-const MUZZLE = new Vec2(0, -7);
+export const MUZZLE = new Vec2(0, -7);
 
 export const ARCANE_BOLT: SkillDefinition = {
   id: 'arcane_bolt',
   name: '✦ Dardo arcano',
   description: 'Tieni premuto · Attacco rapido',
-  keyLabel: 'MOUSE SX',
   cooldown: 0.2,
+  visual: 'arcane_bolt',
   effect: {
     kind: 'projectile',
     muzzleOffset: MUZZLE,
@@ -26,8 +27,8 @@ export const FROST_ORB: SkillDefinition = {
   id: 'frost_orb',
   name: '◆ Globo di gelo',
   description: 'Rallenta il boss · Anche con SX premuto',
-  keyLabel: 'MOUSE DX',
   cooldown: 2.4,
+  visual: 'frost_orb',
   effect: {
     kind: 'projectile',
     muzzleOffset: MUZZLE,
@@ -39,8 +40,8 @@ export const METEOR: SkillDefinition = {
   id: 'meteor',
   name: '☄ Meteora',
   description: 'Esplode nel punto mirato · Combinabile',
-  keyLabel: 'Q',
   cooldown: 5,
+  visual: 'meteor',
   effect: { kind: 'ground_blast', zone: { team: 'player', radius: 66, delay: 0.65, damage: 210 } },
 };
 
@@ -48,10 +49,10 @@ export const ASTRAL_STEP: SkillDefinition = {
   id: 'astral_step',
   name: '✧ Passo astrale',
   description: 'Scatto verso il mouse · Invulnerabilità',
-  keyLabel: 'E',
   cooldown: 3.5,
+  visual: 'astral_step',
   effect: { kind: 'dash', distance: 125, invulnerability: 0.55 },
 };
 
-/** Le skill del mago, nell'ordine degli slot. */
-export const MAGE_SKILLS: readonly SkillDefinition[] = [ARCANE_BOLT, FROST_ORB, METEOR, ASTRAL_STEP];
+/** Le skill di base del mago, nell'ordine degli slot. */
+export const MAGE_SKILLS = [ARCANE_BOLT, FROST_ORB, METEOR, ASTRAL_STEP] as const satisfies Loadout;

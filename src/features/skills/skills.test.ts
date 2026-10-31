@@ -1,25 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { Vec2 } from '../../core/vec2';
-import { ARENA } from '../arena/arena';
+import { CRYPT_ARENA } from '../dungeons/crypt';
 import type { DangerZoneSpec } from '../combat/danger-zone';
 import type { GameEvent } from '../combat/events';
 import type { ProjectileSpec } from '../combat/projectile';
 import { Player } from '../player/player';
 import { ARCANE_BOLT, ASTRAL_STEP, FROST_ORB, MAGE_SKILLS, METEOR } from './mage-skills';
 import { SkillBar } from './skill-bar';
+import type { SkillDefinition } from './skill-definition';
 import { tryCastSkill, type SkillContext } from './skill-effects';
 
-function harness(player = new Player()) {
+function harness(player = new Player(CRYPT_ARENA, MAGE_SKILLS)) {
   const projectiles: Array<{ spec: ProjectileSpec; position: Vec2; angle: number }> = [];
   const zones: Array<{ spec: DangerZoneSpec; position: Vec2 }> = [];
+  const strikes: Array<{ origin: Vec2; angle: number; range: number; arc: number; damage: number }> = [];
   const events: GameEvent[] = [];
   const ctx: SkillContext = {
     player,
     spawnProjectile: (spec, position, angle) => projectiles.push({ spec, position, angle }),
     spawnZone: (spec, position) => zones.push({ spec, position }),
+    strikeArc: (origin, angle, range, arc, damage) => strikes.push({ origin, angle, range, arc, damage }),
     emit: (event) => events.push(event),
   };
-  return { player, ctx, projectiles, zones, events };
+  return { player, ctx, projectiles, zones, strikes, events };
 }
 
 describe('SkillBar', () => {
@@ -115,7 +118,7 @@ describe('meteora', () => {
     const { player, ctx, zones } = harness();
     player.aim = new Vec2(-500, 99999);
     tryCastSkill(2, ctx);
-    expect(zones[0]!.position).toEqual(new Vec2(ARENA.playerMargin, ARENA.height - ARENA.playerMargin));
+    expect(zones[0]!.position).toEqual(new Vec2(CRYPT_ARENA.playerMargin, CRYPT_ARENA.height - CRYPT_ARENA.playerMargin));
   });
 });
 
@@ -133,10 +136,10 @@ describe('passo astrale', () => {
 
   it('non esce dall\'arena', () => {
     const { player, ctx } = harness();
-    player.position = new Vec2(ARENA.playerMargin + 10, ARENA.playerMargin + 10);
+    player.position = new Vec2(CRYPT_ARENA.playerMargin + 10, CRYPT_ARENA.playerMargin + 10);
     player.aim = new Vec2(-1000, -1000);
     tryCastSkill(3, ctx);
-    expect(player.position).toEqual(new Vec2(ARENA.playerMargin, ARENA.playerMargin));
+    expect(player.position).toEqual(new Vec2(CRYPT_ARENA.playerMargin, CRYPT_ARENA.playerMargin));
   });
 
   it('con il colpo appena subito, lo scatto imposta l\'invulnerabilita\' a 0,55 (come nel prototipo)', () => {
@@ -149,11 +152,11 @@ describe('passo astrale', () => {
 });
 
 describe('dati delle skill', () => {
-  it('ogni skill ha testi, etichetta del comando e ricarica positiva', () => {
+  it('ogni skill ha testi, aspetto e ricarica positiva', () => {
     for (const skill of [ARCANE_BOLT, FROST_ORB, METEOR, ASTRAL_STEP]) {
       expect(skill.name.length).toBeGreaterThan(0);
       expect(skill.description.length).toBeGreaterThan(0);
-      expect(skill.keyLabel.length).toBeGreaterThan(0);
+      expect(skill.visual.length).toBeGreaterThan(0);
       expect(skill.cooldown).toBeGreaterThan(0);
     }
   });
@@ -163,5 +166,98 @@ describe('dati delle skill', () => {
       if (skill.effect.kind === 'projectile') expect(skill.effect.projectile.team).toBe('player');
       if (skill.effect.kind === 'ground_blast') expect(skill.effect.zone.team).toBe('player');
     }
+  });
+});
+
+describe('nuovi tipi di effetto', () => {
+  const FAN: SkillDefinition = {
+    id: 'test_fan',
+    name: 'Ventaglio',
+    description: 'prova',
+    cooldown: 1,
+    visual: 'test_fan',
+    effect: {
+      kind: 'projectile',
+      muzzleOffset: new Vec2(0, -7),
+      count: 3,
+      spread: 0.2,
+      projectile: { team: 'player', speed: 400, damage: 10, radius: 4, lifetime: 2, visual: 'test_fan' },
+    },
+  };
+  const SLASH: SkillDefinition = {
+    id: 'test_slash',
+    name: 'Fendente',
+    description: 'prova',
+    cooldown: 0.5,
+    visual: 'test_slash',
+    effect: { kind: 'melee_arc', range: 90, arc: 1.6, damage: 40 },
+  };
+  const NOVA: SkillDefinition = {
+    id: 'test_nova',
+    name: 'Nova',
+    description: 'prova',
+    cooldown: 4,
+    visual: 'test_nova',
+    effect: { kind: 'ground_blast', center: 'caster', zone: { team: 'player', radius: 110, delay: 0.4, damage: 120, slowSeconds: 3 } },
+  };
+
+  it('un proiettile con count > 1 si apre a ventaglio centrato sulla mira', () => {
+    const player = new Player(CRYPT_ARENA, [FAN, null, null, null]);
+    const { ctx, projectiles } = harness(player);
+    player.aim = player.position.add(new Vec2(0, 300));
+    expect(tryCastSkill(0, ctx)).toBe(true);
+    expect(projectiles.map((shot) => shot.angle)).toEqual([
+      expect.closeTo(Math.PI / 2 - 0.2, 10),
+      expect.closeTo(Math.PI / 2, 10),
+      expect.closeTo(Math.PI / 2 + 0.2, 10),
+    ]);
+  });
+
+  it('senza count ne\' spread spara un solo proiettile (come le skill base)', () => {
+    const { ctx, projectiles } = harness();
+    tryCastSkill(0, ctx);
+    expect(projectiles).toHaveLength(1);
+  });
+
+  it('una zona sul lanciatore nasce sotto il giocatore, senza clamp sul mirino', () => {
+    const player = new Player(CRYPT_ARENA, [null, null, NOVA, null]);
+    const { ctx, zones, events } = harness(player);
+    player.aim = new Vec2(-999, -999);
+    expect(tryCastSkill(2, ctx)).toBe(true);
+    expect(zones[0]!.position).toEqual(player.position);
+    expect(zones[0]!.spec.slowSeconds).toBe(3);
+    expect(events[0]).toMatchObject({ type: 'skill_cast', kind: 'ground_blast', visual: 'test_nova' });
+  });
+
+  it('il colpo ravvicinato chiede a Match di colpire con portata, arco e danno, e lo racconta nell\'evento', () => {
+    const player = new Player(CRYPT_ARENA, [SLASH, null, null, null]);
+    const { ctx, strikes, events, projectiles } = harness(player);
+    player.aim = player.position.add(new Vec2(50, 0));
+    expect(tryCastSkill(0, ctx)).toBe(true);
+    expect(strikes).toEqual([{ origin: player.position, angle: 0, range: 90, arc: 1.6, damage: 40 }]);
+    expect(projectiles).toHaveLength(0);
+    expect(events[0]).toMatchObject({ kind: 'melee_arc', range: 90, arc: 1.6, skillId: 'test_slash' });
+  });
+
+  it('uno slot vuoto non lancia nulla, non e\' mai pronto e non ha ricarica', () => {
+    const player = new Player(CRYPT_ARENA, [null, null, null, null]);
+    const { ctx, projectiles, zones, events } = harness(player);
+    for (let slot = 0; slot < 4; slot++) {
+      expect(player.skillBar.isReady(slot)).toBe(false);
+      expect(player.skillBar.cooldownFraction(slot)).toBe(0);
+      expect(tryCastSkill(slot, ctx)).toBe(false);
+    }
+    player.skillBar.start(0);
+    expect(player.skillBar.cooldownFraction(0)).toBe(0);
+    expect([projectiles.length, zones.length, events.length]).toEqual([0, 0, 0]);
+  });
+
+  it('lo scatto non finisce dentro un pilastro', () => {
+    const pillar = { position: new Vec2(1600 + 125, 1350), radius: 40 };
+    const player = new Player({ ...CRYPT_ARENA, pillars: [pillar] }, [null, null, null, ASTRAL_STEP]);
+    const { ctx } = harness(player);
+    player.aim = player.position.add(new Vec2(500, 0));
+    tryCastSkill(3, ctx);
+    expect(player.position.distanceTo(pillar.position)).toBeGreaterThanOrEqual(50 - 1e-6);
   });
 });

@@ -9,6 +9,10 @@ export interface DangerZoneSpec {
   /** Secondi tra la comparsa del segnale e lo scoppio. */
   readonly delay: number;
   readonly damage: number;
+  /** Aspetto della zona (chiave in `presentation/visuals.ts`); se manca vale quello della squadra. */
+  readonly visual?: string;
+  /** Se maggiore di zero e la zona e' del giocatore, colpire il boss lo rallenta per questi secondi. */
+  readonly slowSeconds?: number;
 }
 
 export class DangerZone {

@@ -1,96 +1,101 @@
 # Temper your soul: design del gioco
 
-Distingue le **decisioni prese** dai **valori provvisori ereditati dal prototipo** e dai **punti aperti**. Nessun valore numerico e' definitivo, salvo dove indicato.
+Distingue le **decisioni prese** dai **valori provvisori** e dai **punti aperti**. Nessun valore numerico è definitivo, salvo dove indicato.
 
 ## Decisioni prese
 
 - Il gioco si chiama **Temper your soul**. Repository: https://github.com/Jabbazz/temper-your-soul.
-- Gioco **per browser**, in **TypeScript**, senza motore di gioco e senza dipendenze a runtime.
-- **Stessi principi di lavoro di Ashen Realm**: piccoli incrementi, simulazione a passo fisso separata dal disegno, dati / comportamento / rappresentazione separati, test accanto al codice, `verify` come comando unico, documentazione con decisioni e punti aperti distinti, nessun valore inventato per cio' che e' ancora aperto.
-- Punto di partenza: il prototipo "Emberfall" (arena singola, un mago, un boss). Il primo incremento lo porta in TypeScript senza cambiarne le regole (vedi `docs/roadmap.md`, Fase 0).
-- Single-player locale. Nessun backend, account, salvataggio o multiplayer per ora.
+- Gioco **per browser**, in **TypeScript**, senza motore di gioco e senza dipendenze a runtime. Single-player locale.
+- **Stessi principi di lavoro di Ashen Realm**: piccoli incrementi, simulazione a passo fisso separata dal disegno, dati / comportamento / rappresentazione separati, test accanto al codice, `verify` come comando unico, documentazione con decisioni e punti aperti distinti, nessun valore inventato per ciò che è ancora aperto.
+- **Menu iniziale** con scelta del **dungeon**: la cripta del prototipo più altri **3 dungeon**, ognuno con una **mappa** diversa (dimensioni, tema grafico, ostacoli) e un **boss unico** con schemi di attacco propri.
+- **Il personaggio si salva in locale** (nel browser, `localStorage`): inventario, equipaggiamento e record dei dungeon. Nessun backend né cloud per ora.
+- **I boss lasciano oggetti** alla vittoria, con **rarità diverse**.
+- **Gli oggetti conferiscono le abilità** (come in Ashen Realm): ogni oggetto sta in uno slot; la **famiglia** dell'oggetto determina la skill di quello slot, la **rarità** ne migliora i valori mantenendone l'identità. Ogni boss ha famiglie **esclusive** con abilità uniche che le altre non hanno.
+- Quattro slot di equipaggiamento, uno per skill: **mano primaria** (skill 1, clic sinistro tenuto), **mano secondaria** (skill 2, clic destro), **armatura** (skill 3, Q), **stivali** (skill 4, E). Uno slot può restare vuoto (nessuna skill).
 
-## Ereditato dal prototipo (provvisorio, non e' una scelta di design)
+## Struttura del gioco (come funziona oggi)
 
-Tutto cio' che segue descrive il prototipo cosi' com'e' e serve a verificare il sistema; **non** e' stato deciso come direzione del gioco. Resta modificabile: i valori stanno in tabelle di dati con nome (file indicati).
+Menu → Dungeon (scegli uno dei 4) → partita contro il boss → vittoria: bottino e record, oppure sconfitta: si riprova. Dal menu si apre anche l'**Equipaggiamento** (equipaggiare, rimuovere, scartare). Tutti i dungeon sono sempre selezionabili. Alla sconfitta non si perde nulla (regola provvisoria, vedi punti aperti).
 
-### Impostazione
+## Provvisorio (non è una scelta di design)
 
-- Un **duello in un'arena**: il mago contro il **guardiano della cripta**. Visuale dall'alto, arena da 3200 x 2400 con muro perimetrale, camera centrata sul giocatore (zoom 1,5, nessun limite ai bordi).
-- Movimento libero con WASD, mira con il mouse, si puo' lanciare mentre ci si muove. Vittoria: il boss arriva a 0 PV. Sconfitta: il giocatore arriva a 0 PV. Poi "Riprova".
+Tutti i valori sono provvisori e modificabili: stanno in tabelle di dati con nome (file indicati).
+
+### Impostazione e giocatore
+
+- Visuale dall'alto, camera centrata sul giocatore (zoom 1,5, nessun limite ai bordi). Movimento con WASD, mira con il mouse, si può lanciare mentre ci si muove. Vittoria: il boss arriva a 0 PV. Sconfitta: il giocatore arriva a 0 PV.
 - Grafica: pixel art disegnata dal codice (matrici di caratteri), particelle e ambiente procedurali, audio sintetizzato con Web Audio (spento all'avvio). Nessun asset esterno.
-- Ambientazione e testi del prototipo (provvisori): "Dungeon I · La cripta", "Ordine della Brace", "guardiano della cripta".
+- **Giocatore** (`PLAYER_STATS`): vita 100, velocità 177/s (in diagonale non aumenta), 0,65 s di invulnerabilità dopo un colpo. Raggio di colpo 9, corpo contro i pilastri 10 (`combat/collision.ts`).
+- Ambientazione e testi del prototipo ("Ordine della Brace", "cripta", "guardiano") sono provvisori.
 
-### Giocatore (`PLAYER_STATS` in `features/player/player.ts`)
+### Dungeon, mappe e boss
 
-| Valore | Prototipo |
-| --- | --- |
-| Vita | 100 |
-| Velocita' | 177 unita'/s (in diagonale non aumenta) |
-| Invulnerabilita' dopo un colpo | 0,65 s |
-| Posizione iniziale | (1600, 1350), margine dal bordo 40 |
+| Dungeon (id) | Pericolo | Mappa | Boss (id) | Vita | Carattere |
+| --- | --- | --- | --- | --- | --- |
+| La cripta (`crypt`) | 1 | 3200 x 2400, nessun ostacolo | Guardiano della cripta (`guardian`) | 1800 | quello del prototipo: raffiche, nova, frattura, carica, spirale, ventaglio |
+| La palude spenta (`swamp`) | 2 | 2800 x 2800, 8 alberi morti, nebbia e funghi luminosi | Madre delle spore (`spore_mother`) | 2400 | lento e ingombrante, controlla lo spazio: nuvole di spore, cerchi di zone con centro sicuro, tentacoli, anelli che si chiudono, pioggia di spore, balzo tossico |
+| La fucina in rovina (`forge`) | 3 | 3600 x 2200, 8 pilastri di ferro, lava | Colosso della fornace (`forge_colossus`) | 3000 | enorme (raggio di colpo 40), colpi pesanti e zone molto grandi: martellata con anello di schegge, file di lava con varco, raffiche, croce, spirale a due bracci, carica |
+| Il ghiacciaio eterno (`glacier`) | 4 | 3000 x 3000, 7 colonne di cristallo, neve | Custode del ghiaccio (`frost_warden`) | 3600 | agile ed evasivo (velocità 165, quasi come il giocatore): ventagli di schegge, punte di ghiaccio, teletrasporto, bufera a spirali opposte, nova doppia, carica con zone sul percorso |
 
-### Skill del mago (`features/skills/mage-skills.ts`)
+I valori di ogni boss (`BossStats`: vita, velocità, raggio di colpo, danno da contatto e carica, intervalli) e di ogni schema (`ByPhase`: normale / furia) stanno in `features/boss/guardian.ts` e `features/dungeons/<id>/`. Regole comuni: seconda fase (furia) sotto il 50% di vita; un boss lancia i propri schemi in rotazione e non ne inizia uno nuovo finché carica e azioni programmate non sono finite; il boss **ignora i pilastri** (vola) e può teletrasportarsi (Custode).
 
-| Slot | Comando | Skill (id) | Ricarica | Effetto |
-| --- | --- | --- | --- | --- |
-| 1 | clic sinistro (anche tenuto) | Dardo arcano (`arcane_bolt`) | 0,2 s | proiettile, 19 danni, 440/s, raggio 4, durata 2,5 s |
-| 2 | clic destro (anche tenuto) | Globo di gelo (`frost_orb`) | 2,4 s | proiettile, 100 danni, 310/s, raggio 8, durata 2,5 s; rallenta il boss per 2 s |
-| 3 | Q | Meteora (`meteor`) | 5 s | zona di raggio 66 nel punto mirato, scoppia dopo 0,65 s, 210 danni al boss |
-| 4 | E | Passo astrale (`astral_step`) | 3,5 s | scatto di 125 verso la mira, invulnerabile 0,55 s |
+- **Pilastri**: bloccano il movimento del giocatore (che scivola lungo la superficie) e **assorbono i proiettili di entrambe le squadre**, quindi sono ripari. Non fermano le zone a terra.
+- Vincoli verificati dai test per ogni dungeon: mappa 2000-4000 di lato, partenze libere, nessuna fessura più stretta del corpo del giocatore, danno per colpo <= 30 (proiettili) / 40 (zone) / 30 (contatto) / 40 (carica), zone con avviso >= 0,5 s, almeno 3 schemi esclusivi per boss.
 
-Regole: ogni skill ha la propria ricarica (nessuna ricarica globale); i proiettili partono 7 unita' sopra il centro del giocatore; la meteora e lo scatto restano a 40 dal bordo; il numero del danno mostrato e' il danno del colpo anche se supera gli HP rimasti (come in Ashen Realm).
+### Skill base del mago (`features/skills/mage-skills.ts`)
 
-### Guardiano (`BOSS_STATS` in `features/boss/boss.ts`)
+La dotazione iniziale (oggetti Comuni di base): corrisponde esattamente alle skill del prototipo.
 
-| Valore | Prototipo |
-| --- | --- |
-| Vita | 1800, due fasi: la furia scatta sotto il 50% (strettamente minore) |
-| Movimento | insegue a 100/s (30 con il gelo); entro 180 dal giocatore gli gira attorno a 0,38 x velocita' |
-| Primo attacco | dopo 1,8 s; poi ogni 2,15 s (1,65 s in furia), solo a carica e raffiche finite |
-| Contatto | sotto 29 di distanza: 18 danni |
-| Posizione iniziale | (1600, 1100), margine dal bordo 60 |
+| Slot | Skill (id) | Ricarica | Effetto |
+| --- | --- | --- | --- |
+| 1 | Dardo arcano (`arcane_bolt`) | 0,2 s | proiettile, 19 danni, 440/s, raggio 4 |
+| 2 | Globo di gelo (`frost_orb`) | 2,4 s | proiettile, 100 danni, 310/s, raggio 8; rallenta il boss 2 s |
+| 3 | Meteora (`meteor`) | 5 s | zona di raggio 66 sul mirino, scoppia dopo 0,65 s, 210 danni |
+| 4 | Passo astrale (`astral_step`) | 3,5 s | scatto di 125 verso la mira, invulnerabile 0,55 s |
 
-Sei attacchi in rotazione (`features/boss/boss-patterns.ts`), a partire dal primo; i valori `rage` valgono in seconda fase:
+Tipi di effetto disponibili (`SkillEffect`): **proiettile** (anche a ventaglio con `count` e `spread`), **zona a terra** (sul mirino o attorno al lanciatore, con rallentamento opzionale), **scatto** e **colpo ravvicinato ad arco**. Ogni skill ha ricarica propria (nessuna ricarica globale).
 
-| # | Attacco | Cosa fa |
+### Oggetti, rarità e bottino
+
+**Famiglie** (17, `features/items/item-families.ts`; valori in `item-skills.ts`). Le generiche possono cadere da qualunque boss; le esclusive solo dal boss indicato.
+
+| Slot | Generiche | Esclusive (boss) |
 | --- | --- | --- |
-| 1 | Nova di brace | 16 proiettili in tutte le direzioni (12 danni, 105/s, raggio 5), ruotati con il tempo di partita; in furia due anelli (il secondo a 145/s, sfasato di 0,12 rad) |
-| 2 | Raffica | 7 proiettili a ventaglio di 0,15 rad verso il giocatore (15 danni, raggio 6), 165/s (205/s in furia) |
-| 3 | Frattura | 3 zone (5 in furia), raggio 42, scoppio dopo 1,15 s, 24 danni: la prima sul giocatore, le altre a caso entro +-225 x +-175 |
-| 4 | Carica | preparazione 0,95 s con il percorso segnalato a terra, poi scatto in 0,48 s verso il punto fissato; 25 danni se tocca il giocatore (sotto 37) |
-| 5 | Spirale del vuoto | 16 raffiche (22 in furia) ogni 0,085 s, ciascuna ruotata di 0,29 rad e da 3 proiettili a 120 gradi (10 danni, raggio 4, 125/s; 155/s in furia) |
-| 6 | Triplice ventaglio | 3 ventagli da 5 proiettili (14 danni, raggio 5, 185/s) a 0,5 / 0,88 / 1,26 s, ruotati di 0,25 rad |
+| Mano primaria | Bastone arcano (dardo, base), Arco del cacciatore (freccia veloce 14 danni, 0,16 s), Scettro tempestoso (sfera lenta 23 danni, 0,4 s) | Lama del guardiano (cripta): colpo ravvicinato ad ampio arco, 55 danni, portata 95 · Martello della fornace (fucina): zona piccola e devastante sul mirino, 160 danni · Lancia di ghiaccio (ghiacciaio): scheggia veloce 70 danni che rallenta |
+| Mano secondaria | Grimorio del gelo (globo, base), Talismano degli spiriti (3 fuochi fatui a ventaglio, 42 danni ciascuno) | Ventaglio di spore (palude): 5 semi a ventaglio, 38 danni ciascuno |
+| Armatura | Mantello della meteora (base), Egida di brace (esplosione attorno a te, raggio 110, 130 danni) | Sudario della cripta (cripta): grande esplosione attorno a te che rallenta 2,5 s · Corazza della fornace (fucina): enorme zona ritardata sul mirino, 360 danni · Velo di bufera (ghiacciaio): esplosione attorno a te che rallenta 3 s |
+| Stivali | Stivali astrali (base), Stivali del vento (scatto 200, invulnerabile 0,3 s, ricarica 2,4 s) | Stivali del pantano (palude): scatto corto con invulnerabilità lunga (0,8 s) |
 
-### Collisioni (`features/combat/collision.ts`)
+**Rarità** (`items/rarity.ts`): Comune, Non comune, Raro, Epico, Leggendario. La rarità moltiplica il danno (1 / 1,12 / 1,25 / 1,4 / 1,6) e la ricarica (x 1 / 0,95 / 0,9 / 0,85 / 0,8); distanza e invulnerabilità dello scatto crescono della metà dell'aumento di potenza. A rarità Comune la skill è identica a quella base. Nessuna skill generica supera il doppio del riferimento comune del suo slot nemmeno a rarità Leggendaria.
 
-Raggio di colpo del giocatore 9 e del boss 26 per i proiettili; le zone usano un margine di 8 sul giocatore e di 25 sul boss. L'incoerenza (9 contro 8, 26 contro 25) e' del prototipo ed e' un punto aperto.
+**Bottino** (`loot/loot-tables.ts`): a ogni vittoria 1 oggetto garantito più un secondo con probabilità 0,5. Per ogni oggetto: con probabilità 0,35 pesca tra le famiglie **esclusive** del boss, altrimenti tra le generiche; poi la rarità per pesi che crescono col pericolo del dungeon:
 
-## Differenze volute rispetto al prototipo
+| Dungeon | Comune | Non comune | Raro | Epico | Leggendario |
+| --- | --- | --- | --- | --- | --- |
+| Cripta | 55 | 28 | 12 | 4 | 1 |
+| Palude | 40 | 30 | 18 | 9 | 3 |
+| Fucina | 30 | 30 | 22 | 13 | 5 |
+| Ghiacciaio | 20 | 28 | 27 | 17 | 8 |
 
-Il porting conserva regole e valori; queste sono le sole differenze di comportamento, tutte da confermare a mano:
+**Salvataggio** (`features/character/`): chiave `temper-your-soul:save` in `localStorage`, versione 1. Si salva a ogni vittoria e a ogni modifica dell'equipaggiamento (prima di mostrare il bottino). Dati illeggibili, manomessi o di una versione più recente non vengono sovrascritti in silenzio: il testo originale si copia in `temper-your-soul:save:corrupt` e si riparte da un personaggio iniziale. Oggetti non validi si scartano, l'equipaggiamento incoerente si svuota. Se il browser non permette di salvare il gioco funziona in memoria e avvisa.
 
-- **Passo fisso a 60 Hz** invece del tempo variabile: ricariche, scatti e durate sono quantizzati sul passo (un'azione puo' differire di meno di un fotogramma).
-- **Tasti legati alla posizione fisica** (`KeyboardEvent.code`): WASD, Q, E, R, M, F funzionano anche con layout diversi (AZERTY, ecc.).
-- **Scossa dello schermo applicata**: nel prototipo il valore veniva calcolato (danno, scoppi, furia, carica) ma non veniva mai disegnato; ora la camera trema leggermente (fino a +-3 unita' di vista per 0,25 s circa). Solo aspetto.
-- **Gli effetti continuano a muoversi alla fine della partita** (l'esplosione della vittoria non resta congelata dietro la schermata).
-- **Traslazione di camera arrotondata al pixel**: la pixel art resta nitida in movimento.
-- Un proiettile del giocatore e' riconosciuto per i suoi dati (`slowSeconds`, `visual`), non per il raggio.
-- Le zone dopo lo scoppio non restano "vive" 0,65 s: il bagliore residuo e' solo un effetto.
-- L'HUD si aggiorna solo quando un valore cambia; il CSS e' stato riscritto in un livello solo (stesso risultato finale).
-- **Scorciatoie del browser con Ctrl/Meta/Alt non intercettate** (Ctrl+R ricarica la pagina, Ctrl+F apre la ricerca); i tasti del gioco senza modificatori funzionano come prima.
-- Una pressione piu' breve di un passo di simulazione (un tocco rapido su Q/E/clic) non si perde: viene registrata e lanciata nel passo successivo.
+## Differenze volute rispetto al prototipo originale
+
+Il porting della Fase 0 conservava regole e valori; restano queste differenze (tutte da confermare a mano):
+
+- Passo fisso a 60 Hz; tasti legati alla posizione fisica (`KeyboardEvent.code`); scossa dello schermo applicata; effetti che proseguono dopo la fine; traslazione di camera arrotondata; tocchi brevissimi non persi; scorciatoie del browser con Ctrl/Meta/Alt non intercettate.
+- Un proiettile è riconosciuto per i suoi dati (`slowSeconds`, `visual`), non per il raggio; le zone dopo lo scoppio non restano "vive" (il bagliore è un effetto).
 
 ## Punti aperti
 
-- **Direzione del gioco**: che cosa significa "temprare l'anima" nel gioco? (progressione, build, rischio/ricompensa, struttura a run o a incontri, tono). Finche' non e' deciso, il prototipo resta un duello singolo.
-- Ambientazione e lore: tenere "Ordine della Brace", "cripta", "guardiano" e il nome del prototipo "Emberfall" o cambiarli.
-- Quanti boss e quali; se esistono nemici comuni, stanze, un percorso o un hub.
-- Personaggio: un solo mago o piu' classi/archetipi; se le abilita' diventano equipaggiamento o una scelta prima dell'incontro.
-- Progressione, ricompense, morte (cosa si perde o si conserva), salvataggio.
-- Tutti i valori numerici (velocita', danni, vita, ricariche, durate): da tarare con la prova manuale.
-- Unificare i raggi di collisione (vedi sopra) e decidere se i colpi possono perforare, rimbalzare o essere bloccati.
-- Direzione artistica (pixel art o altro, palette, risoluzione interna e zoom) e audio definitivi.
-- Controlli: rimappatura dei tasti, controller, touch/mobile.
-- Camera: limiti ai bordi dell'arena, smorzamento, interpolazione del disegno tra i passi di simulazione (su schermi a piu' di 60 Hz il movimento puo' sembrare leggermente a scatti).
-- Piattaforme e pubblicazione (hosting statico), eventuale classifica o tempi record.
+- **Direzione del gioco**: che cosa significa "temprare l'anima" (progressione, build, rischio/ricompensa, struttura a run o a incontri, tono). Oggi il ciclo è: dungeon → boss → oggetti → build.
+- **Morte**: oggi non si perde nulla. Ashen Realm perde livello, equipaggiamento e chiavi: da decidere se e cosa perdere.
+- **Progressione**: livelli ed esperienza, tier T1-T15 come in Ashen Realm (qui la potenza viene dalla rarità), sblocco dei dungeon (oggi sono tutti disponibili), difficoltà scalabile.
+- **Altri slot**: anello e collana come modificatori delle skill, ali sulla velocità, pantaloni, peso dell'armatura (come in Ashen Realm). Oggi gli slot sono 4, uno per skill.
+- **Oggetti**: capienza dell'inventario (oggi illimitata), vendita o riforgiatura, confronto tra oggetti, modificatori casuali, oggetti identici duplicati, eventuali oggetti unici con nome proprio.
+- **Salvataggio**: cloud o più profili, esportazione/importazione del salvataggio, cosa fare con due schede aperte contemporaneamente (oggi l'ultima che salva vince), cancellazione dei progressi dal gioco.
+- Tutti i valori numerici (vita, danni, velocità, ricariche, pesi del bottino, scalatura delle rarità), da tarare con la prova manuale; equilibrio tra le famiglie e tra i dungeon.
+- Ambientazione e lore: nomi dei dungeon e dei boss, "Ordine della Brace", "Emberfall".
+- Raggi di collisione (oggi incoerenti di 1 tra proiettili e zone), perforazione e rimbalzo dei proiettili, pilastri distruttibili o che fermano anche le zone.
+- Camera: limiti ai bordi, smorzamento, interpolazione del disegno (su schermi a più di 60 Hz il movimento può sembrare lievemente a scatti).
+- Direzione artistica e audio definitivi; controlli (rimappatura, controller, touch/mobile); piattaforme e pubblicazione.

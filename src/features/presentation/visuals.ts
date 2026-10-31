@@ -1,24 +1,47 @@
-import type { ProjectileVisual } from '../combat/projectile';
 import type { Team } from '../combat/team';
+import { CORE_LOOKS } from './looks/core';
+import { FORGE_LOOKS } from './looks/forge';
+import { GLACIER_LOOKS } from './looks/glacier';
+import { ITEM_LOOKS } from './looks/items';
+import { SWAMP_LOOKS } from './looks/swamp';
 
 /** Aspetto di un tipo di proiettile: le regole scelgono l'id (`ProjectileSpec.visual`), qui stanno colore e forma. */
 export interface ProjectileLook {
   readonly color: string;
-  /** `dart`: freccia (dardo arcano); `diamond`: rombo rotante (gelo); `orb`: sfera (proiettili nemici). */
-  readonly shape: 'dart' | 'diamond' | 'orb';
+  /**
+   * `dart`: freccia arcana; `diamond`: rombo rotante; `orb`: sfera; `arrow`: freccia lunga e sottile;
+   * `shard`: scheggia di cristallo allungata.
+   */
+  readonly shape: 'dart' | 'diamond' | 'orb' | 'arrow' | 'shard';
 }
 
-export const PROJECTILE_LOOKS: Record<ProjectileVisual, ProjectileLook> = {
-  arcane_bolt: { color: '#c1a4ff', shape: 'dart' },
-  frost_orb: { color: '#8be9fa', shape: 'diamond' },
-  ember_nova: { color: '#ee9867', shape: 'orb' },
-  ember_volley: { color: '#f2c56e', shape: 'orb' },
-  void_spiral: { color: '#c49af5', shape: 'orb' },
-  ember_fan: { color: '#ffcf83', shape: 'orb' },
-};
+/** Colori di una zona di pericolo: anello e tacche, scoppio, riempimento (colore con trasparenza). */
+export interface ZoneLook {
+  readonly ring: string;
+  readonly burst: string;
+  readonly fill: string;
+}
 
-/** Colori delle zone di pericolo: del giocatore (viola) e del nemico (arancio). */
-export const ZONE_LOOKS: Record<Team, { readonly ring: string; readonly burst: string; readonly fill: string }> = {
-  player: { ring: '#c5a1ff', burst: '#cba5ff', fill: '#9b68ec20' },
-  enemy: { ring: '#ff9670', burst: '#ff9c64', fill: '#ec563026' },
-};
+/** Gli aspetti che un gruppo di contenuti (un dungeon, gli oggetti) aggiunge alle tabelle. */
+export interface PresentationLooks {
+  readonly projectiles: Readonly<Record<string, ProjectileLook>>;
+  /** Chiavi: `player` e `enemy` (predefinite per squadra) o l'id di `DangerZoneSpec.visual`. */
+  readonly zones: Readonly<Record<string, ZoneLook>>;
+}
+
+const ALL: readonly PresentationLooks[] = [CORE_LOOKS, ITEM_LOOKS, SWAMP_LOOKS, FORGE_LOOKS, GLACIER_LOOKS];
+
+export const PROJECTILE_LOOKS: Readonly<Record<string, ProjectileLook>> = Object.assign({}, ...ALL.map((looks) => looks.projectiles));
+export const ZONE_LOOKS: Readonly<Record<string, ZoneLook>> = Object.assign({}, ...ALL.map((looks) => looks.zones));
+
+const FALLBACK_PROJECTILE: ProjectileLook = { color: '#d8d0c8', shape: 'orb' };
+
+/** Aspetto di un proiettile; un id sconosciuto non rompe il disegno (un test controlla che i dati non ne usino). */
+export function projectileLook(visual: string): ProjectileLook {
+  return PROJECTILE_LOOKS[visual] ?? FALLBACK_PROJECTILE;
+}
+
+/** Aspetto di una zona: quello del suo `visual` se esiste, altrimenti il predefinito della squadra. */
+export function zoneLook(team: Team, visual?: string): ZoneLook {
+  return (visual !== undefined ? ZONE_LOOKS[visual] : undefined) ?? ZONE_LOOKS[team]!;
+}

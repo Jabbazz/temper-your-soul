@@ -6,7 +6,7 @@
     <title>Temper your soul</title>
     <link rel="icon" href="data:," />
   </head>
-  <body>
+  <body class="in-menu">
     <main>
       <div class="stage">
         <canvas id="game" tabindex="0" aria-label="Arena di combattimento: muoviti con WASD e mira con il mouse"></canvas>
@@ -18,8 +18,8 @@
         <span id="player-text"></span>
       </section>
 
-      <section class="hud hud-boss" aria-label="Stato del guardiano">
-        GUARDIANO DELLA CRIPTA
+      <section class="hud hud-boss" aria-label="Stato del boss">
+        <span id="boss-name">GUARDIANO DELLA CRIPTA</span>
         <div class="bar"><i id="boss-bar"></i></div>
         <span id="boss-text"></span>
       </section>
@@ -33,15 +33,68 @@
 
       <ul class="skills" id="skills"></ul>
 
-      <div class="veil" id="overlay">
+      <!-- Schermate fuori dalla partita -->
+      <div class="screen" id="screen-menu">
+        <div class="screen-card menu-card">
+          <span class="eyebrow">DUNGEON · BOSS · BOTTINO</span>
+          <h1 class="brand">Temper your soul</h1>
+          <p class="menu-text">Scegli un dungeon, sconfiggi il suo boss e forgia il tuo equipaggiamento: ogni oggetto cambia le tue abilità.</p>
+          <div class="menu-buttons">
+            <button id="menu-dungeons" type="button">Dungeon →</button>
+            <button id="menu-inventory" type="button" class="secondary">Equipaggiamento</button>
+          </div>
+          <small id="menu-note"></small>
+        </div>
+      </div>
+
+      <div class="screen hidden" id="screen-dungeons">
+        <div class="screen-card wide">
+          <div class="screen-head">
+            <div>
+              <span class="eyebrow">SCEGLI IL DUNGEON</span>
+              <h2>Dove vuoi combattere?</h2>
+            </div>
+            <button id="dungeons-back" type="button" class="secondary">← Menu</button>
+          </div>
+          <div class="dungeon-list" id="dungeon-list"></div>
+        </div>
+      </div>
+
+      <div class="screen hidden" id="screen-inventory">
+        <div class="screen-card wide">
+          <div class="screen-head">
+            <div>
+              <span class="eyebrow">EQUIPAGGIAMENTO</span>
+              <h2>Le tue abilità dipendono dagli oggetti</h2>
+              <small>Ogni slot concede una skill: la famiglia decide quale, la rarità ne migliora i valori.</small>
+            </div>
+            <button id="inventory-back" type="button" class="secondary">← Menu</button>
+          </div>
+          <div class="equipment-slots" id="equipment-slots"></div>
+          <div class="inventory-bar">
+            <h3>Inventario</h3>
+            <div class="chips" id="inventory-filters"></div>
+          </div>
+          <div class="inventory-list" id="inventory-list"></div>
+        </div>
+      </div>
+
+      <!-- Pausa e fine partita -->
+      <div class="veil hidden" id="overlay">
         <div class="card">
           <span class="eyebrow" id="overlay-tag"></span>
           <h3 id="overlay-title"></h3>
           <p id="overlay-text"></p>
-          <button id="overlay-button" type="button"></button>
+          <div id="overlay-extra"></div>
+          <div class="overlay-buttons">
+            <button id="overlay-button" type="button"></button>
+            <button id="overlay-secondary" type="button" class="secondary"></button>
+          </div>
           <p><small>Mouse e tastiera richiesti · Audio attivabile con M</small></p>
         </div>
       </div>
+
+      <div class="toast hidden" id="toast"></div>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

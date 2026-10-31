@@ -1,14 +1,18 @@
-import type { SkillDefinition } from './skill-definition';
+import type { Loadout, SkillDefinition } from './skill-definition';
 
 /**
  * Stato runtime delle skill di un personaggio: i tempi di ricarica. I dati (`SkillDefinition`) restano di sola lettura.
- * Ogni slot ha la propria ricarica; non esiste una ricarica globale.
+ * Ogni slot ha la propria ricarica (nessuna ricarica globale); uno slot vuoto non ha skill e non e' mai pronto.
  */
 export class SkillBar {
   private readonly remaining: number[];
 
-  constructor(readonly skills: readonly SkillDefinition[]) {
+  constructor(readonly skills: Loadout) {
     this.remaining = skills.map(() => 0);
+  }
+
+  skillAt(slot: number): SkillDefinition | null {
+    return this.skills[slot] ?? null;
   }
 
   tick(dt: number): void {
@@ -16,16 +20,18 @@ export class SkillBar {
   }
 
   isReady(slot: number): boolean {
-    return this.remaining[slot]! <= 0;
+    return this.skillAt(slot) !== null && this.remaining[slot]! <= 0;
   }
 
-  /** Avvia la ricarica dello slot. */
+  /** Avvia la ricarica dello slot (non fa nulla se e' vuoto). */
   start(slot: number): void {
-    this.remaining[slot] = this.skills[slot]!.cooldown;
+    const skill = this.skillAt(slot);
+    if (skill !== null) this.remaining[slot] = skill.cooldown;
   }
 
-  /** Frazione di ricarica ancora da attendere, tra 0 (pronta) e 1 (appena usata). */
+  /** Frazione di ricarica ancora da attendere, tra 0 (pronta o slot vuoto) e 1 (appena usata). */
   cooldownFraction(slot: number): number {
-    return this.remaining[slot]! / this.skills[slot]!.cooldown;
+    const skill = this.skillAt(slot);
+    return skill === null ? 0 : this.remaining[slot]! / skill.cooldown;
   }
 }

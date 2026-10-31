@@ -26,7 +26,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.save();
   // La traslazione e' arrotondata al pixel: la pixel art resta nitida anche con la camera in movimento.
   ctx.translate(-Math.round(camera.position.x + camera.shakeOffset.x), -Math.round(camera.position.y + camera.shakeOffset.y));
-  drawArena(ctx, camera, clock);
+  drawArena(ctx, match.arena, camera, clock);
 
   if (boss.charge !== null) drawChargeTelegraph(ctx, boss.charge);
   for (const flash of effects.flashes) drawZoneFlash(ctx, flash);
