@@ -27,9 +27,11 @@
       <button id="main-menu-button" type="button" class="global-menu-button hidden">← Menu principale</button>
       <aside id="party-panel" class="party-panel" aria-label="Party cooperativo"></aside>
       <div class="actions">
+        <button id="audio-button" type="button" aria-expanded="false" aria-controls="audio-panel">Audio</button>
         <button id="fullscreen-button" type="button">Schermo intero · F</button>
         <button id="pause-button" type="button">Pausa · ESC</button>
       </div>
+      <section class="audio-panel hidden" id="audio-panel" role="dialog" aria-label="Impostazioni audio"></section>
 
       <div class="hint">WASD · Muoviti &nbsp;|&nbsp; ESC · Pausa &nbsp;|&nbsp; R · Ricomincia &nbsp;|&nbsp; <span id="audio-state">Audio disattivato · M</span></div>
 

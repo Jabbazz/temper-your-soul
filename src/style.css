@@ -1151,3 +1151,27 @@ button:disabled { cursor:default; opacity:.45; transform:none; }
 .combat-report-table th { font-size:12px; color:#c5a383; font-weight:normal; }
 .combat-report-table th:first-child,.combat-report-table td:first-child { text-align:left; }
 .combat-report-table tbody tr:nth-child(odd) { background:#332532; }
+
+/* Pannello audio (tema Reliquiario): acceso/spento, volumi per canale e crediti delle registrazioni. */
+/* I comandi in alto a destra stanno sopra le schermate dei menu (z-index 9), altrimenti nei menu non si possono premere;
+   restano sotto il pannello del party (32). Il pannello audio si apre sotto di loro. */
+.actions { z-index:31; }
+.audio-panel { position:fixed; top:192px; right:16px; z-index:40; width:min(340px,calc(100vw - 32px)); max-height:calc(100vh - 210px); overflow-y:auto; padding:16px 18px; color:var(--text); background:linear-gradient(145deg,#30202efa,#17131efa); border:1px solid var(--relic-copper); border-radius:8px 20px; box-shadow:0 14px 40px #0009,inset 0 0 0 3px #17121c; }
+.audio-panel-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.audio-panel h2 { margin:0; color:var(--relic-ivory); font:22px var(--relic-title); font-weight:normal; }
+.audio-panel-close { padding:4px 10px; color:var(--relic-ivory); background:var(--relic-control); border:1px solid var(--relic-copper); border-radius:6px 12px; font-size:13px; }
+.audio-toggle { display:flex; align-items:center; gap:9px; margin:14px 0 10px; font-size:14px; cursor:pointer; }
+.audio-toggle input { width:17px; height:17px; accent-color:var(--relic-copper); }
+.audio-sliders { display:grid; gap:9px; }
+.audio-slider { display:grid; grid-template-columns:86px 1fr 42px; align-items:center; gap:8px; font-size:13px; color:#e8c4aa; }
+.audio-slider input { width:100%; accent-color:var(--relic-copper); }
+.audio-slider input:disabled { opacity:.4; }
+.audio-slider-value { text-align:right; color:var(--relic-muted); font-size:12px; }
+.audio-panel input:focus-visible { outline:2px solid var(--relic-copper); outline-offset:3px; }
+.audio-credits { margin-top:16px; padding-top:10px; border-top:1px solid #65506466; }
+.audio-credits h3 { margin:0 0 6px; color:var(--relic-ivory); font:15px var(--relic-title); font-weight:normal; }
+.audio-credits p, .audio-credits li { color:var(--relic-muted); font-size:12px; line-height:1.55; }
+.audio-credits ul { margin:0; padding-left:18px; }
+.audio-credits a { color:#edc7a5; }
+@media(max-width:600px){ .audio-panel { top:222px; right:8px; width:calc(100vw - 16px); max-height:calc(100vh - 236px); } }
+@media(max-width:450px){.audio-slider { grid-template-columns:72px 1fr 38px; } }

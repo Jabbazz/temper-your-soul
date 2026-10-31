@@ -65,7 +65,9 @@ Nessuna di queste e' stata riprodotta a mano. Le altre segnalazioni di questa re
 
 ## Risolti
 
-### Correzioni rapide (ramo `claude/correzioni-bug-rapidi`, 2026-10-31)
+- **I pulsanti in alto a destra non si potevano premere nei menu** (rilevato nella prova browser dell'incremento audio): la schermata del menu (`.screen`, z-index 9) copriva `.actions` (z-index 4), quindi "Schermo intero" e il nuovo "Audio" erano visibili ma non cliccabili. Ora `.actions` ha z-index 31. Controllato nel browser a 1440 e 390 px; non coperto da test (DOM).
+
+### Correzioni rapide (proposta del ramo `feature/lavoro-personale`, 2026-10-31)
 
 Difetti gia' elencati qui sopra o rilevati leggendo il codice; nessuno riprodotto a mano. Ogni test nuovo e' stato provato con la mutazione corrispondente (togliendo la correzione il test fallisce). **Prova manuale ancora da fare.**
 

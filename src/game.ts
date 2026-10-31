@@ -22,6 +22,7 @@ import { DungeonSelect } from './features/ui/dungeon-select';
 import { requireElement } from './features/ui/dom';
 import { FullscreenToggle } from './features/ui/fullscreen';
 import { Hud } from './features/ui/hud';
+import { AudioPanel } from './features/ui/audio-panel';
 import { InventoryScreen } from './features/ui/inventory-screen';
 import { renderLoot } from './features/ui/loot-view';
 import { MainMenu } from './features/ui/main-menu';
@@ -64,7 +65,8 @@ export class Game {
   private readonly camera = new Camera();
   private readonly effects = new Effects();
   private readonly poses = new ActorPoses();
-  private readonly audio = new AudioPlayer();
+  private readonly audio: AudioPlayer;
+  private readonly audioPanel: AudioPanel;
   private readonly hud = new Hud();
   private readonly overlay = new Overlay();
   private readonly screens = new Screens();
@@ -110,6 +112,8 @@ export class Game {
 
     const storage = browserStorage();
     this.saveStore = new SaveStore(storage);
+    this.audio = new AudioPlayer(storage);
+    this.audioPanel = new AudioPanel(this.audio, { onOpen: () => this.pauseIfPlaying() });
     const loaded = this.saveStore.loadRoster();
     this.roster=loaded.roster;
     this.loadStatus = loaded.status;
@@ -143,7 +147,16 @@ export class Game {
     );
     window.addEventListener('storage', (event) => this.adoptExternalSave(event.key, event.newValue));
     window.addEventListener('blur', () => this.pauseIfPlaying());
+    // Il browser avvia l'audio solo dopo un gesto: ogni clic o tasto lo sblocca (le chiamate successive non costano).
+    window.addEventListener('pointerdown', () => this.audio.unlock());
+    window.addEventListener('keydown', () => this.audio.unlock());
+    document.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.closest('button') !== null) this.audio.play('ui_click');
+    });
+    this.audio.changed.connect((settings) => this.showAudioState(settings.enabled));
+    this.showAudioState(this.audio.enabled);
     document.addEventListener('visibilitychange', () => {
+      this.audio.setHidden(document.hidden);
       if (document.hidden) this.pauseIfPlaying();
     });
     new ResizeObserver(() => this.resize()).observe(this.canvas.parentElement ?? this.canvas);
@@ -248,7 +261,8 @@ export class Game {
   }
 
   private onEscape(): void {
-    if (this.screen === 'dungeons' || this.screen === 'inventory') this.showMenu();
+    if (this.audioPanel.isOpen) this.audioPanel.close();
+    else if (this.screen === 'dungeons' || this.screen === 'inventory') this.showMenu();
     else this.togglePause();
   }
 
@@ -277,7 +291,10 @@ export class Game {
       // Il bottino si assegna e si salva PRIMA di mostrarlo: se la pagina si chiude ora, non si perde.
       const rolls = networkRolls ?? rollLoot(lootTableFor(match.dungeon.id), new SeededRng(Math.floor(Math.random() * 0x100000000)));
       const items = this.character.addRolls(rolls);
+      const levelBefore = levelProgress(this.character.totalXp).level;
       this.character.totalXp += PROGRESSION.rewards[match.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100;
+      if (items.length > 0) this.audio.play('loot');
+      if (levelProgress(this.character.totalXp).level > levelBefore) this.audio.play('level_up');
       const record = this.character.recordVictory(match.dungeon.id, match.time);
       const saved = this.persist();
       extra = renderLoot(items, { ...record, seconds: match.time }, saved,this.character.characterClass);
@@ -391,7 +408,10 @@ export class Game {
   }
 
   private toggleAudio(): void {
-    const enabled = this.audio.toggle();
+    this.audio.toggle();
+  }
+
+  private showAudioState(enabled: boolean): void {
     requireElement('audio-state').textContent = enabled ? 'Audio attivo · M' : 'Audio disattivato · M';
   }
 
@@ -448,6 +468,9 @@ export class Game {
     this.camera.shakeOffset =
       this.screen === 'playing' || this.screen === 'ended' ? this.effects.shakeOffset() : Vec2.ZERO;
     this.hud.update(this.match, levelProgress(this.character.totalXp));
+    this.audio.setListener(this.match.player.position, this.camera.width / 2);
+    this.audio.setScene({ screen: this.screen, theme: this.dungeon.arena.theme, enraged: this.match.boss.isEnraged });
+    this.audio.update(delta);
     renderScene(this.ctx, {
       match: this.match,
       effects: this.effects,

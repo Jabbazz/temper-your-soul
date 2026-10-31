@@ -40,7 +40,7 @@ Tutti i valori sono provvisori e modificabili: stanno in tabelle di dati con nom
 ### Impostazione e giocatore
 
 - Visuale dall'alto, camera centrata sul giocatore (zoom 1,5, nessun limite ai bordi). Movimento con WASD, mira con il mouse, si può lanciare mentre ci si muove. Vittoria: il boss arriva a 0 PV. Sconfitta: il giocatore arriva a 0 PV.
-- Grafica: pixel art disegnata dal codice (matrici di caratteri), particelle e ambiente procedurali, audio sintetizzato con Web Audio (spento all'avvio). Nessun asset esterno.
+- Grafica: pixel art disegnata dal codice (matrici di caratteri), particelle e ambiente procedurali. Audio: motore a canali guidato dai dati con registrazioni vere a licenza libera (vedi "Audio" sotto), acceso per impostazione.
 - **Giocatore** (`PLAYER_STATS`): vita 100, velocità 177/s (in diagonale non aumenta), 0,65 s di invulnerabilità dopo un colpo. Raggio di colpo 9, corpo contro i pilastri 10 (`combat/collision.ts`).
 - Ambientazione e testi del prototipo ("Ordine della Brace", "cripta", "guardiano") sono provvisori.
 
@@ -98,6 +98,32 @@ Set principali, nell’ordine primaria/secondaria/armatura/stivali: Cripta = Lam
 Alternative per slot: Cripta = Arco del cacciatore, Grimorio del gelo, Egida di brace, Stivali del vento; Palude = Bastone arcano, Talismano degli spiriti, Mantello della meteora, Stivali astrali; Fucina = Scettro tempestoso, Ventaglio di spore, Mantello delle canne, Stivali del pantano; Ghiacciaio = i quattro pezzi della Fucina in variante Non comune. Tutte le 25 famiglie restano ottenibili; le varianti storiche già possedute restano valide.
 
 **Salvataggio** (`features/character/`): chiave `temper-your-soul:save` in `localStorage`, versione **6**, raccolta con `format: character-roster`. Ogni profilo ha id stabile e dati separati; si conserva l’id attivo. Si salva alla creazione, selezione, rimozione, vittoria e modifica dell'equipaggiamento. I singoli personaggi v1–v5 vengono importati senza reset; alla prima scrittura della raccolta il vecchio testo viene conservato in `temper-your-soul:save:before-roster`. Dati illeggibili o futuri vengono copiati in `temper-your-soul:save:corrupt`; una raccolta con profili non validi non viene riparata scartandoli in silenzio. Se il browser non permette di salvare il gioco funziona in memoria e avvisa.
+
+### Audio (proposta del ramo `feature/lavoro-personale`, da approvare)
+
+Motore in `features/audio/`, separato in dati, regia e riproduzione. La simulazione non cambia: l'audio ascolta i `GameEvent`.
+
+- **Catalogo** (`audio-catalog.ts`): suoni brevi per **materiale** (lanci e scoppi arcano, gelo, fuoco, natura; arco, lama, scatto), colpi, eventi del boss (annuncio d'attacco, furia, teletrasporto, schianto della carica, sconfitta), interfaccia ed esiti (clic, bottino, livello, vittoria, sconfitta). Musiche: menu, una per dungeon, una per la furia. Ambienti in anello per tema. Ogni skill degli oggetti dichiara il proprio materiale in `SKILL_SOUNDS` (un test lo impone); le zone dei boss lo ricavano dal prefisso dell'aspetto (`forge_`, `glacier_`, `swamp_`, `void_`…).
+- **Regia** (`audio-director.ts`, funzioni pure): evento → suoni; musica del menu fuori dalla partita, del dungeon in partita, della furia se esiste, abbassata in pausa, silenzio a fine partita; ambiente del dungeon anche dietro i menu, più basso; stereo e distanza rispetto al giocatore; limite di voci e intervallo minimo per suono.
+- **Motore** (`audio-player.ts`): effetti con Web Audio (stereo, piccole variazioni di velocità) quando i file si possono leggere, elementi `<audio>` aprendo il gioco da `file://`; musica e ambienti con dissolvenza incrociata di 1,5 s. Si avvia al primo clic o tasto, come chiedono i browser; tace a scheda nascosta.
+- **Impostazioni** (`audio-settings.ts`, chiave `temper-your-soul:audio`, separata dal salvataggio del personaggio): acceso/spento (tasto M) e volumi generale, musica, effetti, ambiente, interfaccia. Pannello **Audio** in alto a destra, con i crediti delle registrazioni.
+- **Registrazioni:** solo vere e con licenza libera (CC0, pubblico dominio, CC BY con crediti visibili), mai IA. Crediti in `audio-credits.ts`; i test rifiutano file senza credito o mancanti. Primo lotto (48 file, circa 10,5 MB):
+
+| Contesto | Registrazione | Licenza |
+| --- | --- | --- |
+| Menu | Bach, Aria delle *Goldberg*, Kimiko Ishizaka (pianoforte) | CC0 |
+| Cripta | Canto gregoriano binaurale, Suso_Ramallo; ambiente: grotta, Andy_Gardner | CC BY 4.0; CC0 |
+| Palude | Violoncello tenuto, carrieedick; ambiente: palude di notte, chris_dagorne | CC0 |
+| Fucina | Taiko dal vivo, whatsanickname4u (Dave Thayer); ambiente: fango che ribolle, Breviceps | CC BY 3.0; CC0 |
+| Ghiacciaio | Grieg, *La morte di Åse*, Czech National Symphony Orchestra (Musopen); ambiente: vento, moxobna | CC BY 3.0; CC0 |
+| Furia dei boss | Grieg, finale di *Nell'antro del re della montagna*, CNSO (Musopen), in anello; gong Paiste, JensZygar | CC BY 3.0; CC0 |
+| Vittoria / sconfitta | Fanfara per due trombe, tobyk; campana funebre, aoristos | CC BY 3.0; CC0 |
+| Lanci | Lama: spade, Fenodyrie · Arco: rilascio della freccia, calvarychurchatlanta · Fuoco: scoppiettio, TheWoodlandNomad · Gelo: ghiaccio che si crepa, northern87 · Arcano: vetro (Kenney) · Natura: fruscio d'erba (Kenney) | CC0 |
+| Scoppi, colpi, boss, interfaccia | Impatti, campane e clic di Kenney (Impact Sounds, UI Audio); gli scoppi uniscono un impatto Kenney alla registrazione del materiale | CC0 |
+
+Ancora senza registrazione (secondo lotto, vedi `docs/risorse-libere.md`): lo scatto, che conserva il tono del prototipo, e l'annuncio degli attacchi del boss, che resta muto.
+
+Valori provvisori: volumi, limiti di voci, dissolvenza, abbassamento in pausa (0,4), ambiente dietro i menu (0,35), stereo massimo (0,7), volume minimo dei suoni lontani (0,3), audio acceso per impostazione (nel prototipo era spento: c'erano solo toni sintetizzati).
 
 ## Differenze volute rispetto al prototipo originale
 
