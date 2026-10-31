@@ -4,12 +4,14 @@ import type { GameEvent } from '../combat/events';
 import { Projectile, type ProjectileSpec } from '../combat/projectile';
 import { DangerZone, type DangerZoneSpec } from '../combat/danger-zone';
 import type { Charge } from '../boss/boss';
+import { Minion } from '../minions/minion';
+import { MINIONS } from '../minions/minion-catalog';
 import type { ItemRoll } from '../items/item';
 import type { Match, MatchStatus, PlayerIntent } from '../match/match';
 import type { SnapshotFrame } from './snapshot-codec';
 
 /** Valori di rete provvisori: simulazione 60 Hz, snapshot e input 30 Hz. */
-export const NETWORK = { protocolVersion: 2, capacity: 4, step: 1 / 60, snapshotSteps: 2, inputMs: 1000 / 30, staleInputMs: 350, maxBufferedBytes: 512_000 } as const;
+export const NETWORK = { protocolVersion: 3, capacity: 4, step: 1 / 60, snapshotSteps: 2, inputMs: 1000 / 30, staleInputMs: 350, maxBufferedBytes: 512_000 } as const;
 export interface PartyMember { id: string; name: string; character: string; appearance: CharacterAppearance; gearScore: number; ready: boolean }
 export interface PartyState { code: string; leaderId: string; dungeonId: string; members: PartyMember[]; playing: boolean }
 export interface CombatStats { damageDealt: number; damageReceived: number; healing: number }
@@ -19,6 +21,8 @@ export interface BattleSnapshot {
   boss: { position: Vec2; health: number; phase: 1 | 2; slowFor: number; charge: Charge | null };
   projectiles: { id: number; spec: ProjectileSpec; position: Vec2; angle: number; lifetime: number }[];
   zones: { id: number; spec: DangerZoneSpec; position: Vec2; remaining: number }[];
+  /** Servitori vivi (protocollo 3): tipo per id stabile, posizione e vita. */
+  minions: { id: number; kind: string; position: Vec2; health: number }[];
   report: Record<string, CombatStats>; rewards: Record<string, ItemRoll[]>; events: GameEvent[];
 }
 export type ClientMessage =
@@ -55,19 +59,20 @@ export function snapshotOf(match: Match, id: string, events: GameEvent[], reward
     boss: { position: match.boss.position, health: match.boss.health.current, phase: match.boss.phase, slowFor: match.boss.slowFor, charge: match.boss.charge },
     projectiles: match.projectiles.map(p => ({ id: p.id, spec: p.spec, position: p.position, angle: p.velocity.angle(), lifetime: p.lifetime })),
     zones: match.zones.map(z => ({ id: z.id, spec: z.spec, position: z.position, remaining: z.remaining })),
+    minions: match.minions.map(m => ({ id: m.id, kind: m.definition.id, position: m.position, health: m.health.current })),
     report: Object.fromEntries(match.report), rewards, events,
   };
 }
 
 interface ReplicaObjects {
-  projectiles: Map<number, Projectile>; zones: Map<number, DangerZone>; live: Set<number>;
+  projectiles: Map<number, Projectile>; zones: Map<number, DangerZone>; minions: Map<number, Minion>; live: Set<number>;
 }
 const replicas = new WeakMap<Match, ReplicaObjects>();
 
 /** Riutilizza gli oggetti per id: gli snapshot non ricreano tutti i proiettili e le zone a ogni arrivo. */
 export function applySnapshot(match: Match, snapshot: BattleSnapshot): void {
   let objects = replicas.get(match);
-  if (!objects) { objects = { projectiles: new Map(), zones: new Map(), live: new Set() }; replicas.set(match, objects); }
+  if (!objects) { objects = { projectiles: new Map(), zones: new Map(), minions: new Map(), live: new Set() }; replicas.set(match, objects); }
   match.time = snapshot.time; match.status = snapshot.status;
   for (const state of snapshot.players) {
     const p = match.players.get(state.id); if (!p) continue;
@@ -90,6 +95,14 @@ export function applySnapshot(match: Match, snapshot: BattleSnapshot): void {
     zone.remaining = z.remaining; objects.live.add(z.id); match.zones.push(zone);
   }
   for (const id of objects.zones.keys()) if (!objects.live.has(id)) objects.zones.delete(id);
+  objects.live.clear(); match.minions = [];
+  for (const m of snapshot.minions ?? []) {
+    const definition = MINIONS[m.kind]; if (!definition) continue;
+    let minion = objects.minions.get(m.id);
+    if (!minion) { minion = new Minion(m.id, definition, m.position); objects.minions.set(m.id, minion); }
+    minion.position = m.position; minion.health.current = m.health; objects.live.add(m.id); match.minions.push(minion);
+  }
+  for (const id of objects.minions.keys()) if (!objects.live.has(id)) objects.minions.delete(id);
 }
 
 /** Input non fidato: nessuna posizione, statistica o skill arbitraria accettata dalla rete. */

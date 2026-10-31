@@ -1,11 +1,11 @@
 import type { CharacterAppearance } from '../character/appearance';
 import type { Camera } from '../../core/camera';
 import type { Match } from '../match/match';
-import { drawBoss, drawPlayer } from './draw-actors';
+import { drawBoss, drawMinion, drawPlayer } from './draw-actors';
 import { drawArena } from './draw-arena';
 import { drawChargeTelegraph, drawFallingSpell, drawPendingZone, drawProjectile, drawZoneFlash } from './draw-combat';
-import { drawBossIndicator, drawCrosshair, drawFloatingTexts, drawGlowEffects } from './draw-effects';
-import type { Effects } from './effects';
+import { drawBossIndicator, drawCrosshair, drawFloatingTexts, drawGlowEffects, drawScreenEffects } from './draw-effects';
+import { FEEDBACK, type Effects } from './effects';
 import type { ActorPoses } from './poses';
 import type { Player } from '../player/player';
 
@@ -36,7 +36,17 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const flash of effects.flashes) drawZoneFlash(ctx, flash);
   for (const zone of match.zones) drawPendingZone(ctx, zone, match.time);
 
-  if (!boss.health.isDead) drawBoss(ctx, boss, player, poses, match.time);
+  for (const minion of match.minions) drawMinion(ctx, minion, clock, effects.minionFlashes.get(minion.id) ?? 0);
+  // Il boss resta visibile durante la sequenza della morte (lampeggia, trema e si frantuma).
+  const death = effects.bossDeath;
+  if (!boss.health.isDead || death !== null) {
+    drawBoss(ctx, boss, player, poses, match.time, {
+      flash: effects.bossFlash / FEEDBACK.hitFlash,
+      offset: effects.bossOffset(),
+      death: death === null ? null : 1 - death.remaining / death.total,
+      clock,
+    });
+  }
   drawPlayer(ctx, player, poses, match.time, !player.isInvulnerable || Math.floor(clock * 20) % 2 === 0, scene.appearance);
   for (const ally of scene.allies ?? []) {
     ctx.save();
@@ -61,4 +71,5 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.restore();
 
   if (!boss.health.isDead) drawBossIndicator(ctx, camera, player.position, boss.position);
+  drawScreenEffects(ctx, camera, effects, player.health.fraction, clock);
 }

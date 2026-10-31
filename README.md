@@ -2,7 +2,7 @@
 
 Gioco d’azione 2D per browser in **TypeScript strict**, Canvas 2D e DOM, senza motore di gioco né dipendenze runtime nel browser (server cooperativo Node con WebSocket). I principi sono ispirati ad Ashen Realm: le abilità dipendono dall’equipaggiamento. Il prototipo originale si chiamava Emberfall; il nome del gioco attuale è **Temper your soul**.
 
-**Stato al 31 ottobre 2026:** prototipo giocabile con quattro dungeon, tre classi, personaggi multipli locali, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, gear score e bottino specifico per boss. Implementata la **cooperativa sincronizzata fino a quattro giocatori tramite link**, con server autorevole, leader, ping e combat report. Audio a canali con registrazioni vere a licenza libera (musica per menu, dungeon e furia, ambienti, effetti) e pannello dei volumi. Ultima verifica automatica: **430 test, controllo dei tipi client/server e build superati**. Rete e rendering ottimizzati con protocollo v2; benchmark ripetibile incluso. Bilanciamento e qualità visiva non sono definitivi; il permadeath non è ancora implementato.
+**Stato al 31 ottobre 2026:** prototipo giocabile con quattro dungeon, tre classi, personaggi multipli locali, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, gear score e bottino specifico per boss. Implementata la **cooperativa sincronizzata fino a quattro giocatori tramite link**, con server autorevole, leader, ping e combat report. Audio a canali con registrazioni vere a licenza libera (musica per menu, dungeon e furia, ambienti, effetti) e pannello dei volumi. Risposta ai colpi, fase II con stendardo e servitori dei boss, schermate di vittoria e sconfitta con statistiche (proposta in revisione). Ultima verifica automatica: **463 test, controllo dei tipi client/server e build superati**. Rete e rendering ottimizzati con protocollo v2; benchmark ripetibile incluso. Bilanciamento e qualità visiva non sono definitivi; il permadeath non è ancora implementato.
 
 ## Prima di lavorare: istruzioni per collaboratori e agenti AI
 
@@ -206,7 +206,7 @@ Per un nuovo oggetto servono: id stabile, famiglia e classe, skill/statistiche/c
 
 ## Verifiche e prossimi passi
 
-`npm run verify` deve uscire con codice 0. I **430 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
+`npm run verify` deve uscire con codice 0. I **463 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
 
 Priorità per chi riprende il lavoro:
 

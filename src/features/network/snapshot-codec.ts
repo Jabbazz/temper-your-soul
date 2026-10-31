@@ -9,6 +9,8 @@ import type { BattleSnapshot } from './protocol';
 type PlayerState = [number, number, number, number, number, number, number, number, number[]];
 type ProjectileBirth = [number, number, number, number, number, number];
 type ZoneBirth = [number, number, number, number, number];
+/** Servitore: id, tipo (id stabile), x, y, vita. Pochi e sempre in movimento: si inviano interi a ogni frame. */
+type MinionState = [number, string, number, number, number];
 /** Ordine garantito da WebSocket: definizioni e nascite una volta, poi soltanto rimozioni.
  * Proiettili lineari e countdown sono ricavati dal tempo autorevole, senza simulare collisioni lato client. */
 export interface SnapshotFrame {
@@ -18,6 +20,7 @@ export interface SnapshotFrame {
   ps?: ProjectileSpec[]; zs?: DangerZoneSpec[];
   a?: ProjectileBirth[]; r?: number[]; z?: ZoneBirth[]; d?: number[];
   e?: GameEvent[]; result?: Pick<BattleSnapshot, 'report' | 'rewards'>;
+  m?: MinionState[];
 }
 
 /** Arrotondamento solo della rappresentazione: errore massimo 0,005 unità, mai applicato alla simulazione. */
@@ -66,6 +69,7 @@ export class SnapshotEncoder {
     if (births.length) frame.a = births; if (zones.length) frame.z = zones;
     if (removed.length) frame.r = removed; if (detonated.length) frame.d = detonated;
     if (snapshot.events.length) frame.e = snapshot.events;
+    if (snapshot.minions.length) frame.m = snapshot.minions.map(m => [m.id, m.kind, compact(m.position.x), compact(m.position.y), m.health]);
     if (snapshot.status !== 'playing') frame.result = { report: snapshot.report, rewards: snapshot.rewards };
     return frame;
   }
@@ -123,6 +127,7 @@ export class SnapshotDecoder {
         position: new Vec2(px, py), aim: new Vec2(ax, ay), health: hp, mana, invulnerableFor, moving: moving === 1, cooldowns })),
       boss: { position: new Vec2(x, y), health, phase, slowFor, charge: charge ? { ...charge, start: vector(charge.start), target: vector(charge.target) } : null },
       projectiles, zones, report: frame.result?.report ?? {}, rewards: frame.result?.rewards ?? {}, events: (frame.e ?? []).map(reviveEvent),
+      minions: (frame.m ?? []).map(([id, kind, mx, my, hp]) => ({ id, kind, position: new Vec2(mx, my), health: hp })),
     };
   }
 }

@@ -14,17 +14,19 @@
 
       <section class="hud hud-player" aria-label="Stato del personaggio">
         VITA
-        <div class="bar"><i id="player-bar"></i></div>
+        <div class="bar"><b class="bar-chip" id="player-chip"></b><i id="player-bar"></i></div>
         <span id="player-text"></span>
       </section>
 
       <section class="hud hud-boss" aria-label="Stato del boss">
         <span id="boss-name">GUARDIANO DELLA CRIPTA</span>
-        <div class="bar"><i id="boss-bar"></i></div>
+        <div class="bar"><b class="bar-chip" id="boss-chip"></b><i id="boss-bar"></i><span class="phase-mark" aria-hidden="true"></span></div>
+        <span id="boss-damage" class="damage-meter" aria-live="off"></span>
         <span id="boss-text"></span>
       </section>
 
       <button id="main-menu-button" type="button" class="global-menu-button hidden">← Menu principale</button>
+      <div class="phase-banner hidden" id="phase-banner" role="status"><span class="phase-banner-eyebrow">Fase II</span><strong id="phase-banner-text"></strong></div>
       <aside id="party-panel" class="party-panel" aria-label="Party cooperativo"></aside>
       <button id="performance-button" type="button" class="performance-toggle" aria-expanded="false" aria-controls="performance-panel">FPS · F2</button>
       <aside id="performance-panel" class="performance-panel hidden" aria-label="Diagnostica prestazioni"></aside>
@@ -106,7 +108,7 @@
             <button id="overlay-button" type="button"></button>
             <button id="overlay-secondary" type="button" class="secondary"></button>
           </div>
-          <p><small>Mouse e tastiera richiesti · Audio attivabile con M</small></p>
+          <p><small>Mouse e tastiera richiesti</small></p>
         </div>
       </div>
 

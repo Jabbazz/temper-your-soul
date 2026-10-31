@@ -134,7 +134,7 @@ Ordine pensato per non pestare i piedi al lavoro di Jabbaz: prima le parti nuove
 | --- | --- | --- | --- |
 | 1 | **Motore audio e impostazioni** | Catalogo, regia, canali, volumi salvati, pannello Audio con crediti, test; nessun cambiamento alla simulazione | No |
 | 2 | **Registrazioni vere** scelte dalle fonti libere, scaricate, convertite e registrate nei crediti. **Primo lotto fatto** (31.10.2026); secondo lotto proposto in `risorse-libere.md` | Ogni evento importante ha un suono, ogni dungeon una musica; crediti completi; peso totale ragionevole | Download: sì (utente) |
-| 3 | **Sensazione di colpo**: lampo, micro-pausa, interpolazione, limiti della camera | Prova manuale: colpi più leggibili, nessun peggioramento della mira | No (presentazione) |
+| 3 | **Sensazione di colpo**: lampo, numeri, barre con memoria, fase II, schermate finali, servitori. **Fatto** (ramo `feature/combattimento-e-vittoria`, vedi `studio-combattimento-e-vittoria.md`); restano interpolazione e limiti della camera | Prova manuale: colpi più leggibili, nessun peggioramento della mira | Servitori: sì |
 | 4 | **Impostazioni e accessibilità** | Pannello completo, rimappatura, gamepad | No |
 | 5 | **Tempra e pietà del bottino** | Regole approvate in `game-design.md`, formato di salvataggio migrato, test | **Sì** |
 | 6 | **Morte e permadeath** | Regole approvate, migrazione, test | **Sì** (già in agenda) |

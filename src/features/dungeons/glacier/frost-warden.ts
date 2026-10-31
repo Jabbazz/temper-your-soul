@@ -1,4 +1,5 @@
 import type { BossDefinition, BossStats } from '../../boss/boss-definition';
+import { FROST_WARDEN_SUMMONS } from '../../minions/minion-catalog';
 import {
   BLINK_STRIKE,
   BLIZZARD,
@@ -37,4 +38,5 @@ export const FROST_WARDEN: BossDefinition = {
   art: 'frost_warden',
   stats: FROST_WARDEN_STATS,
   patterns: [SHARD_VOLLEY, ICE_SPIKES, BLINK_STRIKE, BLIZZARD, FROST_NOVA, GLACIAL_CHARGE],
+  summons: FROST_WARDEN_SUMMONS,
 };

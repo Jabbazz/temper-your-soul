@@ -71,8 +71,10 @@ export class Boss {
   private updatePhase(ctx: BossContext): void {
     if (this.phase === 1 && this.health.current < this.health.max * this.stats.phaseTwoThreshold) {
       this.phase = 2;
-      const { name, rageText } = this.definition;
+      const { name, rageText, summons } = this.definition;
       ctx.emit({ type: 'boss_phase_changed', position: this.position, phase: 2, text: rageText ?? `${name} SI INFURIA` });
+      // Il passaggio in furia apre un capitolo nuovo: arrivano i servitori.
+      if (summons !== undefined) ctx.summon?.(summons, summons.onRage, this.position);
     }
   }
 
@@ -124,6 +126,10 @@ export class Boss {
     const patterns = this.definition.patterns;
     const pattern = patterns[this.attackCount % patterns.length]!;
     this.attackCount++;
+    const { summons } = this.definition;
+    if (summons !== undefined && this.isEnraged && this.attackCount % summons.everyAttacks === 0) {
+      ctx.summon?.(summons, summons.wave, this.position);
+    }
     ctx.emit({ type: 'boss_pose', seconds: this.stats.attackPose });
     ctx.emit({
       type: 'boss_attack',

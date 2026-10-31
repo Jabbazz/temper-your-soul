@@ -1,6 +1,6 @@
 import type { Camera } from '../../core/camera';
 import { clamp, TAU, type Vec2 } from '../../core/vec2';
-import type { Effects } from './effects';
+import { FEEDBACK, type Effects } from './effects';
 
 export function drawText(
   ctx: CanvasRenderingContext2D,
@@ -40,6 +40,23 @@ export function drawGlowEffects(ctx: CanvasRenderingContext2D, effects: Effects)
     ctx.arc(slash.position.x, slash.position.y, slash.range * (0.75 + u * 0.25), slash.angle - slash.arc / 2, slash.angle + slash.arc / 2);
     ctx.stroke();
   }
+  for (const spark of effects.sparks) {
+    // Scintilla d'impatto: una stella a quattro punte che si allarga e svanisce in un lampo.
+    const u = 1 - spark.remaining / spark.total;
+    const r = spark.size * (0.6 + u * 0.6);
+    ctx.globalAlpha = 1 - u;
+    ctx.strokeStyle = spark.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const a = spark.angle + (i * Math.PI) / 2;
+      ctx.moveTo(spark.x, spark.y);
+      ctx.lineTo(spark.x + Math.cos(a) * r, spark.y + Math.sin(a) * r);
+    }
+    ctx.stroke();
+    ctx.fillStyle = spark.color;
+    ctx.fillRect(spark.x - 2, spark.y - 2, 4, 4);
+  }
   for (const f of effects.particles) {
     const alpha = clamp(f.remaining / f.total, 0, 1);
     const size = Math.max(1, f.size * Math.sqrt(alpha));
@@ -52,9 +69,61 @@ export function drawGlowEffects(ctx: CanvasRenderingContext2D, effects: Effects)
   ctx.restore();
 }
 
+/** Durata del "pop" iniziale dei testi (si ingrandiscono e tornano alla misura normale). */
+const TEXT_POP = 0.12;
+
+/**
+ * Numeri del danno e nomi degli attacchi: grassetto con contorno scuro (leggibili su ogni pavimento), un piccolo "pop"
+ * all'apparizione e dissolvenza nell'ultimo terzo della vita.
+ */
 export function drawFloatingTexts(ctx: CanvasRenderingContext2D, effects: Effects): void {
-  for (const t of effects.texts) drawText(ctx, t.text, t.x, t.y, t.color, 13, 'center');
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.lineJoin = 'round';
+  for (const t of effects.texts) {
+    const age = t.total - t.remaining;
+    const pop = age < TEXT_POP ? 1 + 0.45 * (1 - age / TEXT_POP) : 1;
+    ctx.globalAlpha = clamp(t.remaining / (t.total / 3), 0, 1);
+    ctx.font = `bold ${Math.round(t.size * pop)}px monospace`;
+    if (t.outline) {
+      ctx.strokeStyle = '#120d16';
+      ctx.lineWidth = 3;
+      ctx.strokeText(t.text, t.x, t.y);
+    }
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.text, t.x, t.y);
+  }
+  ctx.restore();
 }
+
+/**
+ * Effetti a tutto schermo, in coordinate di vista: vignetta rossa per i colpi subiti e il battito a vita bassa, lampo
+ * rosso del passaggio in furia, lampo bianco del colpo finale.
+ */
+export function drawScreenEffects(ctx: CanvasRenderingContext2D, camera: Camera, effects: Effects, healthFraction: number, clock: number): void {
+  const { width: w, height: h } = camera;
+  // Sotto il 30% di vita la vignetta pulsa come un battito, piu' forte quanto meno vita resta.
+  const low = healthFraction > 0 && healthFraction < LOW_HEALTH ? (1 - healthFraction / LOW_HEALTH) * (0.18 + 0.12 * Math.sin(clock * 7)) : 0;
+  const red = Math.min(0.75, effects.hurtFlash / FEEDBACK.hurtFlash * 0.55 + low);
+  if (red > 0.01) {
+    const gradient = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.25, w / 2, h / 2, Math.max(w, h) * 0.7);
+    gradient.addColorStop(0, '#b0141000');
+    gradient.addColorStop(1, `rgba(176, 20, 16, ${red.toFixed(3)})`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+  }
+  if (effects.rageFlash > 0) {
+    ctx.fillStyle = `rgba(255, 70, 40, ${(effects.rageFlash / FEEDBACK.rageFlash * 0.28).toFixed(3)})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+  if (effects.screenFlash > 0) {
+    ctx.fillStyle = `rgba(255, 246, 220, ${(effects.screenFlash / FEEDBACK.screenFlash * 0.7).toFixed(3)})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+}
+
+/** Sotto questa frazione di vita la vignetta rossa pulsa. Provvisorio. */
+export const LOW_HEALTH = 0.3;
 
 /** Mirino nel punto del mondo mirato. */
 export function drawCrosshair(ctx: CanvasRenderingContext2D, aim: Vec2): void {

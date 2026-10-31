@@ -231,6 +231,15 @@ describe('impostazioni audio', () => {
     expect(odd.volumes).toEqual({ ...DEFAULT_AUDIO_SETTINGS.volumes, master: 1, music: 0, ambience: 0.25 });
   });
 
+  it('l\'audio e\' attivo di base, anche per chi aveva salvato "spento" con la versione precedente', () => {
+    expect(DEFAULT_AUDIO_SETTINGS.enabled).toBe(true);
+    const old = deserializeAudioSettings(JSON.stringify({ version: 1, enabled: false, volumes: { music: 0.2 } }));
+    expect(old.enabled).toBe(true);
+    expect(old.volumes.music).toBe(0.2);
+    // Con la versione attuale la scelta "spento" resta.
+    expect(deserializeAudioSettings(serializeAudioSettings(withEnabled(DEFAULT_AUDIO_SETTINGS, false))).enabled).toBe(false);
+  });
+
   it('salva e rilegge le stesse impostazioni; ad audio spento ogni canale e\' muto', () => {
     const settings = withVolume(withEnabled(DEFAULT_AUDIO_SETTINGS, true), 'music', 0.3);
     expect(deserializeAudioSettings(serializeAudioSettings(settings))).toEqual(settings);

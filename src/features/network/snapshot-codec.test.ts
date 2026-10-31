@@ -8,11 +8,38 @@ import { Projectile } from '../combat/projectile';
 import { DangerZone } from '../combat/danger-zone';
 import { MAGE_SKILLS } from '../skills/mage-skills';
 import { SnapshotEncoder, SnapshotDecoder, type SnapshotFrame } from './snapshot-codec';
-import { applySnapshot, snapshotOf } from './protocol';
+import { applySnapshot, NETWORK, snapshotOf } from './protocol';
+import { Minion } from '../minions/minion';
+import { SPORELING } from '../minions/minion-catalog';
 
 const wire = (frame: SnapshotFrame): SnapshotFrame => JSON.parse(JSON.stringify(frame)) as SnapshotFrame;
 const create = (): Match => new Match({ rng: new SeededRng(12), dungeon: CRYPT, loadout: MAGE_SKILLS });
 const spec = { team: 'enemy' as const, speed: 100, damage: 13, radius: 4, lifetime: 10, visual: 'arcane_bolt' };
+
+describe('servitori in cooperativa (protocollo 3)', () => {
+  it('il protocollo è alla versione 3 e i servitori viaggiano con tipo, posizione e vita', () => {
+    expect(NETWORK.protocolVersion).toBe(3);
+    const match = create(), encoder = new SnapshotEncoder(), decoder = new SnapshotDecoder();
+    const minion = new Minion(7, SPORELING, new Vec2(120.123, 340.456)); minion.health.current = 42; match.minions.push(minion);
+    const state = decoder.decode(wire(encoder.encode(snapshotOf(match, 'a', [], {}))));
+    expect(state.minions).toHaveLength(1);
+    expect(state.minions[0]).toMatchObject({ id: 7, kind: 'sporeling', health: 42 });
+    expect(state.minions[0]!.position.distanceTo(minion.position)).toBeLessThan(0.01);
+    match.minions = [];
+    const empty = encoder.encode(snapshotOf(match, 'a', [], {}));
+    expect(empty.m).toBeUndefined(); expect(decoder.decode(wire(empty)).minions).toEqual([]);
+  });
+  it('il client riusa i servitori per id, aggiorna la vita e toglie quelli morti; ignora tipi sconosciuti', () => {
+    const match = create(), replica = create();
+    match.minions.push(new Minion(3, SPORELING, Vec2.ZERO));
+    applySnapshot(replica, snapshotOf(match, 'a', [], {})); const first = replica.minions[0];
+    match.minions[0]!.health.current = 10; match.minions[0]!.position = new Vec2(5, 5);
+    applySnapshot(replica, snapshotOf(match, 'a', [], {}));
+    expect(replica.minions[0]).toBe(first); expect(first!.health.current).toBe(10); expect(first!.position).toEqual(new Vec2(5, 5));
+    const strange = snapshotOf(match, 'a', [], {}); strange.minions = [{ id: 9, kind: 'sconosciuto', position: Vec2.ZERO, health: 1 }];
+    applySnapshot(replica, strange); expect(replica.minions).toEqual([]);
+  });
+});
 
 describe('trasporto compatto ordinato', () => {
   it('invia un solo tipo per proiettili uguali e non ripete nascite o definizioni', () => {

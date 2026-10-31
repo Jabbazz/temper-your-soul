@@ -6,6 +6,7 @@ import type { BossContext } from '../../boss/boss-context';
 import { pick, type BossDefinition, type BossPattern, type BossStats, type ByPhase } from '../../boss/boss-definition';
 import { enemyShot, pointAround, schedule, spawnRing, startCharge } from '../../boss/pattern-kit';
 import type { DangerZoneSpec } from '../../combat/danger-zone';
+import { SPORE_MOTHER_SUMMONS } from '../../minions/minion-catalog';
 
 /*
  * La Madre delle Spore: il boss della palude. Lenta e ingombrante, non punta a colpire il giocatore ma a togliergli
@@ -298,6 +299,7 @@ export const SPORE_MOTHER: BossDefinition = {
   name: 'MADRE DELLE SPORE',
   art: 'spore_mother',
   stats: SPORE_MOTHER_STATS,
+  summons: SPORE_MOTHER_SUMMONS,
   patterns: [
     SPORE_CLOUD_PATTERN,
     TENDRIL_LASH_PATTERN,
