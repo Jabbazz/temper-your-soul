@@ -1171,6 +1171,7 @@ button:disabled { cursor:default; opacity:.45; transform:none; }
 .audio-credits { margin-top:16px; padding-top:10px; border-top:1px solid #65506466; }
 .audio-credits summary { cursor:pointer; color:var(--relic-ivory); font:14px var(--relic-title); }
 .audio-credits ul { margin-top:6px; }
+.audio-credits p.credits-heading { margin:10px 0 0; color:var(--relic-ivory); font-size:12px; }
 .audio-credits small { display:block; margin-top:6px; color:var(--relic-muted); font-size:11px; }
 .audio-credits p, .audio-credits li { color:var(--relic-muted); font-size:12px; line-height:1.55; }
 .audio-credits ul { margin:0; padding-left:18px; }

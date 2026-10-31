@@ -6,7 +6,8 @@ import type { Minion } from '../minions/minion';
 import { bossFx } from './boss-fx';
 import { minionArt } from './minion-art';
 import type { Player } from '../player/player';
-import { bossArt } from './boss-art';
+import { bossArt, bossSheet, sheetFrame, type BossSheet } from './boss-art';
+import { sheetImage, sheetVariant } from './boss-art/sheet-images';
 import type { ActorPoses } from './poses';
 import { PLAYER_CAST_POSE } from './poses';
 import { drawSprite, type Palette } from './sprites';
@@ -69,11 +70,63 @@ export interface BossLook {
   readonly offset: Vec2;
   /** Avanzamento della morte, 0–1 (null se vivo). */
   readonly death: number | null;
+  /** Avanzamento della trasformazione in furia, 0–1 (null se non e' in corso). */
+  readonly transform?: number | null;
   /** Tempo reale, per la pulsazione dell'aura. */
   readonly clock: number;
 }
 
 const NO_LOOK: BossLook = { flash: 0, offset: Vec2.ZERO, death: null, clock: 0 };
+
+/** Lampo bianco all'inizio della morte (quota della sequenza) e dissolvenza finale, per i boss con foglio di sprite. */
+const SHEET_DEATH = { flash: 0.15, fadeFrom: 0.85 } as const;
+
+/**
+ * Disegna il boss dal suo foglio di sprite: animazioni di camminata, attacco, trasformazione e morte, specchiato
+ * verso il giocatore attorno ai piedi. Lampo bianco e velo di brina sono copie colorate del foglio.
+ */
+function drawSheetBoss(
+  ctx: CanvasRenderingContext2D,
+  boss: Boss,
+  sheet: BossSheet,
+  image: HTMLImageElement,
+  facingLeft: boolean,
+  x: number,
+  y: number,
+  cast: number | null,
+  time: number,
+  look: BossLook,
+): void {
+  const { layout, scale } = sheet;
+  const frame = sheetFrame(sheet, {
+    enraged: boss.isEnraged,
+    slowed: boss.isSlowed,
+    time,
+    cast,
+    transform: look.transform ?? null,
+    death: look.death,
+  });
+  const { width, height } = layout.cell;
+  const sx = frame.column * width;
+  const sy = frame.row * height;
+  const dx = -layout.feet.x * scale;
+  const dy = sheet.feetY - layout.feet.y * scale;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.translate(x, y);
+  ctx.scale(facingLeft !== sheet.facesLeft ? -1 : 1, 1);
+  const death = look.death;
+  if (death !== null && death > SHEET_DEATH.fadeFrom) ctx.globalAlpha = (1 - death) / (1 - SHEET_DEATH.fadeFrom);
+  const source = boss.isSlowed && death === null ? sheetVariant(layout.url, image, 'frost') : image;
+  ctx.drawImage(source, sx, sy, width, height, dx, dy, width * scale, height * scale);
+  // Lampo bianco: il colpo subito o il colpo finale, poi l'animazione di morte si vede pulita.
+  const flash = death !== null ? Math.max(0, 1 - death / SHEET_DEATH.flash) : look.flash;
+  if (flash > 0) {
+    ctx.globalAlpha = Math.min(1, flash) * 0.85;
+    ctx.drawImage(sheetVariant(layout.url, image, 'white'), sx, sy, width, height, dx, dy, width * scale, height * scale);
+  }
+  ctx.restore();
+}
 
 /** La stessa tavolozza, tutta bianca: per il lampo del colpo. */
 const whiteCache = new WeakMap<Palette, Palette>();
@@ -87,11 +140,14 @@ function whitePalette(palette: Palette): Palette {
 }
 
 /**
- * Disegna il boss con la grafica della sua definizione, rivolto verso il giocatore. In furia ha un alone pulsante del
- * suo colore; quando e' colpito lampeggia di bianco e sobbalza; morendo trema, si illumina e svanisce.
+ * Disegna il boss con la grafica della sua definizione, rivolto verso il giocatore: il foglio di sprite se c'e' ed e'
+ * caricato, altrimenti la grafica a matrici. In furia ha un alone pulsante del suo colore; quando e' colpito lampeggia
+ * di bianco e sobbalza; morendo trema e si frantuma.
  */
 export function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, player: Player, poses: ActorPoses, time: number, look: BossLook = NO_LOOK): void {
   const art = bossArt(boss.definition.art);
+  const sheet = bossSheet(boss.definition.art);
+  const image = sheet === null ? null : sheetImage(sheet.layout.url);
   const x = Math.round(boss.position.x + look.offset.x);
   const y = Math.round(boss.position.y + look.offset.y);
   drawShadow(ctx, boss.position.x, boss.position.y + art.shadow.offsetY, art.shadow.radiusX, art.shadow.radiusY, '#070c1680');
@@ -111,6 +167,11 @@ export function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, player: Play
     ctx.fill();
     ctx.restore();
   }
+  const facingLeft = player.position.x < boss.position.x;
+  if (sheet !== null && image !== null) {
+    drawSheetBoss(ctx, boss, sheet, image, facingLeft, x, y, look.death === null ? poses.bossCastProgress : null, time, look);
+    return;
+  }
   const frame = Math.floor(time * (boss.isSlowed ? 2 : 5)) % 4;
   const casting = poses.bossCast > 0 && look.death === null;
   const sprite = casting ? art.casting : art.walk[frame]!;
@@ -118,7 +179,7 @@ export function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, player: Play
   const palette = art.palette(boss.isSlowed, boss.isEnraged);
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(player.position.x < boss.position.x ? -1 : 1, 1);
+  ctx.scale(facingLeft ? -1 : 1, 1);
   if (look.death !== null) ctx.globalAlpha = 1 - look.death * 0.85;
   drawSprite(ctx, sprite, 0, bob, art.scale, palette);
   if (casting) art.drawCastFx?.(ctx, boss.isEnraged);

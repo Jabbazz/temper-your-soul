@@ -172,6 +172,8 @@ L'onda d'urto della fase II, le braci e i coriandoli conviene farli nel codice, 
 
 ### Primo lotto grafico proposto (da decidere con Jabbaz)
 
+Scaricato il 1 novembre 2026 con il consenso dell'utente: vedi la sezione «Primo lotto grafico: scaricato e provato sui boss» qui sotto.
+
 | # | Risorsa | Licenza | Per cosa | Peso |
 | --- | --- | --- | --- | --- |
 | 1 | Enemy Galore I (Admurin) | CC BY 4.0 (controllare il file nel pacchetto) | Colosso della fornace con rottura dell'armatura in fase II; sassi, teschi, pipistrelli | 1,5 MB |
@@ -182,3 +184,28 @@ L'onda d'urto della fase II, le braci e i coriandoli conviene farli nel codice, 
 
 Circa 1,9 MB di archivi; i PNG effettivamente usati resterebbero sotto i 300 KB. Si aggiungerebbero circa 0,5 MB di effetti (Pixel FX Pack, Explosion Set 1, fendente di tbbk). I crediti CC BY vanno citati (Admurin, Calciumtrice, Stephen "Redshrike" Challener con link a OpenGameArt.org, Rosswet Mobile). Gli sprite di LuizMelo sono più grandi (60–80 px): vanno usati per boss o nemici d'élite, non mescolati ai servitori da 32 px.
 
+## Primo lotto grafico: scaricato e provato sui boss (1 novembre 2026)
+
+Scaricati con il consenso dell'utente gli archivi delle righe 1, 2 (statua, scheletro, ratto e pipistrello, piante), 3, 4 e 5 della tabella sopra, circa 2 MB in una cartella temporanea fuori dal progetto. Licenze ricontrollate: sulla pagina per OpenGameArt (nessun file di licenza negli archivi), nel `License.txt` del pacchetto per EVil Wizard 2 (CC0, «No generative AI was used» sulla pagina). Per Redshrike la pagina elenca anche OGA-BY: si usa CC BY 3.0.
+
+Usati per ora **solo i quattro boss** (ramo `feature/grafica-boss`), in `src/assets/art/boss/`, circa 110 KB in tutto:
+
+| Boss | Opera | Licenza | Animazioni usate | Scala | Fase II |
+| --- | --- | --- | --- | --- | --- |
+| Guardiano della cripta | Animated Statue (Calciumtrice), variante grigia | CC BY 3.0 | camminata 8, attacco 5, risveglio 4, sgretolamento 6 | ×1 | la pietra si arroventa; il risveglio fa da trasformazione |
+| Madre delle spore | Demon Flower Monster (Rosswet Mobile) | CC BY 3.0 | riposo 4, sputo 14, salto 9, morte 8 | ×2 | da verde palude a viola tossico; salta entrando in furia |
+| Colosso della fornace | Enemy Galore I, golem (Admurin) | CC BY 4.0 | corsa 4, attacco 11–12, rottura dell'armatura 5, morte 9 | ×3 | l'armatura si spezza e resta la roccia fusa |
+| Custode del ghiaccio | EVil Wizard 2 (LuizMelo) | CC0 | riposo 8, attacco 8, morte 7 | ×1 | la fiamma di ghiaccio diventa viola-bianca |
+
+Come sono stati adattati (`tools/arte/prepara_boss.py`):
+- **una tavolozza del gioco per boss**, applicata per luminosita' a gruppi di colori (pietra, fiamma, ori, occhi), in due varianti: calma e furia;
+- **contorno scuro** dove mancava (statua, mago), per staccare la figura dal pavimento;
+- **ingrandimenti interi** scelti perche' la figura copra all'incirca il cerchio di colpo, che resta quello dei dati;
+- le figure laterali si specchiano verso il giocatore, come prima.
+
+Limiti noti:
+- densita' dei pixel diversa fra i boss (×1, ×2, ×3): il colosso e la madre delle spore sono piu' "grossi" del giocatore, il guardiano e il custode hanno la sua stessa finezza;
+- sono figure laterali in un gioco visto dall'alto, come gli sprite attuali;
+- il colosso e' stato ricolorato da un golem blu: in calma e' scuro, da provare sul pavimento della fornace.
+
+Restano nella cartella temporanea, non usati: scheletri, ratti, pipistrelli e piante di Calciumtrice, i nemici di Redshrike, gli altri nemici di Enemy Galore e di Monsters Creatures Fantasy. Sono il materiale per ridisegnare i servitori in un passo successivo, se la prova dei boss piace.

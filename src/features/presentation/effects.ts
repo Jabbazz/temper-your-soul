@@ -28,6 +28,8 @@ export const FEEDBACK = {
   hurtFlash: 0.35,
   /** Lampo rosso dello schermo al passaggio in furia. */
   rageFlash: 0.7,
+  /** Animazione di trasformazione del boss al passaggio in furia (dentro la pausa di 1,6 s della partita singola). */
+  bossTransform: 1.2,
   /** Sequenza della morte del boss (lampeggia, trema, si frantuma) prima della schermata di vittoria. */
   bossDeath: 1.4,
   /** Lampo bianco dello schermo quando il boss si frantuma. */
@@ -163,6 +165,8 @@ export class Effects {
   hurtFlash = 0;
   /** Lampo rosso del passaggio in furia. */
   rageFlash = 0;
+  /** Secondi rimasti della trasformazione del boss in furia. */
+  bossTransform = 0;
   /** Lampo bianco del colpo finale. */
   screenFlash = 0;
   /** Sequenza della morte del boss, se in corso. */
@@ -187,6 +191,7 @@ export class Effects {
     this.minionFlashes.clear();
     this.hurtFlash = 0;
     this.rageFlash = 0;
+    this.bossTransform = 0;
     this.screenFlash = 0;
     this.bossDeath = null;
     this.ambientDebt = 0;
@@ -235,6 +240,7 @@ export class Effects {
         for (const [radius, life] of [[120, 0.5], [180, 0.7], [240, 0.9]] as const) this.wave(event.position, radius, '#ff6a4a', life);
         this.shake = 10;
         this.rageFlash = FEEDBACK.rageFlash;
+        this.bossTransform = FEEDBACK.bossTransform;
         break;
       case 'boss_attack':
         this.text(event.position.x, event.position.y + event.labelOffsetY, event.name, event.color);
@@ -311,6 +317,7 @@ export class Effects {
     this.bossJolt = Math.max(0, this.bossJolt - dt);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt);
     this.rageFlash = Math.max(0, this.rageFlash - dt);
+    this.bossTransform = Math.max(0, this.bossTransform - dt);
     this.screenFlash = Math.max(0, this.screenFlash - dt);
   }
 
