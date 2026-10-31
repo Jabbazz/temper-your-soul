@@ -37,13 +37,19 @@ export function withEnabled(settings: AudioSettings, enabled: boolean): AudioSet
   return { ...settings, enabled };
 }
 
+/**
+ * Versione del formato. La 1 risale a quando l'audio era spento di base (solo toni sintetizzati): chi l'aveva salvata
+ * con "spento" senza sceglierlo davvero riparte con l'audio attivo; i volumi si conservano.
+ */
+export const AUDIO_SETTINGS_VERSION = 2;
+
 export function serializeAudioSettings(settings: AudioSettings): string {
-  return JSON.stringify({ version: 1, enabled: settings.enabled, volumes: settings.volumes });
+  return JSON.stringify({ version: AUDIO_SETTINGS_VERSION, enabled: settings.enabled, volumes: settings.volumes });
 }
 
 /**
  * Legge le impostazioni salvate. Dati assenti, illeggibili o non validi non bloccano mai il gioco: ogni campo non valido
- * torna al valore iniziale, i volumi si limitano a 0–1.
+ * torna al valore iniziale, i volumi si limitano a 0–1. Le impostazioni di versioni precedenti tornano ad audio attivo.
  */
 export function deserializeAudioSettings(text: string | null): AudioSettings {
   if (text === null) return DEFAULT_AUDIO_SETTINGS;
@@ -54,12 +60,13 @@ export function deserializeAudioSettings(text: string | null): AudioSettings {
     return DEFAULT_AUDIO_SETTINGS;
   }
   if (typeof data !== 'object' || data === null || Array.isArray(data)) return DEFAULT_AUDIO_SETTINGS;
-  const { enabled, volumes } = data as Record<string, unknown>;
+  const { version, enabled, volumes } = data as Record<string, unknown>;
   const raw = typeof volumes === 'object' && volumes !== null && !Array.isArray(volumes) ? (volumes as Record<string, unknown>) : {};
   const clean = Object.fromEntries(
     VOLUME_CONTROLS.map((control) => [control, cleanVolume(raw[control], DEFAULT_AUDIO_SETTINGS.volumes[control])]),
   ) as Record<VolumeControl, number>;
-  return { enabled: typeof enabled === 'boolean' ? enabled : DEFAULT_AUDIO_SETTINGS.enabled, volumes: clean };
+  const current = version === AUDIO_SETTINGS_VERSION;
+  return { enabled: current && typeof enabled === 'boolean' ? enabled : DEFAULT_AUDIO_SETTINGS.enabled, volumes: clean };
 }
 
 function cleanVolume(value: unknown, fallback: number): number {

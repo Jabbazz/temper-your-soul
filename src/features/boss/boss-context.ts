@@ -3,6 +3,7 @@ import type { Rng } from '../../core/rng';
 import type { DangerZoneSpec } from '../combat/danger-zone';
 import type { GameEvent } from '../combat/events';
 import type { ProjectileSpec } from '../combat/projectile';
+import type { BossSummons } from '../minions/minion-definition';
 
 /** Che cosa la simulazione mette a disposizione del boss mentre agisce. */
 export interface BossContext {
@@ -17,5 +18,7 @@ export interface BossContext {
   hurtPlayer(amount: number): void;
   /** Cooperativa: controlla tutti i corpi vicini, anche se il bersaglio della carica si è allontanato. */
   hurtNearbyPlayers?(amount: number): void;
+  /** Evoca fino a `count` servitori attorno a `center`, senza superare `summons.maxAlive` vivi. Facoltativo nei test. */
+  summon?(summons: BossSummons, count: number, center: Vec2): void;
   emit(event: GameEvent): void;
 }

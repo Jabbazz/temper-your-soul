@@ -6,6 +6,7 @@ import type { Boss } from './boss';
 import type { BossContext } from './boss-context';
 import { pick, type BossDefinition, type BossPattern, type BossStats, type ByPhase } from './boss-definition';
 import { enemyShot, schedule, spawnFan, spawnRing, startCharge } from './pattern-kit';
+import { GUARDIAN_SUMMONS } from '../minions/minion-catalog';
 
 /*
  * Il guardiano della cripta: il boss del prototipo e dei suoi sei schemi di attacco in rotazione.
@@ -203,4 +204,5 @@ export const GUARDIAN: BossDefinition = {
   rageText: 'IL GUARDIANO SI INFURIA',
   stats: GUARDIAN_STATS,
   patterns: [EMBER_NOVA, EMBER_BURST, FRACTURE_PATTERN, CHARGE_PATTERN, VOID_SPIRAL, TRIPLE_FAN],
+  summons: GUARDIAN_SUMMONS,
 };

@@ -4,6 +4,8 @@ import { TAU, Vec2 } from '../../core/vec2';
 import type { GameEvent } from '../combat/events';
 import type { Projectile } from '../combat/projectile';
 import type { Match } from '../match/match';
+import { bossFx } from './boss-fx';
+import { minionArt } from './minion-art';
 import { projectileLook, zoneLook, type ZoneLook } from './visuals';
 
 /** Numero massimo di particelle e di onde contemporanee. */
@@ -12,6 +14,40 @@ const MAX_WAVES = 80;
 /** Ogni quanti secondi un proiettile lascia un punto della scia e una particella. */
 const TRAIL_INTERVAL = 0.025;
 const TRAIL_LENGTH = 9;
+
+/**
+ * Durate degli effetti di risposta ai colpi e dei momenti chiave, in secondi. Provvisorie (vedi
+ * docs/studio-combattimento-e-vittoria.md): si tarano con la prova manuale.
+ */
+export const FEEDBACK = {
+  /** Lampo bianco del bersaglio colpito. */
+  hitFlash: 0.09,
+  /** Sobbalzo dello sprite colpito. */
+  jolt: 0.08,
+  /** Vignetta rossa dopo un colpo subito. */
+  hurtFlash: 0.35,
+  /** Lampo rosso dello schermo al passaggio in furia. */
+  rageFlash: 0.7,
+  /** Sequenza della morte del boss (lampeggia, trema, si frantuma) prima della schermata di vittoria. */
+  bossDeath: 1.4,
+  /** Lampo bianco dello schermo quando il boss si frantuma. */
+  screenFlash: 0.3,
+} as const;
+
+/**
+ * Livelli dei numeri del danno: dimensione e colore crescono con il danno del colpo, cosi' un colpo pesante si
+ * riconosce a colpo d'occhio. Il primo livello con `min` <= danno vince (ordine decrescente). Provvisori.
+ */
+export const DAMAGE_TIERS: readonly { readonly min: number; readonly size: number; readonly color: string }[] = [
+  { min: 200, size: 24, color: '#ff8a4c' },
+  { min: 100, size: 20, color: '#ffb35c' },
+  { min: 40, size: 16, color: '#ffd889' },
+  { min: 0, size: 13, color: '#fff1cf' },
+];
+
+export function damageTier(amount: number): { readonly size: number; readonly color: string } {
+  return DAMAGE_TIERS.find((tier) => amount >= tier.min) ?? DAMAGE_TIERS[DAMAGE_TIERS.length - 1]!;
+}
 
 /**
  * Colore dello scoppio al lancio, per id di aspetto della skill, dove differisce dal colore del proiettile
@@ -46,13 +82,29 @@ export interface Wave {
   readonly total: number;
 }
 
-/** Testo che sale e svanisce (numeri del danno, nomi degli attacchi). */
+/** Testo che sale e svanisce (numeri del danno, nomi degli attacchi). `size` in pixel; `outline` per la leggibilita'. */
 export interface FloatingText {
   x: number;
   y: number;
   readonly text: string;
   readonly color: string;
   remaining: number;
+  readonly total: number;
+  readonly size: number;
+  /** Deriva orizzontale, perche' i numeri vicini non si sovrappongano. */
+  readonly vx: number;
+  readonly outline: boolean;
+}
+
+/** Scintilla d'impatto: stella a quattro punte che si allarga e svanisce in un lampo. */
+export interface Spark {
+  readonly x: number;
+  readonly y: number;
+  readonly size: number;
+  readonly color: string;
+  readonly angle: number;
+  remaining: number;
+  readonly total: number;
 }
 
 /** Bagliore residuo di una zona dopo lo scoppio. */
@@ -75,13 +127,22 @@ export interface Slash {
   readonly total: number;
 }
 
+/** La morte del boss in corso: il boss resta visibile mentre lampeggia, trema e si frantuma. */
+export interface BossDeath {
+  readonly position: Vec2;
+  remaining: number;
+  readonly total: number;
+}
+
 const SLASH_LIFE = 0.18;
 const TEXT_LIFE = 0.9;
+const DAMAGE_TEXT_LIFE = 0.75;
 const FLASH_LIFE = 0.65;
+const SPARK_LIFE = 0.14;
 
 /**
- * Effetti visivi: particelle, onde, testi e scie. Nascono dagli eventi della simulazione e dallo stato dei suoi
- * oggetti, ma non influiscono mai sulle regole. Usa una sorgente casuale propria (estetica, non riproducibile).
+ * Effetti visivi: particelle, onde, testi, scie, lampi e scosse. Nascono dagli eventi della simulazione e dallo stato
+ * dei suoi oggetti, ma non influiscono mai sulle regole. Usa una sorgente casuale propria (estetica, non riproducibile).
  */
 export class Effects {
   particles: Particle[] = [];
@@ -89,10 +150,27 @@ export class Effects {
   texts: FloatingText[] = [];
   flashes: ZoneFlash[] = [];
   slashes: Slash[] = [];
+  sparks: Spark[] = [];
   /** Intensita' della scossa dello schermo, in unita' di vista: decade da sola. */
   shake = 0;
+  /** Secondi di lampo bianco rimasti sul boss (colpito). */
+  bossFlash = 0;
+  /** Secondi di sobbalzo rimasti sul boss (colpito). */
+  bossJolt = 0;
+  /** Lampi dei servitori colpiti, per id. */
+  readonly minionFlashes = new Map<number, number>();
+  /** Vignetta rossa (colpo subito dal giocatore di questo client). */
+  hurtFlash = 0;
+  /** Lampo rosso del passaggio in furia. */
+  rageFlash = 0;
+  /** Lampo bianco del colpo finale. */
+  screenFlash = 0;
+  /** Sequenza della morte del boss, se in corso. */
+  bossDeath: BossDeath | null = null;
 
   private readonly trails = new Map<number, { emit: number; points: Vec2[] }>();
+  /** Particelle d'ambiente del boss "in debito" (frazioni accumulate fra un passo e l'altro). */
+  private ambientDebt = 0;
 
   constructor(private readonly rng: Rng = cosmeticRng) {}
 
@@ -102,7 +180,16 @@ export class Effects {
     this.texts = [];
     this.flashes = [];
     this.slashes = [];
+    this.sparks = [];
     this.shake = 0;
+    this.bossFlash = 0;
+    this.bossJolt = 0;
+    this.minionFlashes.clear();
+    this.hurtFlash = 0;
+    this.rageFlash = 0;
+    this.screenFlash = 0;
+    this.bossDeath = null;
+    this.ambientDebt = 0;
     this.trails.clear();
   }
 
@@ -111,33 +198,28 @@ export class Effects {
     return this.trails.get(projectile.id)?.points ?? [];
   }
 
-  handle(event: GameEvent): void {
+  /**
+   * Risponde a un evento della simulazione. In cooperativa `localPlayerId` e' il giocatore di questo client: solo i
+   * suoi colpi subiti accendono la vignetta rossa e scuotono lo schermo.
+   */
+  handle(event: GameEvent, localPlayerId?: string): void {
     switch (event.type) {
       case 'skill_cast':
         this.onSkillCast(event);
         break;
       case 'damage_dealt':
-        if (event.target === 'boss') {
-          this.text(event.position.x + (this.rng.next() - 0.5) * 30, event.position.y - 30, String(event.amount), '#ffe7a9');
-          this.burst(event.position, '#d8a5fa', 5);
-        } else {
-          this.text(event.position.x, event.position.y - 20, `−${event.amount}`, '#ff8e83');
-          this.shake = 5;
+        this.onDamage(event, localPlayerId);
+        break;
+      case 'projectile_hit':
+        this.onProjectileHit(event);
+        break;
+      case 'projectile_faded':
+        // Colpo mancato: uno sbuffo grigio e spento, l'opposto della scintilla di un colpo a segno.
+        for (let i = 0; i < 5; i++) {
+          const a = this.rng.next() * TAU;
+          this.particle(event.position.x, event.position.y, Math.cos(a) * 18, Math.sin(a) * 18 - 12, '#8d8794', 0.35, 2);
         }
         break;
-      case 'projectile_hit': {
-        const color = projectileLook(event.visual).color;
-        const big = event.radius > 6;
-        this.burst(event.position, color, big ? 24 : 9);
-        this.wave(event.position, big ? 35 : 19, color, 0.28);
-        if (event.visual === 'frost_orb') {
-          for (let i = 0; i < 10; i++) {
-            const a = (i * Math.PI) / 5;
-            this.particle(event.position.x, event.position.y, Math.cos(a) * 150, Math.sin(a) * 150, '#d5fbff', 0.45, 4, 30);
-          }
-        }
-        break;
-      }
       case 'zone_detonated':
         this.onZoneDetonated(event.position, event.radius, zoneLook(event.team, event.visual));
         break;
@@ -148,9 +230,11 @@ export class Effects {
         }
         break;
       case 'boss_phase_changed':
-        this.text(event.position.x, event.position.y - 48, event.text, '#ff785d');
-        this.burst(event.position, '#ff735b', 40);
-        this.shake = 6;
+        this.text(event.position.x, event.position.y - 48, event.text, '#ff785d', 16);
+        this.burst(event.position, '#ff735b', 60);
+        for (const [radius, life] of [[120, 0.5], [180, 0.7], [240, 0.9]] as const) this.wave(event.position, radius, '#ff6a4a', life);
+        this.shake = 10;
+        this.rageFlash = FEEDBACK.rageFlash;
         break;
       case 'boss_attack':
         this.text(event.position.x, event.position.y + event.labelOffsetY, event.name, event.color);
@@ -160,21 +244,41 @@ export class Effects {
         this.shake = 5;
         break;
       case 'boss_defeated':
-        this.burst(event.position, '#ffd17f', 90);
+        this.bossDeath = { position: event.position, remaining: FEEDBACK.bossDeath, total: FEEDBACK.bossDeath };
+        this.burst(event.position, '#ffd17f', 40);
+        this.wave(event.position, 90, '#fff1ce', 0.5);
+        this.shake = 8;
         break;
+      case 'minion_spawned': {
+        const art = minionArt(event.visual);
+        this.burst(event.position, art.color, 14);
+        this.wave(event.position, 26, art.color, 0.4);
+        break;
+      }
+      case 'minion_defeated': {
+        const art = minionArt(event.visual);
+        this.burst(event.position, art.color, event.exploded ? 34 : 20);
+        this.wave(event.position, event.exploded ? 44 : 24, art.color, 0.35);
+        this.minionFlashes.delete(event.minionId);
+        if (event.exploded) this.shake = Math.max(this.shake, 4);
+        break;
+      }
       case 'boss_pose':
       case 'match_ended':
         break;
     }
   }
 
-  /** Avanza gli effetti di `dt` secondi e genera quelli che dipendono dallo stato (scie, carica del boss). */
+  /** Avanza gli effetti di `dt` secondi e genera quelli che dipendono dallo stato (scie, carica, aure del boss). */
   update(dt: number, match: Match, camera: Camera): void {
     this.updateTrails(dt, match.projectiles, camera);
-    const charge = match.boss.charge;
-    if (charge !== null && charge.elapsed >= charge.windup && match.boss.health.current > 0) {
-      this.burst(match.boss.position, '#d89865', 2);
+    const { boss } = match;
+    const charge = boss.charge;
+    if (charge !== null && charge.elapsed >= charge.windup && boss.health.current > 0) {
+      this.burst(boss.position, '#d89865', 2);
     }
+    if (boss.health.current > 0 && camera.isVisible(boss.position, 120)) this.emitBossParticles(dt, match);
+    this.updateDeath(dt);
 
     for (const f of this.particles) {
       f.remaining -= dt;
@@ -188,6 +292,7 @@ export class Effects {
     this.waves = this.waves.filter((w) => w.remaining > 0);
     for (const t of this.texts) {
       t.y -= 25 * dt;
+      t.x += t.vx * dt;
       t.remaining -= dt;
     }
     this.texts = this.texts.filter((t) => t.remaining > 0);
@@ -195,13 +300,121 @@ export class Effects {
     this.flashes = this.flashes.filter((flash) => flash.remaining > 0);
     for (const slash of this.slashes) slash.remaining -= dt;
     this.slashes = this.slashes.filter((slash) => slash.remaining > 0);
+    for (const spark of this.sparks) spark.remaining -= dt;
+    this.sparks = this.sparks.filter((spark) => spark.remaining > 0);
+    for (const [id, left] of this.minionFlashes) {
+      if (left - dt <= 0) this.minionFlashes.delete(id);
+      else this.minionFlashes.set(id, left - dt);
+    }
     this.shake = Math.max(0, this.shake - dt * 25);
+    this.bossFlash = Math.max(0, this.bossFlash - dt);
+    this.bossJolt = Math.max(0, this.bossJolt - dt);
+    this.hurtFlash = Math.max(0, this.hurtFlash - dt);
+    this.rageFlash = Math.max(0, this.rageFlash - dt);
+    this.screenFlash = Math.max(0, this.screenFlash - dt);
   }
 
   /** Scostamento di camera per la scossa corrente (zero a riposo). */
   shakeOffset(): Vec2 {
     if (this.shake <= 0) return Vec2.ZERO;
     return new Vec2((this.rng.next() - 0.5) * this.shake, (this.rng.next() - 0.5) * this.shake);
+  }
+
+  /** Spostamento dello sprite del boss per il sobbalzo e per il tremito della morte (zero a riposo). */
+  bossOffset(): Vec2 {
+    const death = this.bossDeath;
+    const amount = death !== null ? 2 + (1 - death.remaining / death.total) * 5 : this.bossJolt > 0 ? 3 : 0;
+    if (amount === 0) return Vec2.ZERO;
+    return new Vec2((this.rng.next() - 0.5) * amount, (this.rng.next() - 0.5) * amount);
+  }
+
+  private onDamage(event: Extract<GameEvent, { type: 'damage_dealt' }>, localPlayerId: string | undefined): void {
+    const { position, amount } = event;
+    if (event.target === 'boss') {
+      this.damageText(position.x + (this.rng.next() - 0.5) * 34, position.y - 34, amount, 1);
+      this.bossFlash = FEEDBACK.hitFlash;
+      this.bossJolt = FEEDBACK.jolt;
+      this.burst(position, '#d8a5fa', 6);
+    } else if (event.target === 'minion') {
+      this.damageText(position.x + (this.rng.next() - 0.5) * 16, position.y - 20, amount, 0.8);
+      if (event.minionId !== undefined) this.minionFlashes.set(event.minionId, FEEDBACK.hitFlash);
+      this.burst(position, '#f0d8c0', 3);
+    } else {
+      const mine = localPlayerId === undefined || event.playerId === undefined || event.playerId === localPlayerId;
+      this.text(position.x, position.y - 22, `−${amount}`, '#ff6f61', mine ? 17 : 12, 0, DAMAGE_TEXT_LIFE);
+      if (mine) {
+        this.shake = Math.max(this.shake, 6);
+        this.hurtFlash = FEEDBACK.hurtFlash;
+        this.burst(position, '#ff5a4a', 10);
+      }
+    }
+  }
+
+  private onProjectileHit(event: Extract<GameEvent, { type: 'projectile_hit' }>): void {
+    const color = projectileLook(event.visual).color;
+    const big = event.radius > 6;
+    if (event.struck === 'obstacle') {
+      // Contro un pilastro: polvere e schegge spente, nessuna scintilla.
+      for (let i = 0; i < 8; i++) {
+        const a = this.rng.next() * TAU;
+        const v = 25 + this.rng.next() * 60;
+        this.particle(event.position.x, event.position.y, Math.cos(a) * v, Math.sin(a) * v, i % 2 ? '#9a8f87' : '#6d6470', 0.4, 2, 60);
+      }
+      this.wave(event.position, 10, '#8d8794', 0.2);
+      return;
+    }
+    if (event.struck === 'boss' || event.struck === 'minion') {
+      // Colpo a segno: scintilla bianca, scoppio pieno e anello.
+      this.sparks.push({ x: event.position.x, y: event.position.y, size: big ? 16 : 11, color: '#fff6dc', angle: this.rng.next() * Math.PI, remaining: SPARK_LIFE, total: SPARK_LIFE });
+    }
+    this.burst(event.position, color, big ? 24 : 10);
+    this.wave(event.position, big ? 35 : 19, color, 0.28);
+    if (event.visual === 'frost_orb') {
+      for (let i = 0; i < 10; i++) {
+        const a = (i * Math.PI) / 5;
+        this.particle(event.position.x, event.position.y, Math.cos(a) * 150, Math.sin(a) * 150, '#d5fbff', 0.45, 4, 30);
+      }
+    }
+  }
+
+  /** Particelle d'ambiente del boss e, in furia, aura fitta del suo colore. */
+  private emitBossParticles(dt: number, match: Match): void {
+    const { boss } = match;
+    const fx = bossFx(boss.definition.art);
+    const rate = fx.ambient.rate + (boss.isEnraged ? fx.rage.rate : 0);
+    this.ambientDebt += rate * dt;
+    while (this.ambientDebt >= 1) {
+      this.ambientDebt -= 1;
+      const enraged = boss.isEnraged && this.rng.next() < fx.rage.rate / rate;
+      const colors = enraged ? fx.rage.colors : fx.ambient.colors;
+      const color = colors[Math.floor(this.rng.next() * colors.length)] ?? colors[0]!;
+      const spread = fx.ambient.spread * (enraged ? 1.2 : 1);
+      this.particle(
+        boss.position.x + (this.rng.next() - 0.5) * spread * 2,
+        boss.position.y + (this.rng.next() - 0.5) * spread,
+        (this.rng.next() - 0.5) * 14,
+        fx.ambient.rise * (0.6 + this.rng.next() * 0.8) * (enraged ? 1.6 : 1),
+        color,
+        0.7 + this.rng.next() * 0.7,
+        enraged ? 2 + this.rng.next() * 2 : 1 + this.rng.next() * 2,
+      );
+    }
+  }
+
+  /** Durante la morte il boss perde frammenti; alla fine si frantuma con un lampo. */
+  private updateDeath(dt: number): void {
+    const death = this.bossDeath;
+    if (death === null) return;
+    const before = death.remaining;
+    death.remaining -= dt;
+    if (Math.floor(before * 12) !== Math.floor(death.remaining * 12)) this.burst(death.position, '#ffe2a8', 6);
+    if (death.remaining > 0) return;
+    this.burst(death.position, '#ffd17f', 120);
+    this.burst(death.position, '#fff6dc', 40);
+    for (const [radius, life] of [[80, 0.45], [150, 0.7], [230, 0.95]] as const) this.wave(death.position, radius, '#ffe3a6', life);
+    this.screenFlash = FEEDBACK.screenFlash;
+    this.shake = 12;
+    this.bossDeath = null;
   }
 
   private onSkillCast(event: Extract<GameEvent, { type: 'skill_cast' }>): void {
@@ -286,7 +499,7 @@ export class Effects {
       );
     }
     this.flashes.push({ position, radius, look, remaining: FLASH_LIFE, total: FLASH_LIFE });
-    this.shake = 3;
+    this.shake = Math.max(this.shake, 3);
   }
 
   private updateTrails(dt: number, projectiles: readonly Projectile[], camera: Camera): void {
@@ -338,7 +551,13 @@ export class Effects {
     if (this.waves.length > MAX_WAVES) this.waves.shift();
   }
 
-  private text(x: number, y: number, text: string, color: string): void {
-    this.texts.push({ x, y, text, color, remaining: TEXT_LIFE });
+  /** Numero del danno: dimensione e colore dal livello, piccola deriva laterale casuale. `scale` rimpicciolisce (servitori). */
+  private damageText(x: number, y: number, amount: number, scale: number): void {
+    const tier = damageTier(amount);
+    this.text(x, y, String(amount), tier.color, Math.round(tier.size * scale), (this.rng.next() - 0.5) * 30, DAMAGE_TEXT_LIFE);
+  }
+
+  private text(x: number, y: number, text: string, color: string, size = 13, vx = 0, life = TEXT_LIFE): void {
+    this.texts.push({ x, y, text, color, remaining: life, total: life, size, vx, outline: true });
   }
 }

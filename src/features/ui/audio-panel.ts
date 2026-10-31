@@ -58,7 +58,7 @@ export class AudioPanel {
     checkbox.type = 'checkbox';
     checkbox.dataset.audio = 'enabled';
     checkbox.addEventListener('change', () => this.audio.setEnabled(checkbox.checked));
-    toggle.append(checkbox, el('span', '', 'Audio attivo (tasto M)'));
+    toggle.append(checkbox, el('span', '', 'Audio attivo'));
 
     const sliders = el('div', 'audio-sliders');
     for (const control of VOLUME_CONTROLS) {
@@ -81,29 +81,24 @@ export class AudioPanel {
     this.syncControls();
   }
 
+  /**
+   * Crediti richiusi in fondo al pannello: una riga per registrazione (titolo, autore, licenza). Le licenze CC BY chiedono
+   * di citare autore e licenza e di dire che il file e' stato modificato: lo dice l'ultima riga, i dettagli stanno nel codice.
+   */
   private renderCredits(): HTMLElement {
-    const section = el('section', 'audio-credits');
-    section.append(el('h3', '', 'Crediti delle registrazioni'));
-    const credits = Object.values(AUDIO_CREDITS);
-    if (credits.length === 0) {
-      section.append(
-        el('p', '', 'Per ora il gioco usa solo toni di riserva: le registrazioni vere, con i loro crediti, arriveranno qui.'),
-      );
-      return section;
-    }
+    const section = el('details', 'audio-credits');
+    section.append(el('summary', '', 'Crediti'));
     const list = el('ul');
-    for (const credit of credits) {
+    for (const credit of Object.values(AUDIO_CREDITS)) {
       const item = el('li');
       const link = el('a', '', credit.title);
       link.href = credit.source;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      const license = AUDIO_LICENSES[credit.license];
-      item.append(link, el('span', '', ` · ${credit.author} · ${license.name}`));
-      if (credit.changes !== undefined) item.append(el('small', '', ` (${credit.changes})`));
+      item.append(link, el('span', '', ` · ${credit.author} · ${AUDIO_LICENSES[credit.license].name}`));
       list.append(item);
     }
-    section.append(list);
+    section.append(list, el('small', '', 'Registrazioni tagliate e convertite per il gioco.'));
     return section;
   }
 

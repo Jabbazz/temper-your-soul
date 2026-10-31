@@ -24,7 +24,9 @@ import { FullscreenToggle } from './features/ui/fullscreen';
 import { Hud } from './features/ui/hud';
 import { AudioPanel } from './features/ui/audio-panel';
 import { InventoryScreen } from './features/ui/inventory-screen';
-import { renderLoot } from './features/ui/loot-view';
+import { renderDefeat, renderVictory } from './features/ui/end-screen';
+import { PhaseBanner } from './features/ui/phase-banner';
+import { CombatTally } from './features/match/combat-tally';
 import { MainMenu } from './features/ui/main-menu';
 import { Overlay } from './features/ui/overlay';
 import { Screens } from './features/ui/screens';
@@ -39,6 +41,10 @@ import { showCombatReport } from './features/ui/combat-report';
 const STEP = 1 / 60;
 /** Tempo massimo simulato in un singolo fotogramma: dopo una pausa (scheda in background) non si recupera tutto. */
 const MAX_FRAME_TIME = 0.25;
+/** Secondi di pausa drammatica al passaggio in fase II (solo in partita singola: in cooperativa il server non si ferma). */
+const PHASE_INTERLUDE = 1.6;
+/** Secondi fra la fine dell'incontro e la sua schermata: il tempo di vedere il boss frantumarsi o la propria caduta. */
+const END_DELAY = { won: 1.7, lost: 1.3 } as const;
 /** Per quanti millisecondi resta visibile un avviso. */
 const TOAST_MS = 6000;
 
@@ -69,6 +75,12 @@ export class Game {
   private readonly audioPanel: AudioPanel;
   private readonly hud = new Hud();
   private readonly overlay = new Overlay();
+  private readonly tally = new CombatTally();
+  private readonly phaseBanner = new PhaseBanner();
+  /** Secondi di pausa drammatica rimasti (fase II in partita singola): intanto la simulazione aspetta. */
+  private interlude = 0;
+  /** Schermata di fine incontro in attesa: prima si guarda la morte del boss (o la propria), poi il resoconto. */
+  private pendingEnd: { remaining: number; show: () => void } | null = null;
   private readonly screens = new Screens();
   private readonly party = new PartyPanel(() => this.pauseIfPlaying(), snapshot => this.receiveSnapshot(snapshot), () => {
     if (this.networkBattleId) { this.networkBattleId = ''; this.showToast('Hai lasciato il combattimento cooperativo.'); this.showMenu(); }
@@ -175,6 +187,7 @@ export class Game {
     this.networkBattleId = '';
     this.input.releaseAll();
     this.screen = 'menu';
+    this.clearBattleFeedback();
     this.overlay.hide();
     this.screens.show('menu');
     this.preview(this.dungeon);
@@ -206,6 +219,8 @@ export class Game {
   private openInventory(): void {
     if(!this.character.created)return;
     this.screen = 'inventory';
+    this.clearBattleFeedback();
+    this.overlay.hide();
     this.screens.show('inventory');
     // Si riapre da capo: uno scarto chiesto prima di uscire (anche con ESC) non resta in attesa di conferma.
     this.inventoryScreen.reset();
@@ -245,6 +260,9 @@ export class Game {
     this.effects.clear();
     this.poses.reset();
     this.input.releaseAll();
+    this.clearBattleFeedback();
+    this.tally.reset('local');
+    this.hud.resetBars();
     this.screen = 'playing';
     this.screens.show(null);
     this.overlay.hide();
@@ -276,6 +294,9 @@ export class Game {
       this.effects.handle(event);
       this.poses.handle(event);
       this.audio.handle(event);
+      this.hud.onEvent(event);
+      this.tally.handle(event);
+      if (event.type === 'boss_phase_changed') this.onPhaseChanged(event.text, true);
       if (event.type === 'match_ended') this.onMatchEnded(match, event.won);
     });
     return match;
@@ -283,35 +304,83 @@ export class Game {
 
   // --- Fine partita, bottino e salvataggio -----------------------------------------------------------------------
 
-  private onMatchEnded(match: Match, won: boolean, networkRolls?: readonly ItemRoll[]): void {
+  /**
+   * Fine dell'incontro. Bottino, esperienza e record si assegnano e si salvano SUBITO (se la pagina si chiude ora non
+   * si perde nulla); la schermata arriva dopo `END_DELAY`, il tempo di vedere il colpo finale. `after` (cooperativa)
+   * parte insieme alla schermata.
+   */
+  private onMatchEnded(match: Match, won: boolean, networkRolls?: readonly ItemRoll[], after?: () => void): void {
     this.screen = 'ended';
     this.input.releaseAll();
-    let extra: HTMLElement | null = null;
+    this.interlude = 0;
+    const summary = this.tally.summary();
+    let extra: HTMLElement;
+    let sounds: Array<'loot' | 'level_up'> = [];
     if (won) {
-      // Il bottino si assegna e si salva PRIMA di mostrarlo: se la pagina si chiude ora, non si perde.
       const rolls = networkRolls ?? rollLoot(lootTableFor(match.dungeon.id), new SeededRng(Math.floor(Math.random() * 0x100000000)));
       const items = this.character.addRolls(rolls);
-      const levelBefore = levelProgress(this.character.totalXp).level;
-      this.character.totalXp += PROGRESSION.rewards[match.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100;
-      if (items.length > 0) this.audio.play('loot');
-      if (levelProgress(this.character.totalXp).level > levelBefore) this.audio.play('level_up');
+      const before = levelProgress(this.character.totalXp);
+      const gained = PROGRESSION.rewards[match.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100;
+      this.character.totalXp += gained;
+      const afterXp = levelProgress(this.character.totalXp);
       const record = this.character.recordVictory(match.dungeon.id, match.time);
       const saved = this.persist();
-      extra = renderLoot(items, { ...record, seconds: match.time }, saved,this.character.characterClass);
-      const reward = document.createElement('p');
-      reward.textContent = '+' + (PROGRESSION.rewards[match.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100) + ' XP · Livello ' + levelProgress(this.character.totalXp).level;
-      extra.prepend(reward);
+      if (items.length > 0) sounds.push('loot');
+      if (afterXp.level > before.level) sounds.push('level_up');
+      extra = renderVictory({
+        bossName: match.boss.definition.name,
+        seconds: match.time,
+        firstClear: record.firstClear,
+        newBest: record.newBest,
+        healthLeft: match.player.health.current,
+        healthMax: match.player.health.max,
+        summary,
+        xp: {
+          gained,
+          levelBefore: before.level,
+          levelAfter: afterXp.level,
+          before: before.current / before.required,
+          after: afterXp.current / afterXp.required,
+        },
+        items,
+        saved,
+        characterClass: this.character.characterClass,
+      });
+    } else {
+      extra = renderDefeat({
+        bossName: match.boss.definition.name,
+        seconds: match.time,
+        bossHealth: match.boss.health.fraction,
+        summary,
+        onInventory: () => this.openInventory(),
+      });
+      // La scena si spegne (grigia e scura) mentre si aspetta la schermata.
+      document.body.classList.add('defeated');
     }
-    this.overlay.showEnded({
-      won,
-      dungeonName: match.dungeon.name,
-      bossName: match.boss.definition.name,
-      seconds: match.time,
-      healthLeft: match.player.health.current,
-      extra,
-    });
+    this.pendingEnd = {
+      remaining: won ? END_DELAY.won : END_DELAY.lost,
+      show: () => {
+        this.overlay.showEnded({ won, dungeonName: match.dungeon.name, extra });
+        for (const sound of sounds) this.audio.play(sound);
+        sounds = [];
+        after?.();
+      },
+    };
     this.updateParty();
-    if (!this.networkBattleId) showCombatReport(Object.fromEntries(match.report), [{ id: 'local', name: this.character.name ?? 'Tu' }], match.time, won);
+  }
+
+  /** Passaggio alla fase II: stendardo a tutto schermo e, in partita singola, una breve pausa drammatica. */
+  private onPhaseChanged(text: string, freeze: boolean): void {
+    this.phaseBanner.show(text);
+    if (freeze) this.interlude = PHASE_INTERLUDE;
+  }
+
+  /** Toglie cio' che resta di un incontro: pausa drammatica, schermata in attesa, stendardo, scena spenta. */
+  private clearBattleFeedback(): void {
+    this.interlude = 0;
+    this.pendingEnd = null;
+    this.phaseBanner.hide();
+    document.body.classList.remove('defeated');
   }
 
   private receiveSnapshot(snapshot: BattleSnapshot): void {
@@ -329,20 +398,24 @@ export class Game {
       }));
       this.renderAppearance = this.character.appearance();
       this.effects.clear(); this.poses.reset(); this.input.releaseAll();
+      this.clearBattleFeedback(); this.tally.reset(this.party.client.playerId); this.hud.resetBars();
       this.screen = 'playing'; this.screens.show(null); this.overlay.hide(); this.party.close();
       this.hud.buildSkills(this.match.player.skillBar.skills); this.hud.setBossName(this.match.boss.definition.name); this.canvas.focus();
     }
     applySnapshot(this.match, snapshot);
     for (const event of snapshot.events) {
-      this.effects.handle(event); this.audio.handle(event, this.party.client.playerId);
+      this.effects.handle(event, this.party.client.playerId); this.audio.handle(event, this.party.client.playerId);
+      this.hud.onEvent(event, this.party.client.playerId); this.tally.handle(event);
+      if (event.type === 'boss_phase_changed') this.onPhaseChanged(event.text, false);
       if (!event.playerId || event.playerId === this.party.client.playerId) this.poses.handle(event);
       if (event.playerId) this.allyPoses.get(event.playerId)?.handle(event);
     }
     this.camera.follow(this.match.player.position);
     if (snapshot.status !== 'playing') {
       this.completedBattles.add(snapshot.id);
-      this.onMatchEnded(this.match, snapshot.status === 'won', snapshot.rewards[this.party.client.playerId] ?? []);
-      showCombatReport(snapshot.report, this.battleMembers, snapshot.time, snapshot.status === 'won');
+      const members = this.battleMembers;
+      this.onMatchEnded(this.match, snapshot.status === 'won', snapshot.rewards[this.party.client.playerId] ?? [],
+        () => showCombatReport(snapshot.report, members, snapshot.time, snapshot.status === 'won'));
     }
   }
 
@@ -448,6 +521,9 @@ export class Game {
     if (this.screen === 'playing') {
       if (this.networkBattleId) {
         if (this.party.client.input(this.readIntent())) this.input.takeLatched();
+      } else if (this.interlude > 0) {
+        // Pausa drammatica della fase II: il mondo aspetta, gli effetti continuano; le pressioni non si accumulano.
+        this.interlude -= STEP; this.input.takeLatched();
       } else {
         match.step(STEP, this.readIntent()); this.input.takeLatched();
       }
@@ -467,6 +543,14 @@ export class Game {
     while (this.accumulator >= STEP) {
       this.step();
       this.accumulator -= STEP;
+    }
+    if (this.pendingEnd !== null) {
+      this.pendingEnd.remaining -= delta;
+      if (this.pendingEnd.remaining <= 0) {
+        const { show } = this.pendingEnd;
+        this.pendingEnd = null;
+        show();
+      }
     }
     this.camera.shakeOffset =
       this.screen === 'playing' || this.screen === 'ended' ? this.effects.shakeOffset() : Vec2.ZERO;

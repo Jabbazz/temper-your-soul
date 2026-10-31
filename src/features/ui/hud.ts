@@ -4,7 +4,9 @@ import { describeSkillStats } from '../items/item';
 import { manaCost } from '../skills/mana';
 import type { Match } from '../match/match';
 import type { Loadout } from '../skills/skill-definition';
+import type { GameEvent } from '../combat/events';
 import { requireElement } from './dom';
+import { ChipBar, DamageMeter } from './health-feedback';
 
 /**
  * Interfaccia in DOM sopra il canvas: barre della vita, skill e ricariche. Mostra solo lo stato della partita,
@@ -21,6 +23,35 @@ export class Hud {
   private readonly bossName = requireElement('boss-name');
   private readonly cooldownBars: HTMLElement[] = [];
   private readonly last = new WeakMap<HTMLElement, string>();
+  private readonly playerChip = requireElement('player-chip');
+  private readonly bossChip = requireElement('boss-chip');
+  private readonly bossDamage = requireElement('boss-damage');
+  private readonly bossHud = requireElement('boss-name').closest<HTMLElement>('.hud-boss')!;
+  private readonly playerChipBar = new ChipBar();
+  private readonly bossChipBar = new ChipBar();
+  private readonly meter = new DamageMeter();
+  /** Istante dell'ultimo colpo al boss: la barra sussulta per un attimo. */
+  private lastBossHit = -1;
+
+  /** Barre e contatore da capo, a ogni nuova partita. */
+  resetBars(): void {
+    this.playerChipBar.reset();
+    this.bossChipBar.reset();
+    this.meter.clear();
+    this.lastBossHit = -1;
+  }
+
+  /**
+   * Ascolta gli eventi per il contatore dei danni: conta i colpi di questo client (in cooperativa `localPlayerId`) al
+   * boss e ai servitori.
+   */
+  onEvent(event: GameEvent, localPlayerId?: string): void {
+    if (event.type !== 'damage_dealt' || event.target === 'player') return;
+    if (localPlayerId !== undefined && event.playerId !== undefined && event.playerId !== localPlayerId) return;
+    const now = performance.now() / 1000;
+    this.meter.add(event.amount, now);
+    if (event.target === 'boss') this.lastBossHit = now;
+  }
 
   setBossName(name: string): void {
     this.setText(this.bossName, name);
@@ -69,7 +100,16 @@ export class Hud {
     this.setWidth(this.playerBar, player.health.fraction * 100);
     this.setText(this.playerText, `${Math.ceil(player.health.current)} / ${player.health.max} PV`);
     this.setWidth(this.bossBar, boss.health.fraction * 100);
-    this.setText(this.bossText, `${Math.ceil(boss.health.current)} / ${boss.health.max} · FASE ${boss.phase}`);
+    this.setText(this.bossText, `${Math.ceil(boss.health.current)} / ${boss.health.max} · FASE ${boss.phase === 2 ? 'II' : 'I'}`);
+    const now = performance.now() / 1000;
+    this.setWidth(this.playerChip, this.playerChipBar.update(player.health.fraction, now) * 100);
+    this.setWidth(this.bossChip, this.bossChipBar.update(boss.health.fraction, now) * 100);
+    const recent = this.meter.total(now);
+    this.setText(this.bossDamage, recent > 0 ? `−${Math.round(recent)}` : '');
+    this.bossHud.classList.toggle('enraged', boss.isEnraged);
+    this.bossHud.classList.toggle('struck', now - this.lastBossHit < 0.12);
+    // La tacca indica la soglia della furia finche' non e' superata.
+    this.bossHud.style.setProperty('--phase-mark', `${boss.stats.phaseTwoThreshold * 100}%`);
     this.cooldownBars.forEach((bar, slot) => this.setWidth(bar, player.skillBar.cooldownFraction(slot) * 100));
   }
 
