@@ -1,3 +1,4 @@
+import type { BossSummons } from '../minions/minion-definition';
 import type { Boss } from './boss';
 import type { BossContext } from './boss-context';
 
@@ -71,4 +72,6 @@ export interface BossDefinition {
   readonly stats: BossStats;
   /** Gli schemi nell'ordine di rotazione: dopo l'ultimo si riparte dal primo. */
   readonly patterns: readonly BossPattern[];
+  /** Servitori che il boss evoca in furia (proposta, vedi `minions/minion-catalog.ts`). Senza, nessun servitore. */
+  readonly summons?: BossSummons;
 }

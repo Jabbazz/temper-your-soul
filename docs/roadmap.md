@@ -180,3 +180,31 @@ Checklist manuale (ascolto):
 - [ ] Volumi relativi equilibrati; nessun suono troppo forte o fastidioso. Annotare quelli da sostituire.
 - [ ] Aprendo `dist/index.html` con doppio clic l'audio funziona (con elementi `<audio>` al posto di Web Audio).
 
+## Incremento sensazione di combattimento, fase II, servitori e schermate finali (ramo `feature/combattimento-e-vittoria`, proposta)
+
+Implementati:
+- risposta ai colpi (lampo, sobbalzo, scintilla, sbuffo dei mancati, numeri a livelli, vignetta e battito);
+- barre con scheggia, contatore e tacca;
+- fase II con stendardo e pausa di 1,6 s in partita singola;
+- morte del boss visibile e schermate finali ritardate;
+- nuove schermate di vittoria e sconfitta con statistiche, cause e consigli;
+- aura e particelle proprie dei boss;
+- quattro servitori (anche in cooperativa, protocollo 3);
+- audio attivo di base anche per chi l'aveva salvato spento (impostazioni v2) e pannello Audio con i crediti richiusi.
+
+Studio e motivazioni in `docs/studio-combattimento-e-vittoria.md`.
+
+Verifiche:
+- 463 test (servitori, eventi, fonti dei danni, resoconto, barre, effetti, rete), tipi client e server, build. Ogni regola nuova è stata provata con una mutazione;
+- prova automatica nel browser: colpi, scheggia e contatore, fase II con stendardo e servitori, morte del boss, vittoria, sconfitta con cause, pulsante «Cambia equipaggiamento», aspetto dei quattro servitori. **Nessuna prova giocata da me con le mani**, e la cooperativa in rete con i servitori non è stata provata.
+
+Checklist manuale:
+
+- [ ] I colpi a segno si sentono diversi da quelli mancati (scintilla e lampo contro sbuffo grigio); i numeri grandi si notano.
+- [ ] La scheggia sulle barre e il contatore sotto la barra del boss fanno capire quanto si sta facendo.
+- [ ] La fase II si capisce anche senza audio: stendardo, lampo, pausa breve, servitori, aura del boss. La pausa non dà fastidio.
+- [ ] I servitori sono leggibili e giusti: i fuochi fatui e i folletti che esplodono si possono evitare o abbattere; le sentinelle non diventano un muro di proiettili.
+- [ ] La morte del boss è un momento soddisfacente; la schermata di vittoria arriva al momento giusto, non troppo tardi.
+- [ ] La schermata di sconfitta dice chiaramente cosa ha colpito e dà un consiglio utile.
+- [ ] La vignetta rossa e il battito a vita bassa aiutano senza disturbare.
+- [ ] Schermate leggibili anche a finestra stretta (390 px).

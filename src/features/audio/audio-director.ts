@@ -33,12 +33,18 @@ export function cuesForEvent(event: GameEvent, localPlayerId?: string): Cue[] {
     case 'skill_cast':
       return [{ sound: SKILL_SOUNDS[event.visual] ?? KIND_SOUNDS[event.kind], position: event.origin }];
     case 'damage_dealt': {
-      if (event.target === 'boss') return [{ sound: 'boss_hit', position: event.position }];
+      if (event.target !== 'player') return [{ sound: 'boss_hit', position: event.position }];
       const ally = localPlayerId !== undefined && event.playerId !== undefined && event.playerId !== localPlayerId;
       return [{ sound: ally ? 'impact' : 'player_hurt', position: event.position }];
     }
     case 'projectile_hit':
       return [{ sound: 'impact', position: event.position }];
+    case 'minion_defeated':
+      return [{ sound: zoneSound('enemy', event.visual), position: event.position }];
+    // Il colpo mancato si vede (sbuffo grigio) ma non si sente; la comparsa dei servitori e' coperta dal gong della furia.
+    case 'projectile_faded':
+    case 'minion_spawned':
+      return [];
     case 'zone_detonated':
       return [{ sound: zoneSound(event.team, event.visual), position: event.position }];
     case 'boss_attack':

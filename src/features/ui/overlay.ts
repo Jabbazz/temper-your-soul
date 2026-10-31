@@ -38,34 +38,22 @@ export class Overlay {
     });
   }
 
-  showEnded(options: {
-    readonly won: boolean;
-    readonly dungeonName: string;
-    readonly bossName: string;
-    readonly seconds: number;
-    readonly healthLeft: number;
-    readonly extra?: HTMLElement | null;
-  }): void {
-    const { won, dungeonName, bossName, seconds, healthLeft, extra } = options;
-    this.show(
-      won
-        ? {
-            tag: `DUNGEON COMPLETATO · ${dungeonName.toUpperCase()}`,
-            title: 'Vittoria.',
-            text: `Hai sconfitto ${bossName} in ${Math.floor(seconds)} secondi. Vita rimasta: ${Math.ceil(healthLeft)}.`,
-            button: 'Riprova →',
-            secondary: 'Torna al menu',
-            extra,
-          }
-        : {
-            tag: `SCONFITTA · ${dungeonName.toUpperCase()}`,
-            title: 'La brace si è spenta.',
-            text: 'Schiva le zone segnalate e usa lo scatto per attraversare le raffiche. Cambiare equipaggiamento cambia le tue abilità.',
-            button: 'Riprova →',
-            secondary: 'Torna al menu',
-            extra: null,
-          },
-    );
+  /**
+   * Fine dell'incontro. Il titolo grande dice l'esito; il resto (statistiche, ricompense, cause della sconfitta) arriva
+   * gia' composto in `extra` (vedi `end-screen.ts`). La variante colora la schermata.
+   */
+  showEnded(options: { readonly won: boolean; readonly dungeonName: string; readonly extra?: HTMLElement | null }): void {
+    const { won, dungeonName, extra } = options;
+    this.show({
+      tag: `${won ? 'DUNGEON COMPLETATO' : 'SCONFITTA'} · ${dungeonName.toUpperCase()}`,
+      title: won ? 'Vittoria' : 'Sei caduto',
+      text: '',
+      button: 'Riprova →',
+      secondary: 'Torna al menu',
+      extra,
+    });
+    this.root.classList.toggle('is-victory', won);
+    this.root.classList.toggle('is-defeat', !won);
   }
 
   hide(): void {
@@ -80,6 +68,6 @@ export class Overlay {
     this.secondary.textContent = screen.secondary;
     this.extra.replaceChildren();
     if (screen.extra) this.extra.append(screen.extra);
-    this.root.classList.remove('hidden');
+    this.root.classList.remove('hidden', 'is-victory', 'is-defeat');
   }
 }

@@ -8,7 +8,10 @@ import { DUNGEONS } from '../dungeons/dungeons';
 import { MAGE_SKILLS } from '../skills/mage-skills';
 import { createBossHarness, createQuietMatch, intent, STEP } from '../../testing';
 import { BOSS_ART } from './boss-art';
-import { Effects } from './effects';
+import { damageTier, DAMAGE_TIERS, Effects, FEEDBACK } from './effects';
+import { BOSS_FX } from './boss-fx';
+import { MINION_ART } from './minion-art';
+import { MINIONS } from '../minions/minion-catalog';
 import { ActorPoses } from './poses';
 import { MAGE_CASTING, MAGE_PALETTE, MAGE_WALK, type SpriteFrame } from './sprites';
 import { ARENA_THEMES } from './themes';
@@ -112,10 +115,14 @@ describe('effetti', () => {
     const effects = seeded();
     effects.handle({ type: 'damage_dealt', target: 'boss', amount: 19, position: new Vec2(100, 100) });
     expect(effects.texts.map((t) => t.text)).toEqual(['19']);
-    expect(effects.particles.length).toBe(5);
+    expect(effects.particles.length).toBe(6);
+    // Il boss colpito lampeggia di bianco e sobbalza.
+    expect(effects.bossFlash).toBe(FEEDBACK.hitFlash);
+    expect(effects.bossJolt).toBe(FEEDBACK.jolt);
     effects.handle({ type: 'damage_dealt', target: 'player', amount: 18, position: new Vec2(100, 100) });
     expect(effects.texts.map((t) => t.text)).toEqual(['19', '−18']);
-    expect(effects.shake).toBe(5);
+    expect(effects.shake).toBe(6);
+    expect(effects.hurtFlash).toBe(FEEDBACK.hurtFlash);
   });
 
   it('lo scoppio di una zona crea onde, particelle, un bagliore residuo e una scossa', () => {
@@ -139,6 +146,8 @@ describe('effetti', () => {
   it('tutto svanisce col tempo: particelle, onde, testi, bagliori e scossa', () => {
     const effects = seeded();
     const match = createQuietMatch();
+    // Senza boss vivo: le sue particelle d'ambiente non nascerebbero mai finite.
+    match.boss.health.current = 0;
     effects.handle({ type: 'zone_detonated', position: new Vec2(50, 50), radius: 42, team: 'player' });
     effects.handle({ type: 'damage_dealt', target: 'boss', amount: 5, position: new Vec2(0, 0) });
     for (let i = 0; i < 60 * 3; i++) effects.update(STEP, match, camera);
@@ -148,6 +157,7 @@ describe('effetti', () => {
     expect(effects.flashes).toHaveLength(0);
     expect(effects.shake).toBe(0);
     expect(effects.shakeOffset()).toEqual(Vec2.ZERO);
+    expect([effects.bossFlash, effects.bossJolt, effects.hurtFlash, effects.rageFlash, effects.screenFlash]).toEqual([0, 0, 0, 0, 0]);
   });
 
   it('il numero di particelle e di onde ha un tetto', () => {
@@ -179,6 +189,7 @@ describe('effetti', () => {
   it('fuori dalla vista le scie non producono particelle', () => {
     const effects = seeded();
     const match = createQuietMatch();
+    match.boss.health.current = 0;
     const spec: ProjectileSpec = { team: 'enemy', speed: 0, damage: 1, radius: 4, lifetime: 5, visual: 'ember_nova' };
     match.projectiles.push(new Projectile(1, spec, new Vec2(100, 100), 0));
     for (let i = 0; i < 30; i++) effects.update(STEP, match, camera);
@@ -208,6 +219,108 @@ describe('effetti', () => {
     expect(withEffects.player.position).toEqual(without.player.position);
     expect(withEffects.boss.health.current).toBe(without.boss.health.current);
     expect(withEffects.projectiles.length).toBe(without.projectiles.length);
+  });
+});
+
+describe('risposta ai colpi e momenti chiave', () => {
+  const camera = new Camera();
+  camera.setViewSize(960, 540);
+  camera.follow(new Vec2(1600, 1350));
+  const seeded = () => new Effects(new SeededRng(9));
+  const at = new Vec2(200, 200);
+
+  it('i numeri del danno crescono e cambiano colore con il danno del colpo', () => {
+    expect(damageTier(19).size).toBeLessThan(damageTier(60).size);
+    expect(damageTier(60).size).toBeLessThan(damageTier(150).size);
+    expect(damageTier(150).size).toBeLessThan(damageTier(360).size);
+    expect(new Set(DAMAGE_TIERS.map((tier) => tier.color)).size).toBe(DAMAGE_TIERS.length);
+    const effects = seeded();
+    effects.handle({ type: 'damage_dealt', target: 'boss', amount: 360, position: at });
+    expect(effects.texts[0]).toMatchObject({ text: '360', size: damageTier(360).size, outline: true });
+  });
+
+  it('colpo a segno: scintilla; contro un pilastro: polvere senza scintilla; mancato: sbuffo spento', () => {
+    const hit = seeded();
+    hit.handle({ type: 'projectile_hit', position: at, radius: 4, visual: 'arcane_bolt', team: 'player', struck: 'boss' });
+    expect(hit.sparks).toHaveLength(1);
+    const wall = seeded();
+    wall.handle({ type: 'projectile_hit', position: at, radius: 4, visual: 'arcane_bolt', team: 'player', struck: 'obstacle' });
+    expect(wall.sparks).toHaveLength(0);
+    expect(wall.particles.length).toBeLessThan(hit.particles.length);
+    const miss = seeded();
+    miss.handle({ type: 'projectile_faded', position: at, visual: 'arcane_bolt' });
+    expect(miss.sparks).toHaveLength(0);
+    expect(miss.waves).toHaveLength(0);
+    expect(miss.particles.length).toBeGreaterThan(0);
+    expect(miss.particles.length).toBeLessThan(wall.particles.length);
+  });
+
+  it('in cooperativa solo i colpi subiti dal giocatore di questo client accendono la vignetta e scuotono', () => {
+    const effects = seeded();
+    effects.handle({ type: 'damage_dealt', target: 'player', amount: 10, position: at, playerId: 'p2' }, 'p1');
+    expect([effects.hurtFlash, effects.shake]).toEqual([0, 0]);
+    effects.handle({ type: 'damage_dealt', target: 'player', amount: 10, position: at, playerId: 'p1' }, 'p1');
+    expect(effects.hurtFlash).toBe(FEEDBACK.hurtFlash);
+  });
+
+  it('la fase II scuote forte, accende il lampo rosso e lancia tre onde d\'urto', () => {
+    const effects = seeded();
+    effects.handle({ type: 'boss_phase_changed', position: at, phase: 2, text: 'IL BOSS SI INFURIA' });
+    expect(effects.rageFlash).toBe(FEEDBACK.rageFlash);
+    expect(effects.shake).toBe(10);
+    expect(effects.waves.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('la morte del boss dura un attimo (il boss resta visibile), poi si frantuma con un lampo bianco', () => {
+    const effects = seeded();
+    const match = createQuietMatch();
+    match.boss.health.current = 0;
+    effects.handle({ type: 'boss_defeated', position: at });
+    expect(effects.bossDeath).not.toBeNull();
+    for (let t = 0; t < FEEDBACK.bossDeath - 0.1; t += STEP) effects.update(STEP, match, camera);
+    expect(effects.bossDeath).not.toBeNull();
+    expect(effects.screenFlash).toBe(0);
+    for (let i = 0; i < 12; i++) effects.update(STEP, match, camera);
+    expect(effects.bossDeath).toBeNull();
+    expect(effects.screenFlash).toBeGreaterThan(0);
+  });
+
+  it('il boss vivo emette le sue particelle d\'ambiente, molte di piu\' in furia', () => {
+    const calm = seeded();
+    const match = createQuietMatch();
+    camera.follow(match.boss.position);
+    for (let i = 0; i < 60; i++) calm.update(STEP, match, camera);
+    const calmCount = calm.particles.length;
+    expect(calmCount).toBeGreaterThan(0);
+    const angry = seeded();
+    match.boss.phase = 2;
+    for (let i = 0; i < 60; i++) angry.update(STEP, match, camera);
+    expect(angry.particles.length).toBeGreaterThan(calmCount * 2);
+    camera.follow(new Vec2(1600, 1350));
+  });
+
+  it('i servitori colpiti lampeggiano; comparsa e morte hanno il loro scoppio', () => {
+    const effects = seeded();
+    effects.handle({ type: 'minion_spawned', position: at, minionId: 4, visual: 'swamp_sporeling' });
+    expect(effects.particles.length).toBeGreaterThan(0);
+    effects.handle({ type: 'damage_dealt', target: 'minion', amount: 25, position: at, minionId: 4 });
+    expect(effects.minionFlashes.get(4)).toBe(FEEDBACK.hitFlash);
+    effects.handle({ type: 'minion_defeated', position: at, minionId: 4, visual: 'swamp_sporeling' });
+    expect(effects.minionFlashes.has(4)).toBe(false);
+  });
+
+  it('ogni boss ha i suoi effetti e ogni servitore la sua grafica, con tavolozze complete', () => {
+    for (const dungeon of DUNGEONS) expect(Object.hasOwn(BOSS_FX, dungeon.boss.art), dungeon.id).toBe(true);
+    for (const minion of Object.values(MINIONS)) {
+      const art = MINION_ART[minion.visual];
+      expect(art, minion.id).toBeDefined();
+      for (const frame of art!.frames) {
+        expect(new Set(frame.map((row) => row.length)).size, minion.id).toBe(1);
+        for (const symbol of new Set(frame.flatMap((row) => [...row]))) {
+          if (symbol !== '.') expect(Object.hasOwn(art!.palette, symbol), `${minion.id}: ${symbol}`).toBe(true);
+        }
+      }
+    }
   });
 });
 

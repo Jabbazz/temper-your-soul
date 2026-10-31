@@ -1,5 +1,6 @@
 import type { BossDefinition, BossStats } from '../../boss/boss-definition';
 import { BELLOWS_SPIRAL, EMBER_BARRAGE, FORGE_CROSS, HAMMER_SLAM, IRON_CHARGE, MOLTEN_LINES } from './forge-patterns';
+import { FORGE_COLOSSUS_SUMMONS } from '../../minions/minion-catalog';
 
 /**
  * Valori del colosso della fornace: enorme e lento, con pochi colpi pesanti. Provvisori (vedi docs/game-design.md):
@@ -29,4 +30,5 @@ export const FORGE_COLOSSUS: BossDefinition = {
   art: 'forge_colossus',
   stats: FORGE_COLOSSUS_STATS,
   patterns: [HAMMER_SLAM, EMBER_BARRAGE, MOLTEN_LINES, BELLOWS_SPIRAL, FORGE_CROSS, IRON_CHARGE],
+  summons: FORGE_COLOSSUS_SUMMONS,
 };

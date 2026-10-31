@@ -65,6 +65,10 @@ Nessuna di queste e' stata riprodotta a mano. Le altre segnalazioni di questa re
 
 ## Risolti
 
+- **In partita singola la finestra «Combat report» si apriva sopra la schermata di vittoria o sconfitta**, con una sola riga (osservato nel browser). Ora le statistiche stanno nella schermata finale; la finestra resta solo in cooperativa, dopo la schermata.
+- **Chi aveva salvato le impostazioni audio con la versione precedente restava con l'audio spento** anche dopo il passaggio all'audio attivo di base (osservato: l'impostazione `enabled: false` restava salvata). Ora le impostazioni v1 tornano ad audio attivo, conservando i volumi (test).
+- **Testo superato nella schermata di pausa e fine**: «Audio attivabile con M» con l'audio ormai attivo di base. Tolto.
+
 - **I pulsanti in alto a destra non si potevano premere nei menu** (rilevato nella prova browser dell'incremento audio): la schermata del menu (`.screen`, z-index 9) copriva `.actions` (z-index 4), quindi "Schermo intero" e il nuovo "Audio" erano visibili ma non cliccabili. Ora `.actions` ha z-index 31. Controllato nel browser a 1440 e 390 px; non coperto da test (DOM).
 
 - **Hover giallo sui profili, testo poco leggibile**, segnalato dall’utente. Il selettore di profilo ora sovrascrive l’hover globale dei pulsanti con un gradiente prugna scuro e testo crema smorzato; stesso trattamento sul focus tastiera. Colore controllato con hover reale nel browser.
