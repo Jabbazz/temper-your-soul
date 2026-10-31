@@ -2,6 +2,7 @@ import type { Camera } from '../../../core/camera';
 import { TAU, Vec2 } from '../../../core/vec2';
 import type { ArenaDefinition, Pillar } from '../../arena/arena';
 import type { ArenaTheme } from './theme';
+import { FloorCache } from '../floor-cache';
 
 /** Decorazione della cripta (solo aspetto, coordinate assolute dell'arena della cripta). Valori del prototipo. */
 const CRYPT_DECOR = {
@@ -15,7 +16,7 @@ const CRYPT_DECOR = {
   torches: { start: 256, spacing: 384 },
 };
 
-function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+function drawStaticFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
   const { x: camX, y: camY } = camera.position;
   const { tileSize, carpet } = CRYPT_DECOR;
 
@@ -74,6 +75,13 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
     }
   }
 
+}
+
+const floorCache = new FloorCache(drawStaticFloor);
+
+function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+  floorCache.draw(ctx, arena, camera);
+  const { x: camX, y: camY } = camera.position;
   const { start, spacing } = CRYPT_DECOR.torches;
   for (let x = start; x < arena.width; x += spacing) {
     for (let y = start; y < arena.height; y += spacing) {

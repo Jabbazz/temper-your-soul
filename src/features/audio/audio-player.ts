@@ -1,4 +1,5 @@
 import { cosmeticRng, type Rng } from '../../core/rng';
+import { AudioLoadQueue } from './audio-load-queue';
 import { Signal } from '../../core/signal';
 import { clamp, Vec2 } from '../../core/vec2';
 import type { KeyValueStore } from '../character/save-store';
@@ -70,7 +71,8 @@ class LoopDeck {
     const step = dt / CROSSFADE_SECONDS;
     for (const track of this.tracks) {
       track.level = track.target > track.level ? Math.min(track.target, track.level + step) : Math.max(track.target, track.level - step);
-      track.element.volume = clamp(track.level * track.gain * track.definition.volume * channelVolume, 0, 1);
+      const volume = clamp(track.level * track.gain * track.definition.volume * channelVolume, 0, 1);
+      if (track.element.volume !== volume) track.element.volume = volume;
       if (!allowed) {
         if (!track.element.paused) track.element.pause();
       } else if (track.target > 0 && track.element.paused && !track.starting) {
@@ -106,6 +108,8 @@ export class AudioPlayer {
   private readonly channelNodes = new Map<SoundDefinition['channel'], GainNode>();
   /** Effetti decodificati per URL; `unavailable` = non leggibili con fetch (file://): si usano elementi <audio>. */
   private readonly buffers = new Map<string, AudioBuffer | 'loading' | 'unavailable'>();
+  private readonly loads = new AudioLoadQueue();
+  private sceneKey = '';
   private readonly pools = new Map<string, HTMLAudioElement[]>();
   private readonly limiter = new VoiceLimiter();
   private readonly music = new LoopDeck();
@@ -172,6 +176,9 @@ export class AudioPlayer {
 
   /** La situazione corrente: la regia sceglie musica e ambiente. */
   setScene(scene: AudioScene): void {
+    const key = `${scene.screen}:${scene.theme}:${scene.enraged}`;
+    if (key === this.sceneKey) return;
+    this.sceneKey = key;
     const music = musicFor(scene);
     this.music.select(music.id, music.id === null ? null : MUSIC[music.id], music.gain);
     const ambience = ambienceFor(scene);
@@ -268,16 +275,16 @@ export class AudioPlayer {
   private load(context: AudioContext, url: string): void {
     if (this.buffers.has(url)) return;
     this.buffers.set(url, 'loading');
-    fetch(url)
+    this.loads.add(() => fetch(url)
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.arrayBuffer();
       })
       .then((data) => context.decodeAudioData(data))
       .then(
-        (buffer) => this.buffers.set(url, buffer),
-        () => this.buffers.set(url, 'unavailable'),
-      );
+        (buffer) => { this.buffers.set(url, buffer); },
+        () => { this.buffers.set(url, 'unavailable'); },
+      ));
   }
 
   private playBuffer(

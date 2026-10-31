@@ -10,6 +10,8 @@ export class PartyClient {
   inviteBase = '';
   latency: number | null = null;
   jitter = 0;
+  receivedCharacters = 0;
+  receivedFrames = 0;
   connecting = false;
   private socket: WebSocket | null = null;
   private timer: number | undefined;
@@ -41,9 +43,11 @@ export class PartyClient {
       this.send({ type: 'ping', sent: performance.now() });
     });
     socket.addEventListener('message', event => {
-      const message = JSON.parse(String(event.data)) as ServerMessage; this.lastReply = performance.now();
+      const text = String(event.data); this.receivedCharacters += text.length;
+      const message = JSON.parse(text) as ServerMessage; this.lastReply = performance.now();
       switch (message.type) {
         case 'frame':
+          this.receivedFrames++;
           try { this.receiveSnapshot(this.decoder.decode(message)); }
           catch (error) { this.error(error instanceof Error ? error.message : 'Dati di rete non validi.'); this.leave(); }
           break;

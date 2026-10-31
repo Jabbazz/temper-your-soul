@@ -8,6 +8,17 @@ import { PartyRoom } from '../src/features/network/party-room';
 import { cleanIntent, NETWORK, type ServerMessage } from '../src/features/network/protocol';
 import { deserializeCharacter } from '../src/features/character/save-format';
 import { SnapshotEncoder } from '../src/features/network/snapshot-codec';
+import { TimingWindow } from '../src/features/network/timing-window';
+
+const stepTimings = new TimingWindow(), networkTimings = new TimingWindow();
+let cpuPercent = 0, eventLoopPercent = 0;
+let previousCpu = process.cpuUsage(), previousUsageTime = performance.now(), previousLoop = performance.eventLoopUtilization();
+setInterval(() => {
+  const now = performance.now(), cpu = process.cpuUsage(), loop = performance.eventLoopUtilization();
+  cpuPercent = Math.round((cpu.user + cpu.system - previousCpu.user - previousCpu.system) / ((now - previousUsageTime) * 1000) * 1000) / 10;
+  eventLoopPercent = Math.round(performance.eventLoopUtilization(loop, previousLoop).utilization * 1000) / 10;
+  previousCpu = cpu; previousUsageTime = now; previousLoop = loop;
+}, 2000).unref();
 
 const root = resolve('dist');
 const port = Number(process.env.PORT ?? 4173);
@@ -16,7 +27,12 @@ if (publicAddress && !['http:', 'https:'].includes(publicAddress.protocol)) thro
 const inviteBase = publicAddress?.origin;
 const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.ico': 'image/x-icon' };
 const server = createServer(async (req, res) => {
-  if (req.url === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, simulationHz: 60, snapshotHz: 30 })); return; }
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ ok: true, simulationHz: 60, snapshotHz: 30,
+      performance: { cpuPercent, eventLoopPercent, rooms: rooms.size, players: [...rooms.values()].reduce((sum, room) => sum + room.characters.size, 0),
+        step: stepTimings.summary(), network: networkTimings.summary() } })); return;
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); res.end(); return; }
   try {
     const path = resolve(root, '.' + decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname));
@@ -92,14 +108,18 @@ let previous = performance.now(), accumulator = 0, steps = 0;
 setInterval(() => {
   const now = performance.now(); accumulator += Math.min((now - previous) / 1000, 0.25); previous = now;
   while (accumulator >= NETWORK.step) {
+    const stepStart = performance.now();
     for (const room of rooms.values()) room.tick(now);
+    if (rooms.size) stepTimings.add(performance.now() - stepStart);
     accumulator -= NETWORK.step; steps++;
     if (steps % NETWORK.snapshotSteps === 0) for (const room of rooms.values()) {
       if (!room.playing && completed.get(room) === room.battleId) continue;
+      const networkStart = performance.now();
       const snapshot = room.snapshot(); if (!snapshot) continue;
       let encoder = encoders.get(room); if (!encoder) { encoder = new SnapshotEncoder(); encoders.set(room, encoder); }
       const text = JSON.stringify(encoder.encode(snapshot));
       for (const [ws, client] of clients) if (client.room === room) sendText(ws, text);
+      networkTimings.add(performance.now() - networkStart);
       if (snapshot.status !== 'playing') completed.set(room, snapshot.id);
     }
   }

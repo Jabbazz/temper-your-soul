@@ -1175,3 +1175,11 @@ button:disabled { cursor:default; opacity:.45; transform:none; }
 .audio-credits a { color:#edc7a5; }
 @media(max-width:600px){ .audio-panel { top:222px; right:8px; width:calc(100vw - 16px); max-height:calc(100vh - 236px); } }
 @media(max-width:450px){.audio-slider { grid-template-columns:72px 1fr 38px; } }
+
+.performance-toggle { position:fixed; top:58px; left:16px; z-index:35; padding:6px 10px; color:var(--relic-ivory); background:var(--relic-control); border:1px solid var(--relic-border); border-radius:6px 14px; font:11px monospace; }
+.performance-panel { position:fixed; top:96px; left:16px; z-index:36; width:min(300px,calc(100vw - 32px)); padding:12px 15px; border:1px solid var(--relic-border); border-radius:8px 18px; color:var(--relic-ivory); background:#201923f5; font:12px/1.8 monospace; contain:content; }
+.performance-panel strong { display:block; color:#d2ad85; margin-bottom:5px; }
+.performance-panel small { display:block; line-height:1.5; margin-top:8px; color:var(--relic-muted); }
+/* Il canvas cambia a ogni frame: l'HUD non richiede sfocature dello sfondo vivo. */
+.skill { backdrop-filter:none; }
+.party-panel { contain:layout paint; }

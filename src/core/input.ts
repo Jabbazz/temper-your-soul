@@ -14,6 +14,7 @@ export type Action =
   | 'pause'
   | 'restart'
   | 'toggle_audio'
+  | 'toggle_performance'
   | 'toggle_fullscreen';
 
 /** Le azioni delle skill, nell'ordine degli slot. */
@@ -36,6 +37,7 @@ const BINDINGS: Record<string, Action> = {
   KeyR: 'restart',
   KeyM: 'toggle_audio',
   KeyF: 'toggle_fullscreen',
+  F2: 'toggle_performance',
 };
 
 /** Vero se la pressione e' una scorciatoia del browser (Ctrl+R, Ctrl+F, Alt+...): il gioco la lascia al browser. */

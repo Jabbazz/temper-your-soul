@@ -2,6 +2,7 @@ import { renderCharacterCreation } from './features/ui/character-creation';
 import { PROGRESSION, levelProgress } from './features/character/progression';
 import { Camera, ZOOM } from './core/camera';
 import { Input, SKILL_ACTIONS } from './core/input';
+import { PerformancePanel } from './features/ui/performance-panel';
 import { SeededRng } from './core/rng';
 import { Vec2 } from './core/vec2';
 import { AudioPlayer } from './features/audio/audio-player';
@@ -68,6 +69,7 @@ export class Game {
   private readonly audio: AudioPlayer;
   private readonly audioPanel: AudioPanel;
   private readonly hud = new Hud();
+  private readonly performancePanel = new PerformancePanel();
   private readonly overlay = new Overlay();
   private readonly screens = new Screens();
   private readonly party = new PartyPanel(() => this.pauseIfPlaying(), snapshot => this.receiveSnapshot(snapshot), () => {
@@ -137,6 +139,7 @@ export class Game {
       if (action === 'pause') this.onEscape();
       else if (action === 'restart') this.restartIfInGame();
       else if (action === 'toggle_audio') this.toggleAudio();
+      else if (action === 'toggle_performance') this.performancePanel.toggle();
       else if (action === 'toggle_fullscreen') void this.fullscreen.toggle();
     });
     requireElement('pause-button').addEventListener('click', () => this.togglePause());
@@ -459,6 +462,7 @@ export class Game {
   }
 
   private frame(time: number): void {
+    const frameStart = performance.now();
     this.party.client.flushSnapshot();
     const delta = Math.min((time - this.lastTime) / 1000, MAX_FRAME_TIME);
     this.lastTime = time;
@@ -483,6 +487,7 @@ export class Game {
       appearance: this.renderAppearance ??= this.character.appearance(),
       allies: this.allyVisuals,
     });
+    this.performancePanel.frame(time, performance.now() - frameStart, this.party.client);
     requestAnimationFrame((next) => this.frame(next));
   }
 }

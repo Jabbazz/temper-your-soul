@@ -1,0 +1,33 @@
+import { Camera } from '../../core/camera';
+import { Vec2 } from '../../core/vec2';
+import type { ArenaDefinition } from '../arena/arena';
+
+/** Cache limitata a 8 MiB per arena, senza prerenderizzare una mappa intera. */
+export const FLOOR_CACHE = { chunkSize: 256, maxChunks: 32 } as const;
+type PaintFloor = (ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera) => void;
+
+export class FloorCache {
+  private readonly arenas = new WeakMap<ArenaDefinition, Map<string, HTMLCanvasElement>>();
+  constructor(private readonly paint: PaintFloor) {}
+  draw(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
+    let chunks = this.arenas.get(arena);
+    if (!chunks) { chunks = new Map(); this.arenas.set(arena, chunks); }
+    const size = FLOOR_CACHE.chunkSize;
+    // Copre anche l'arrotondamento e la scossa senza lasciare bordi scoperti.
+    const x0 = Math.floor((camera.position.x - 16) / size), y0 = Math.floor((camera.position.y - 16) / size);
+    const x1 = Math.floor((camera.position.x + camera.width + 16) / size), y1 = Math.floor((camera.position.y + camera.height + 16) / size);
+    for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) {
+      const key = `${cx},${cy}`; let tile = chunks.get(key);
+      if (tile) chunks.delete(key);
+      else {
+        tile = document.createElement('canvas'); tile.width = size; tile.height = size;
+        const painter = tile.getContext('2d')!; painter.translate(-cx * size, -cy * size);
+        const view = new Camera(); view.setViewSize(size, size); view.position = new Vec2(cx * size, cy * size);
+        this.paint(painter, arena, view);
+      }
+      chunks.set(key, tile);
+      if (chunks.size > FLOOR_CACHE.maxChunks) chunks.delete(chunks.keys().next().value!);
+      ctx.drawImage(tile, cx * size, cy * size);
+    }
+  }
+}
