@@ -239,3 +239,46 @@ Lanterna dell’ossario: due luci lente con rallentamento; Arco di rovi: due spi
 Ogni oggetto ha icona inventario 16×16, icona spell, strato indossato animato in gioco per entrambi i corpi e strati dedicati del ritratto. I nuovi strati del ritratto sono SVG disegnati nel codice, separati dalle icone dello zaino e agganciati a mani/caviglie/busto: non sono nuove immagini generate. Gli atlanti illustrati precedenti restano invariati; la revisione estetica complessiva rimane sospesa. Nessuna modifica al formato v5 o reset dei salvataggi richiesto.
 
 Punti aperti: taratura di probabilità e GS, bonus del livello oggetto, futura gestione della morte e ricreazione. Vincoli di classe e soglie di ingresso sono implementati. UI nel tema C — Reliquiario; l’hover dei profili usa prugna scuro con testo crema smorzato, senza il vecchio fondo giallo.
+
+## Sensazione di combattimento, fase II, servitori e schermate finali (proposta del ramo `feature/combattimento-e-vittoria`, da approvare)
+
+Studio completo, con stato prima e dopo, in [studio-combattimento-e-vittoria.md](studio-combattimento-e-vittoria.md). Valori tutti provvisori, nelle tabelle con nome indicate.
+
+- **Risposta ai colpi** (`presentation/effects.ts`, `FEEDBACK`, `DAMAGE_TIERS`):
+  - colpo a segno su boss o servitore: lampo bianco di 0,09 s, sobbalzo, scintilla a stella, scoppio;
+  - colpo contro un pilastro: polvere spenta;
+  - proiettile perso nel vuoto (nuovo evento `projectile_faded`): sbuffo grigio;
+  - numeri del danno a quattro livelli (13/16/20/24 px, dal bianco all'arancio), con contorno scuro e "pop";
+  - colpo subito: vignetta rossa e scossa, solo per il giocatore di questo client in cooperativa; sotto il 30% di vita la vignetta pulsa.
+- **Barre** (`ui/health-feedback.ts`, `CHIP`, `DAMAGE_WINDOW`):
+  - scheggia chiara dei danni appena fatti o subiti, che resta 0,45 s e poi si consuma;
+  - contatore dei danni degli ultimi 1,6 s sotto la barra del boss;
+  - tacca della soglia della fase II;
+  - in furia barra rosso-arancio, "FASE II" e bordo acceso.
+- **Fase II**: stendardo «FASE II · <testo della furia>», lampo rosso, tre onde d'urto, scossa forte. In partita singola la simulazione si ferma per 1,6 s (`PHASE_INTERLUDE` in `game.ts`); in cooperativa il server non si ferma e il client mostra solo lo stendardo. Dopo, alone pulsante e particelle fitte del colore del boss (`presentation/boss-fx.ts`).
+- **Morte del boss e fine incontro**: il boss resta visibile per 1,4 s mentre si illumina, trema e si frantuma, con un lampo bianco. Bottino, XP e record si salvano subito; la schermata arriva dopo 1,7 s alla vittoria e 1,3 s alla sconfitta (`END_DELAY`), e alla sconfitta la scena si spegne in grigio.
+- **Vittoria** (`ui/end-screen.ts`): «Vittoria» dorato animato, «Boss sconfitto · nome», statistiche con distintivi («Record!», «Prima vittoria», «Intatto»), barra XP che si riempie con salita di livello, bottino rivelato con un lampo. La finestra «Combat report» resta solo in cooperativa (in partita singola ripeteva una riga).
+- **Sconfitta**: «Sei caduto», vita rimasta al boss, tempo resistito, danni, precisione, «Ti ha colpito soprattutto» (prime due fonti con colpi e danni) e un consiglio per tipo di colpo (`DEFEAT_TIPS`), più il pulsante «Cambia equipaggiamento». La fonte dei danni arriva dalla simulazione (`damage_dealt.source`: nome dello schema, contatto, carica, servitore).
+- **Statistiche** (`match/combat-tally.ts`):
+  - si contano dagli eventi, anche in cooperativa (solo il giocatore del client);
+  - precisione = proiettili a segno su proiettili a segno, persi nel vuoto o fermati da un pilastro;
+  - le zone e i colpi ravvicinati contano nei danni, non nella precisione.
+
+### Servitori (decisione per Jabbaz)
+
+Sistema generico in `features/minions/`: comportamenti `chaser` (insegue e ferisce a contatto), `kamikaze` (esplode a contatto), `turret` (spara da ferma).
+
+| Boss | Servitore | Comportamento | Vita | Velocità | Danno | All'ingresso in furia | In furia | Massimo vivi |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Guardiano | Fuoco fatuo di brace | kamikaze, esplosione di raggio 34 | 60 | 120 | 14 | 3 | 2 ogni 4 attacchi | 4 |
+| Madre delle spore | Sporello | chaser | 90 | 72 | 10 | 4 | 2 ogni 4 attacchi | 6 |
+| Colosso della fornace | Folletto di scoria | kamikaze, esplosione di raggio 38 | 50 | 165 | 16 | 3 | 2 ogni 4 attacchi | 4 |
+| Custode del ghiaccio | Sentinella di brina | turret, scheggia da 10 ogni 1,9 s | 110 | 0 | 8 | 2 | 1 ogni 5 attacchi | 3 |
+
+Regole comuni:
+- compaiono in cerchio attorno al boss, senza casualità (la partita resta riproducibile);
+- fermano i proiettili del giocatore prima del boss (fanno da scudo) e sono colpiti da zone e colpi ravvicinati;
+- contano nei danni del resoconto e muoiono con il boss;
+- in cooperativa viaggiano nelle istantanee (protocollo **3**: lista `m` con id, tipo, posizione e vita).
+
+Grafica nel codice in `presentation/minion-art.ts`. Punti aperti: numeri e frequenze, esperienza o bottino per i servitori (oggi nessuno), servitori anche in fase I.
