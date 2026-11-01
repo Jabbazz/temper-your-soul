@@ -17,6 +17,15 @@ export const ARMOR_ANCHORS:Readonly<Record<string,Readonly<Record<BodyType,Armor
   forge_plate:{male:{neck:[1068,81],waist:[1088,218],shoulders:[[981,121],[1136,125]],hem:.91},female:{neck:[1075,581],waist:[1089,714],shoulders:[[987,614],[1147,616]],hem:.91}},
   blizzard_veil:{male:{neck:[1386,90],waist:[1395,217],shoulders:[[1308,103],[1466,115]],hem:1.02},female:{neck:[1383,582],waist:[1395,714],shoulders:[[1307,614],[1463,620]],hem:1.02}},
 };
+/**
+ * Parte bassa che resta davanti alle gambe, in frazioni del ritaglio sotto la cintura: tabarri, falde e pannelli.
+ * Il resto (fodere, stendardi laterali) passa dietro il corpo. Sudario e velo sono vesti continue: restano intere davanti.
+ */
+export const ARMOR_LOWER_FRONT:Readonly<Record<string,readonly Point[]>> = {
+  meteor_mantle:[[0,0],[1,0],[1,.95],[.93,.95],[.76,.4],[.74,.02],[.72,.02],[.72,.7],[.6,.83],[.5,.7],[.5,.02],[.41,.02],[.42,.35],[.32,.62],[.02,.92],[0,.7]],
+  ember_aegis:[[0,0],[1,0],[1,.3],[.82,.35],[.8,.6],[.62,.8],[.45,.6],[.42,.38],[.1,.38],[0,.3]],
+  forge_plate:[[0,0],[1,0],[1,.25],[.75,.3],[.68,.4],[.68,.85],[.54,.95],[.42,.85],[.42,.45],[.05,.45],[0,.3]],
+};
 export interface ArmorSection {
   readonly crop: AtlasRect;
   readonly rect: AtlasRect;

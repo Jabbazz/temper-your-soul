@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CHARACTER_CLASSES } from '../character/character-class';
-import { CLASS_POSES, cropPolygon, cuffClipPath, gripSliceRearPolygon, poseAtlas, posePlacement, posePoint, attachAt, fitBoot, WEAPON_GRIPS, WEAPON_HEIGHTS, WEAPON_FRONT_OUTLINES, WEAPON_GRIP_SLICES, BOOT_PARTS, PORTRAIT_FRAME } from './portrait-rig';
+import { CLASS_POSES, cropPolygon, cuffClipPath, gripSliceRearPolygon, weaponRearCut, poseAtlas, posePlacement, posePoint, attachAt, fitBoot, WEAPON_GRIPS, WEAPON_HEIGHTS, WEAPON_FRONT_OUTLINES, WEAPON_GRIP_SLICES, BOOT_PARTS, PORTRAIT_FRAME } from './portrait-rig';
 import { dungeonPortraitSvg } from './dungeon-portrait-svg';
 import { PORTRAIT_CROPS } from './portrait-layout';
 import { Character } from '../character/character';
@@ -52,30 +52,41 @@ describe('pose di classe e agganci anatomici',()=>{
       });
     }
   });
-  it('arciere: la gamba ricade sullo stivale, tagliata lungo gli orli sotto le mani e sopra le suole',()=>{
-    for(const body of ['male','female'] as const){
-      const pose=CLASS_POSES.archer[body],clip=cuffClipPath(pose)!;
+  it('tutte le pose: la gamba ricade sullo stivale, tagliata lungo gli orli sotto le mani e sopra le suole',()=>{
+    for(const kind of CHARACTER_CLASSES)for(const body of ['male','female'] as const){
+      const pose=CLASS_POSES[kind][body],clip=cuffClipPath(pose)!;
       expect(clip.startsWith('polygon(0% 0%,100% 0%,')).toBe(true);
       for(const foot of pose.feet){
         for(const point of foot.cuff!){
-          expect(point[1],body).toBeGreaterThan(Math.max(pose.primary[1],pose.secondary[1]));
-          expect(point[1],body).toBeLessThan(foot.sole[1]);
-          expect(point[0]>=pose.crop[0]&&point[0]<=pose.crop[0]+pose.crop[2],body).toBe(true);
+          expect(point[1],kind+' '+body).toBeGreaterThan(Math.max(pose.primary[1],pose.secondary[1]));
+          expect(point[1],kind+' '+body).toBeLessThan(foot.sole[1]);
+          expect(point[0]>=pose.crop[0]&&point[0]<=pose.crop[0]+pose.crop[2],kind+' '+body).toBe(true);
         }
       }
       const [left,right]=[pose.feet[0].cuff!,pose.feet[1].cuff!];
       expect(left[0][0]).toBeLessThan(left[1][0]);expect(left[1][0]).toBeLessThan(right[1][0]);expect(right[1][0]).toBeLessThan(right[0][0]);
     }
-    expect(cuffClipPath(CLASS_POSES.warrior.male)).toBeNull();
-    expect(cuffClipPath(CLASS_POSES.mage.female)).toBeNull();
   });
-  it('arciere: le dita chiudono la presa dal lato del corpo e il palmo resta scoperto per l\'arco',()=>{
-    for(const body of ['male','female'] as const){
-      const pose=CLASS_POSES.archer[body],outline=pose.primaryFingers!,xs=outline.map(p=>p[0]);
-      for(const [x,y] of outline)expect(x>=pose.crop[0]&&x<=pose.crop[0]+pose.crop[2]&&y>=pose.crop[1]&&y<=pose.crop[1]+pose.crop[3],body).toBe(true);
-      expect(Math.min(...xs),body).toBeLessThan(pose.primary[0]);
-      // Le dita arrivano appena oltre la presa: a destra comincia il palmo, che l'arco deve coprire.
-      expect(Math.max(...xs)-pose.primary[0],body).toBeLessThanOrEqual(6);
+  it('tutte le pose: le dita stanno vicino alla presa, dentro la posa',()=>{
+    for(const kind of CHARACTER_CLASSES)for(const body of ['male','female'] as const){
+      const pose=CLASS_POSES[kind][body],outline=pose.primaryFingers!,scale=pose.detailScale??1;
+      for(const [x,y] of outline){
+        expect(x>=pose.crop[0]&&x<=pose.crop[0]+pose.crop[2]&&y>=pose.crop[1]&&y<=pose.crop[1]+pose.crop[3],kind+' '+body).toBe(true);
+        expect(Math.hypot(x-pose.primary[0],y-pose.primary[1]),kind+' '+body).toBeLessThan(45*scale);
+      }
+    }
+  });
+  it('l\'arma passa dietro il corpo appena sotto il palmo, senza uscire dal ritaglio',()=>{
+    expect(weaponRearCut(.6,.5)).toBeCloseTo(.67,10);
+    expect(weaponRearCut(.99,.1)).toBe(1);
+  });
+  it('tutti gli stivali illustrati tengono il fronte sopra i pantaloni, dentro il proprio ritaglio',()=>{
+    for(const parts of Object.values(BOOT_PARTS))for(const part of parts){
+      expect(part.overPants!.length).toBeGreaterThan(0);
+      for(const outline of part.overPants!)for(const [x,y] of outline){
+        expect(x>=part.crop[0]&&x<=part.crop[0]+part.crop[2]).toBe(true);
+        expect(y>=part.crop[1]&&y<=part.crop[1]+part.crop[3]).toBe(true);
+      }
     }
   });
   it('l\'impugnatura assottigliata contiene la presa e continua la parte anteriore dell\'arco',()=>{

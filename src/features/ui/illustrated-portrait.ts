@@ -1,8 +1,8 @@
 import type { CharacterAppearance } from '../character/appearance';
 import { PORTRAIT_LAYERS } from '../presentation/portrait-atlas';
 import { PORTRAIT_ATLASES, PORTRAIT_CROPS, type AtlasRect } from '../presentation/portrait-layout';
-import { ARMOR_ANCHORS, fitArmor } from '../presentation/portrait-armor';
-import { CLASS_POSES, cropPolygon, cuffClipPath, gripSliceRearPolygon, poseAtlas, posePlacement, posePoint, attachAt, fitBoot, WEAPON_GRIPS, WEAPON_HEIGHTS, WEAPON_ROTATIONS, WEAPON_FRONT_OUTLINES, WEAPON_GRIP_SLICES, BOOT_PARTS, type Similarity, type PortraitPose, type Point } from '../presentation/portrait-rig';
+import { ARMOR_ANCHORS, ARMOR_LOWER_FRONT, fitArmor } from '../presentation/portrait-armor';
+import { CLASS_POSES, cropPolygon, cuffClipPath, gripSliceRearPolygon, weaponRearCut, poseAtlas, posePlacement, posePoint, attachAt, fitBoot, WEAPON_GRIPS, WEAPON_HEIGHTS, WEAPON_ROTATIONS, WEAPON_FRONT_OUTLINES, WEAPON_GRIP_SLICES, BOOT_PARTS, type Similarity, type PortraitPose, type Point } from '../presentation/portrait-rig';
 import { el } from './dom';
 import { DUNGEON_PORTRAIT_IDS } from '../presentation/dungeon-item-portraits';
 import { appendDungeonPortraitLayers } from './dungeon-portrait-layers';
@@ -67,14 +67,22 @@ export function renderIllustratedPortrait(appearance:CharacterAppearance):HTMLEl
   const anchors=ARMOR_ANCHORS[armor.familyId]?.[appearance.body];
   if(crops && anchors){
    const crop=appearance.body==='female'?(crops[1]??crops[0]):crops[0];
-   for(const section of fitArmor(crop,anchors,pose)){
-    const layer=el('div','illustrated-layer illustrated-armor');
-    const [x,y,w,h]=section.rect;
-    Object.assign(layer.style,{left:x*100+'%',top:y*100+'%',width:w*100+'%',height:h*100+'%',transformOrigin:'0 0',transform:'skewX('+section.skew+'rad)'});
-    const texture=cropLayer(PORTRAIT_ATLASES.armor,section.crop,[0,0,1,1],'');
-    if(section.mirror)texture.style.transform='scaleX(-1)';
-    layer.dataset.familyId=armor.familyId;layer.append(texture);root.append(layer);
-   }
+   const lowerFront=ARMOR_LOWER_FRONT[armor.familyId];
+   fitArmor(crop,anchors,pose).forEach((section,index)=>{
+    const add=(className:string,clip?:string)=>{
+     const layer=el('div','illustrated-layer '+className);
+     const [x,y,w,h]=section.rect;
+     Object.assign(layer.style,{left:x*100+'%',top:y*100+'%',width:w*100+'%',height:h*100+'%',transformOrigin:'0 0',transform:'skewX('+section.skew+'rad)'});
+     const texture=cropLayer(PORTRAIT_ATLASES.armor,section.crop,[0,0,1,1],'');
+     if(section.mirror)texture.style.transform='scaleX(-1)';
+     if(clip)texture.style.clipPath=clip;
+     layer.dataset.familyId=armor.familyId;layer.append(texture);root.append(layer);
+    };
+    if(index===1&&lowerFront){
+     add('illustrated-armor-rear');
+     add('illustrated-armor','polygon('+lowerFront.map(p=>p[0]*100+'% '+p[1]*100+'%').join(',')+')');
+    }else add('illustrated-armor');
+   });
   }
  }
  if(boots){
@@ -103,7 +111,7 @@ export function renderIllustratedPortrait(appearance:CharacterAppearance):HTMLEl
   if(item.familyId==='hunter_bow')layer.style.clipPath='polygon(0 0,100% 0,100% 88%,60% 88%,60% 100%,0 100%)';
   if(slot==='primary_hand' && item.familyId!=='guardian_blade'){
    const rear=layer.cloneNode() as HTMLElement;rear.className='illustrated-layer illustrated-rear-weapon';
-   const cut=grip[1]*100;
+   const cut=(pose.primaryFingers?weaponRearCut(grip[1],height):grip[1])*100;
    rear.style.clipPath=item.familyId==='hunter_bow'?'polygon(0 '+cut+'%,100% '+cut+'%,100% 88%,60% 88%,60% 100%,0 100%)':'inset('+cut+'% 0 0 0)';
    layer.style.clipPath='inset(0 0 '+(100-cut)+'% 0)';
    const front=WEAPON_FRONT_OUTLINES[item.familyId],slice=WEAPON_GRIP_SLICES[item.familyId];

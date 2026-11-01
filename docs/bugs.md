@@ -13,6 +13,10 @@ Segnalazione dell'utente (1 novembre 2026): stivali e armatura non si adattavano
 - **Gambale dello stivale frontale:** era spostato rispetto alla gamba, con l'orlo sporgente da un lato. Caviglia registrata sull'asse del polpaccio; la punta ruota di conseguenza.
 - **Piume e fronte degli stivali del vento:** con lo stivale sotto la gamba restavano nascosti. Ora sono livelli a parte sopra i pantaloni (`overPants` in `BOOT_PARTS`); interno e bordo posteriore restano sotto.
 
+Stessa gestione estesa a Guerriero e Mago, su richiesta dell'utente: orli (`cuff`) e dita (`primaryFingers`) misurati su tutte le pose; stivali illustrati e disegnati nel codice sotto i pantaloni, con il fronte sopra (`overPants`); armi davanti al palmo fin poco sotto la presa (`weaponRearCut`, valore provvisorio); parte bassa di manto della meteora, egida di brace e corazza della fornace divisa fra davanti e dietro le gambe (`ARMOR_LOWER_FRONT`). Sudario e velo restano interi davanti, perché sono vesti continue. Da rivedere: gli stivali disegnati nel codice (tombali, di brace, di brina) restano chiari e squadrati rispetto agli altri.
+
+Sprite di combattimento femminili ridisegnati su richiesta dell'utente (`drawHeroine`): prima erano la base maschile ristretta. Ora hanno sagoma propria, coda alta che segue il passo, fascia sul braccio e contorni doppi che reggono il passaggio a 48×48; l'equipaggiamento mantiene agganci e adattamento (`bodyWidth`). Controllati nell'anteprima, non ancora in partita.
+
 Da fare: la corda dell'arco di spine passa ancora vicino al busto e la parte superiore del corpo degli sprite resta affollata a 48×48. Controllati test e fotogrammi dell'anteprima; **conferma manuale dell'utente ancora da ricevere**.
 
 Posa e profondità: il martello copriva parte del viso, soprattutto a riposo. Riorientate le armi lunghe verso l'esterno e separate le estremità inferiori dietro il corpo. La versione femminile risultava sostanzialmente uguale salvo i capelli: ora ha fisionomia e corporatura proprie, con adattamenti di tutti gli strati. Controlli automatici e fotogrammi eseguiti; conferma manuale da ricevere.

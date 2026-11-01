@@ -32,16 +32,16 @@ export interface FootAnchors {
 /** Punti anatomici misurati sull'immagine della posa, in pixel dell'atlante originale. */
 export const CLASS_POSES: Readonly<Record<CharacterClass,Readonly<Record<BodyType,PortraitPose>>>> = {
   warrior:{
-    male:{crop:[150,5,310,505],primary:[419,291],secondary:[180,264],neck:[322,116],waist:[322,225],shoulders:[[254,142],[367,140]],feet:[{ankle:[199,449],sole:[183,499]},{ankle:[390,449],sole:[419,496]}]},
-    female:{crop:[155,515,300,490],primary:[409,797],secondary:[189,758],neck:[316,636],waist:[316,724],shoulders:[[262,648],[352,651]],feet:[{ankle:[208,941],sole:[195,991]},{ankle:[387,943],sole:[416,989]}]},
+    male:{crop:[150,5,310,505],primary:[419,291],secondary:[180,264],neck:[322,116],waist:[322,225],shoulders:[[254,142],[367,140]],feet:[{ankle:[199,449],sole:[183,499],cuff:[[180,445],[213,450]]},{ankle:[390,449],sole:[419,496],cuff:[[408,449],[380,449]]}],primaryFingers:[[403,279],[408,277],[414,282],[419,289],[422,298],[424,306],[414,307],[406,303],[401,295],[399,288]]},
+    female:{crop:[155,515,300,490],primary:[409,797],secondary:[189,758],neck:[316,636],waist:[316,724],shoulders:[[262,648],[352,651]],feet:[{ankle:[208,941],sole:[195,991],cuff:[[194,936],[224,939]]},{ankle:[387,943],sole:[416,989],cuff:[[404,937],[373,939]]}],primaryFingers:[[393,793],[398,790],[404,793],[408,798],[412,804],[414,810],[405,811],[397,808],[392,801]]},
   },
   archer:{
     male:{atlas:'archer-rest',detailScale:2.1,crop:[90,100,590,1070],primary:[584,729],secondary:[217,702],neck:[396,344],waist:[402,567],shoulders:[[260,387],[498,394]],feet:[{ankle:[183,1024],sole:[145,1145],cuff:[[153,1011],[214,1030]]},{ankle:[536,1030],sole:[608,1138],cuff:[[560,1024],[496,1029]]}],primaryFingers:[[546,727],[551,718],[557,713],[565,712],[575,716],[581,726],[586,738],[589,754],[578,758],[568,752],[556,747],[548,737]]},
     female:{atlas:'archer-rest',detailScale:2.1,crop:[700,145,520,1025],primary:[1113,752],secondary:[789,731],neck:[951,399],waist:[976,584],shoulders:[[848,432],[1029,443]],feet:[{ankle:[790,1034],sole:[752,1146],cuff:[[762,1015],[815,1027]]},{ankle:[1080,1033],sole:[1153,1139],cuff:[[1110,1028],[1055,1031]]}],primaryFingers:[[1092,747],[1095,742],[1099,735],[1108,735],[1114,745],[1116,760],[1117,783],[1109,785],[1099,782],[1093,778],[1087,769],[1087,759]]},
   },
   mage:{
-    male:{crop:[1050,5,325,505],mirror:true,primary:[1094,286],secondary:[1332,206],neck:[1203,116],waist:[1194,225],shoulders:[[1126,139],[1255,140]],feet:[{ankle:[1089,450],sole:[1077,500]},{ankle:[1280,450],sole:[1310,496]}]},
-    female:{crop:[1070,515,310,490],mirror:true,primary:[1124,797],secondary:[1334,719],neck:[1207,638],waist:[1200,729],shoulders:[[1150,647],[1253,648]],feet:[{ankle:[1117,941],sole:[1103,991]},{ankle:[1290,942],sole:[1322,988]}]},
+    male:{crop:[1050,5,325,505],mirror:true,primary:[1094,286],secondary:[1332,206],neck:[1203,116],waist:[1194,225],shoulders:[[1126,139],[1255,140]],feet:[{ankle:[1089,450],sole:[1077,500],cuff:[[1076,443],[1108,450]]},{ankle:[1280,450],sole:[1310,496],cuff:[[1285,448],[1256,449]]}],primaryFingers:[[1075,288],[1081,285],[1090,291],[1098,289],[1101,284],[1105,289],[1106,297],[1096,304],[1084,304],[1077,299]]},
+    female:{crop:[1070,515,310,490],mirror:true,primary:[1124,797],secondary:[1334,719],neck:[1207,638],waist:[1200,729],shoulders:[[1150,647],[1253,648]],feet:[{ankle:[1117,941],sole:[1103,991],cuff:[[1096,934],[1128,941]]},{ankle:[1290,942],sole:[1322,988],cuff:[[1287,937],[1257,939]]}],primaryFingers:[[1105,793],[1109,791],[1117,799],[1123,799],[1127,791],[1131,799],[1131,806],[1120,810],[1111,809],[1105,804]]},
   },
 };
 export function poseAtlas(pose:PortraitPose):typeof CLASS_POSE_ATLAS {
@@ -98,6 +98,10 @@ export function gripSliceRearPolygon(slice:WeaponGripSlice):string {
   const p=(x:number,y:number)=>x*100+'% '+y*100+'%';
   return 'polygon('+[p(0,0),p(1,0),p(1,slice.top),p(slice.left-.03,slice.top),p(slice.left-.03,slice.bottom),p(1,slice.bottom),p(1,.88),p(.6,.88),p(.6,1),p(0,1)].join(',')+')';
 }
+/** Quanto l'arma resta davanti al corpo sotto la presa, per coprire il palmo. Frazione del riquadro, provvisoria. */
+export const WEAPON_PALM_REACH=.035;
+/** Dove l'arma passa dietro il corpo, come frazione del suo ritaglio: appena sotto il palmo. */
+export function weaponRearCut(gripY:number,height:number):number { return Math.min(1,gripY+WEAPON_PALM_REACH/height); }
 /** Poligono CSS di un contorno in pixel dell'atlante, relativo al ritaglio che lo contiene. */
 export function cropPolygon(outline:readonly Point[],crop:AtlasRect):string {
   return 'polygon('+outline.map(p=>(p[0]-crop[0])/crop[2]*100+'% '+(p[1]-crop[1])/crop[3]*100+'%').join(',')+')';
@@ -105,7 +109,10 @@ export function cropPolygon(outline:readonly Point[],crop:AtlasRect):string {
 /** `overPants`: contorni in pixel dell'atlante delle parti che restano sopra i pantaloni quando lo stivale passa sotto la gamba. */
 export interface BootPart { readonly crop:AtlasRect; readonly ankle:Point; readonly sole:Point; readonly overPants?:readonly (readonly Point[])[] }
 export const BOOT_PARTS:Readonly<Record<string,readonly [BootPart,BootPart]>> = {
-  astral_boots:[{crop:[440,837,125,205],ankle:[.432,.556],sole:[.408,.98]},{crop:[565,837,145,205],ankle:[.30,.55],sole:[.614,.893]}],
+  astral_boots:[
+    {crop:[440,837,125,205],ankle:[.432,.556],sole:[.408,.98],overPants:[[[462,869],[474,866],[503,879],[532,864],[545,868],[538,905],[542,960],[542,1000],[458,1000],[468,960],[476,925]]]},
+    {crop:[565,837,145,205],ankle:[.30,.55],sole:[.614,.893],overPants:[[[567,876],[583,862],[618,882],[631,861],[641,862],[642,930],[660,960],[660,1000],[565,1000],[570,930]]]},
+  ],
   // Il ritaglio si ferma a x=912: oltre comincia la piuma dello stivale vicino.
   wind_boots:[
     {crop:[780,837,132,205],ankle:[.6024,.50],sole:[.5379,.975],overPants:[
@@ -118,5 +125,8 @@ export const BOOT_PARTS:Readonly<Record<string,readonly [BootPart,BootPart]>> = 
       [[916,849],[927,859],[942,874],[956,886],[962,901],[963,917],[950,918],[938,911],[931,903],[934,898],[922,890],[921,881],[925,878],[918,868],[916,857]],
     ]},
   ],
-  bog_boots:[{crop:[1120,837,150,205],ankle:[.533,.50],sole:[.467,.975]},{crop:[1270,837,160,205],ankle:[.331,.50],sole:[.669,.94]}],
+  bog_boots:[
+    {crop:[1120,837,150,205],ankle:[.533,.50],sole:[.467,.975],overPants:[[[1160,885],[1175,860],[1180,861],[1212,873],[1247,860],[1255,858],[1258,900],[1255,960],[1255,1000],[1150,1000],[1160,960]]]},
+    {crop:[1270,837,160,205],ankle:[.331,.50],sole:[.669,.94],overPants:[[[1270,885],[1283,858],[1290,860],[1320,873],[1351,858],[1362,860],[1362,930],[1400,960],[1400,1000],[1272,1000],[1276,930]]]},
+  ],
 };

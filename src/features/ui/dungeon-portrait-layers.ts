@@ -1,6 +1,6 @@
 import type { CharacterAppearance } from '../character/appearance';
 import type { PortraitPose,Similarity,Point } from '../presentation/portrait-rig';
-import { posePoint,attachAt,fitBoot } from '../presentation/portrait-rig';
+import { cuffClipPath,posePoint,attachAt,fitBoot,weaponRearCut } from '../presentation/portrait-rig';
 import { dungeonItemPortrait } from '../presentation/dungeon-item-portraits';
 import type { AtlasRect } from '../presentation/portrait-layout';
 import { fitArmor } from '../presentation/portrait-armor';
@@ -32,14 +32,15 @@ export function appendDungeonPortraitLayers(root:HTMLElement,appearance:Characte
       for(let i=0;i<2;i++){
         const x=i===0?22:35,crop:AtlasRect=[x,46,13,14],ankle:Point=[((i===0?28:37)-x)/13,4/14],sole:Point=[((i===0?29:38)-x)/13,12/14];
         const foot=pose.feet[i]!,fit=fitBoot(crop,ankle,sole,posePoint(pose,foot.ankle),posePoint(pose,foot.sole),pose.mirror);
-        const layer=attached(crop,fit,'illustrated-boots');if(pose.mirror)layer.style.transform+=' scaleX(-1)';root.append(layer);
+        const layer=attached(crop,fit,cuffClipPath(pose)?'illustrated-boots-under':'illustrated-boots');if(pose.mirror)layer.style.transform+=' scaleX(-1)';root.append(layer);
       }
     }else{
       const height=slot==='primary_hand'?.68:item.familyId==='ossuary_lantern'?.24:.20;
       const layer=attached(art.crop,attachAt(art.crop,art.grip,posePoint(pose,slot==='primary_hand'?pose.primary:pose.secondary),height),'illustrated-'+slot);
       if(slot==='primary_hand'){
         const rear=layer.cloneNode() as HTMLElement;rear.className='illustrated-layer illustrated-rear-weapon';
-        rear.style.clipPath='inset('+art.grip[1]*100+'% 0 0 0)';layer.style.clipPath='inset(0 0 '+(1-art.grip[1])*100+'% 0)';root.append(rear);
+        const cut=pose.primaryFingers?weaponRearCut(art.grip[1],height):art.grip[1];
+        rear.style.clipPath='inset('+cut*100+'% 0 0 0)';layer.style.clipPath='inset(0 0 '+(1-cut)*100+'% 0)';root.append(rear);
       }
       root.append(layer);
     }

@@ -1,5 +1,5 @@
 import { PixelPainter } from './pixel-painter';
-import { bodyAnchors, bodyWidth, drawAdventurer, drawArms, drawHands, type CharacterMotion } from './adventurer-body';
+import { bodyAnchors, bodyWidth, drawAdventurer, drawArms, drawHands, drawHeroine, type CharacterMotion } from './adventurer-body';
 import { drawWearable, drawWearableBack } from './wearable-draw';
 import type { CharacterAppearance, BodyType } from '../character/appearance';
 import type { EquipmentSlot } from '../items/equipment-slot';
@@ -60,7 +60,9 @@ export function characterPixels(appearance: CharacterAppearance, resolution: Res
   }
   fitted(layer=>drawWearableBack(layer,appearance,WEARABLES,anchors));
   drawArms(painter,anchors);
-  fitted(layer=>drawAdventurer(layer,appearance.body,anchors));
+  // La base femminile ha già le sue proporzioni; l'equipaggiamento resta adattato con `fitted`.
+  if(appearance.body==='female') drawHeroine(painter,anchors);
+  else fitted(layer=>drawAdventurer(layer,anchors));
   for(const slot of ['armor','boots'] as const) {
     const item=appearance.equipment[slot],art=item?WEARABLES[item.familyId]:undefined;
     if(art?.slot===slot) fitted(layer=>drawWearable(layer,appearance,slot,art,anchors));

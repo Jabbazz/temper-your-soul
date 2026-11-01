@@ -14,7 +14,7 @@ Questi asset servono alla scheda personaggio e alla selezione del corpo. I ritra
 
 Le armature sono registrate in `portrait-armor.ts` con collo, cintura e spalle per entrambi i corpi. Busto e gonna si adattano separatamente, con giunto continuo alla cintura. Gli stivali sono dietro all’indumento, così la tunica ne copre la tomaia. Le proporzioni del ritratto restano 4:5 anche sulla vista stretta.
 
-Sulle pose dell’arciere gli stivali passano invece sotto la gamba: `cuffClipPath` taglia la base lungo gli orli dei pantaloni (`cuff` in `portrait-rig.ts`), così l’orlo ricade sullo stivale e ne nasconde l’interno e il bordo posteriore, mentre piume e fronte del gambale restano sopra i pantaloni (`overPants`). Il palmo sta dietro l’arco: davanti restano le dita del disegno originale (`primaryFingers`). Il mantello delle canne è diviso in due: la cappa dietro il corpo e due lembi sul petto.
+Su tutte le pose gli stivali passano invece sotto la gamba: `cuffClipPath` taglia la base lungo gli orli dei pantaloni (`cuff` in `portrait-rig.ts`), così l’orlo ricade sullo stivale e ne nasconde l’interno e il bordo posteriore, mentre piume e fronte del gambale restano sopra i pantaloni (`overPants`). Il palmo sta dietro l’arma: davanti restano le dita del disegno originale (`primaryFingers`). Manto della meteora, egida di brace e corazza della fornace hanno la parte bassa divisa fra davanti e dietro le gambe (`ARMOR_LOWER_FRONT`). Il mantello delle canne è diviso in due: la cappa dietro il corpo e due lembi sul petto.
 
 ## Prompt della variante arciere a riposo
 
