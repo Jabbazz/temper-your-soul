@@ -1,7 +1,9 @@
 .illustrated-character { position:relative; width:100%; height:100%; isolation:isolate; }
 .illustrated-layer { position:absolute; background-repeat:no-repeat; image-rendering:pixelated; pointer-events:none; }
 .illustrated-base { z-index:1; }
-.illustrated-rear-weapon { z-index:0; }
+.illustrated-armor-rear { z-index:-2; }
+.illustrated-rear-weapon { z-index:-1; }
+.illustrated-boots-under { z-index:0; }
 .illustrated-armor { z-index:3; }
 .illustrated-boots { z-index:2; }
 .illustrated-secondary_hand { z-index:4; }

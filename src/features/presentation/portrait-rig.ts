@@ -19,7 +19,15 @@ export interface PortraitPose {
   readonly neck: Point;
   readonly waist: Point;
   readonly shoulders: readonly [Point,Point];
-  readonly feet: readonly [{readonly ankle:Point;readonly sole:Point},{readonly ankle:Point;readonly sole:Point}];
+  readonly feet: readonly [FootAnchors,FootAnchors];
+  /** Contorno delle dita che chiudono l'impugnatura: restano davanti all'arma, che copre il palmo. */
+  readonly primaryFingers?: readonly Point[];
+}
+export interface FootAnchors {
+  readonly ankle: Point;
+  readonly sole: Point;
+  /** Orlo dei pantaloni, dal lato esterno a quello interno: se presente, lo stivale passa sotto la gamba. */
+  readonly cuff?: readonly [Point,Point];
 }
 /** Punti anatomici misurati sull'immagine della posa, in pixel dell'atlante originale. */
 export const CLASS_POSES: Readonly<Record<CharacterClass,Readonly<Record<BodyType,PortraitPose>>>> = {
@@ -28,8 +36,8 @@ export const CLASS_POSES: Readonly<Record<CharacterClass,Readonly<Record<BodyTyp
     female:{crop:[155,515,300,490],primary:[409,797],secondary:[189,758],neck:[316,636],waist:[316,724],shoulders:[[262,648],[352,651]],feet:[{ankle:[208,941],sole:[195,991]},{ankle:[387,943],sole:[416,989]}]},
   },
   archer:{
-    male:{atlas:'archer-rest',detailScale:2.1,crop:[90,100,590,1070],primary:[584,729],secondary:[217,702],neck:[396,344],waist:[402,567],shoulders:[[260,387],[498,394]],feet:[{ankle:[171,1024],sole:[145,1145]},{ankle:[536,1030],sole:[608,1138]}]},
-    female:{atlas:'archer-rest',detailScale:2.1,crop:[700,145,520,1025],primary:[1113,752],secondary:[789,731],neck:[951,399],waist:[976,584],shoulders:[[848,432],[1029,443]],feet:[{ankle:[779,1034],sole:[752,1146]},{ankle:[1080,1033],sole:[1153,1139]}]},
+    male:{atlas:'archer-rest',detailScale:2.1,crop:[90,100,590,1070],primary:[584,729],secondary:[217,702],neck:[396,344],waist:[402,567],shoulders:[[260,387],[498,394]],feet:[{ankle:[183,1024],sole:[145,1145],cuff:[[153,1011],[214,1030]]},{ankle:[536,1030],sole:[608,1138],cuff:[[560,1024],[496,1029]]}],primaryFingers:[[546,727],[551,718],[557,713],[565,712],[575,716],[581,726],[586,738],[589,754],[578,758],[568,752],[556,747],[548,737]]},
+    female:{atlas:'archer-rest',detailScale:2.1,crop:[700,145,520,1025],primary:[1113,752],secondary:[789,731],neck:[951,399],waist:[976,584],shoulders:[[848,432],[1029,443]],feet:[{ankle:[790,1034],sole:[752,1146],cuff:[[762,1015],[815,1027]]},{ankle:[1080,1033],sole:[1153,1139],cuff:[[1110,1028],[1055,1031]]}],primaryFingers:[[1092,747],[1095,742],[1099,735],[1108,735],[1114,745],[1116,760],[1117,783],[1109,785],[1099,782],[1093,778],[1087,769],[1087,759]]},
   },
   mage:{
     male:{crop:[1050,5,325,505],mirror:true,primary:[1094,286],secondary:[1332,206],neck:[1203,116],waist:[1194,225],shoulders:[[1126,139],[1255,140]],feet:[{ankle:[1089,450],sole:[1077,500]},{ankle:[1280,450],sole:[1310,496]}]},
@@ -47,6 +55,14 @@ export function posePoint(pose: PortraitPose, point: Point): Point {
   const [x,y,w,h]=posePlacement(pose);
   const u=(point[0]-pose.crop[0])/pose.crop[2],v=(point[1]-pose.crop[1])/pose.crop[3];
   return [x+(pose.mirror?1-u:u)*w,y+v*h];
+}
+/** Taglia i piedi nudi della base lungo gli orli dei pantaloni: resta la gamba, che ricade sopra lo stivale. */
+export function cuffClipPath(pose: PortraitPose): string|null {
+  const [left,right]=[pose.feet[0].cuff,pose.feet[1].cuff];
+  if(!left||!right) return null;
+  const at=(x:number,y:number)=>((x-pose.crop[0])/pose.crop[2]*100)+'% '+((y-pose.crop[1])/pose.crop[3]*100)+'%';
+  const line=(p:Point)=>at(p[0],p[1]);
+  return 'polygon(0% 0%,100% 0%,'+at(pose.crop[0]+pose.crop[2],right[0][1])+','+line(right[0])+','+line(right[1])+','+line(left[1])+','+line(left[0])+','+at(pose.crop[0],left[0][1])+')';
 }
 export interface Similarity { readonly left:number;readonly top:number;readonly width:number;readonly height:number;readonly rotation:number;readonly origin:Point }
 /** Allinea impugnatura o caviglia, preservando le proporzioni. Origine e destinazione condividono lo stesso perno. */
@@ -70,8 +86,37 @@ export const WEAPON_HEIGHTS:Readonly<Record<string,number>> = {
   arcane_staff:.68,hunter_bow:.68,storm_scepter:.37,guardian_blade:.34,forge_hammer:.43,frost_lance:.76,
   frost_grimoire:.16,spirit_talisman:.15,spore_fan:.18,
 };
-export const BOOT_PARTS:Readonly<Record<string,readonly [{crop:AtlasRect;ankle:Point;sole:Point},{crop:AtlasRect;ankle:Point;sole:Point}]>> = {
+/** Inclinazione attorno alla presa: la corda dell'arco resta fuori dal busto. Valore provvisorio. */
+export const WEAPON_ROTATIONS:Readonly<Record<string,number>> = { hunter_bow:.2 };
+/** Parte dell'arma davanti al corpo, sopra l'impugnatura: la corda ne resta fuori e passa dietro. Frazioni del ritaglio. */
+export const WEAPON_FRONT_OUTLINES:Readonly<Record<string,readonly Point[]>> = { hunter_bow:[[.56,0],[1,0],[1,.545],[.55,.545],[.573,.148]] };
+/** Tratto dell'impugnatura, fra due anelli, assottigliato attorno all'asse del legno e tenuto davanti al palmo. Frazioni del ritaglio; scala provvisoria. */
+export interface WeaponGripSlice { readonly top:number; readonly bottom:number; readonly left:number; readonly axis:number; readonly scale:number }
+export const WEAPON_GRIP_SLICES:Readonly<Record<string,WeaponGripSlice>> = { hunter_bow:{top:.545,bottom:.705,left:.50,axis:.605,scale:.85} };
+/** Dietro al corpo passa tutto il resto dell'arma, corda compresa, senza il tratto assottigliato che lascerebbe sporgere i bordi. */
+export function gripSliceRearPolygon(slice:WeaponGripSlice):string {
+  const p=(x:number,y:number)=>x*100+'% '+y*100+'%';
+  return 'polygon('+[p(0,0),p(1,0),p(1,slice.top),p(slice.left-.03,slice.top),p(slice.left-.03,slice.bottom),p(1,slice.bottom),p(1,.88),p(.6,.88),p(.6,1),p(0,1)].join(',')+')';
+}
+/** Poligono CSS di un contorno in pixel dell'atlante, relativo al ritaglio che lo contiene. */
+export function cropPolygon(outline:readonly Point[],crop:AtlasRect):string {
+  return 'polygon('+outline.map(p=>(p[0]-crop[0])/crop[2]*100+'% '+(p[1]-crop[1])/crop[3]*100+'%').join(',')+')';
+}
+/** `overPants`: contorni in pixel dell'atlante delle parti che restano sopra i pantaloni quando lo stivale passa sotto la gamba. */
+export interface BootPart { readonly crop:AtlasRect; readonly ankle:Point; readonly sole:Point; readonly overPants?:readonly (readonly Point[])[] }
+export const BOOT_PARTS:Readonly<Record<string,readonly [BootPart,BootPart]>> = {
   astral_boots:[{crop:[440,837,125,205],ankle:[.432,.556],sole:[.408,.98]},{crop:[565,837,145,205],ankle:[.30,.55],sole:[.614,.893]}],
-  wind_boots:[{crop:[780,837,142,205],ankle:[.56,.50],sole:[.50,.975]},{crop:[922,837,150,205],ankle:[.33,.50],sole:[.607,.936]}],
+  // Il ritaglio si ferma a x=912: oltre comincia la piuma dello stivale vicino.
+  wind_boots:[
+    {crop:[780,837,132,205],ankle:[.6024,.50],sole:[.5379,.975],overPants:[
+      // Fronte del gambale sotto il bordo a V: interno e bordo posteriore restano nascosti.
+      [[845,875],[866,892],[895,870],[893,905],[905,960],[905,990],[830,990],[838,960],[846,905]],
+      [[798,851],[808,861],[828,877],[841,886],[846,902],[848,917],[843,927],[832,925],[817,920],[816,913],[820,911],[807,896],[805,887],[810,884],[801,872],[797,860]],
+    ]},
+    {crop:[912,837,160,205],ankle:[.3719,.50],sole:[.6316,.936],overPants:[
+      [[950,876],[984,894],[1006,866],[1004,900],[1020,950],[1020,990],[930,990],[930,950],[950,905]],
+      [[916,849],[927,859],[942,874],[956,886],[962,901],[963,917],[950,918],[938,911],[931,903],[934,898],[922,890],[921,881],[925,878],[918,868],[916,857]],
+    ]},
+  ],
   bog_boots:[{crop:[1120,837,150,205],ankle:[.533,.50],sole:[.467,.975]},{crop:[1270,837,160,205],ankle:[.331,.50],sole:[.669,.94]}],
 };

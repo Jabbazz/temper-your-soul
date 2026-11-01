@@ -7,6 +7,7 @@ Chi lavora su cosa in Temper your soul, per evitare che persone e agenti AI modi
 | Area | Referente | Stato | Dal | Dettagli |
 | --- | --- | --- | --- | --- |
 | Inventario | simonragaz87-sudo | In carico | 1 novembre 2026 | [Vedi sotto](#inventario) |
+| Ritratti e sprite dei personaggi | simonragaz87-sudo | In corso, secondo il [piano](piano-revisione-sprite.md) | 1 novembre 2026 | [Vedi sotto](#ritratti-e-sprite-dei-personaggi) |
 
 Un'area che non compare in tabella non ha un referente: chi vuole lavorarci può prenderla in carico.
 
@@ -37,3 +38,15 @@ Un'area che non compare in tabella non ha un referente: chi vuole lavorarci può
 - `src/features/character/save-format.ts`: formato dei salvataggi. Cambiarlo richiede di incrementare `SAVE_VERSION` e gestire la migrazione.
 
 **Non comprende** il catalogo degli oggetti, le tabelle di bottino e il bilanciamento.
+
+### Ritratti e sprite dei personaggi
+
+**Referente:** simonragaz87-sudo. Ambito e fuori ambito sono nel [piano](piano-revisione-sprite.md).
+
+**Comprende** l'aspetto dell'equipaggiamento indossato:
+
+- `src/features/presentation/portrait-rig.ts`, `portrait-armor.ts`, `portrait-layout.ts`, `dungeon-item-portraits.ts`, `dungeon-portrait-svg.ts`
+- `src/features/presentation/character-art.ts`, `wearable-draw.ts`, `adventurer-body.ts`
+- `src/features/ui/illustrated-portrait.ts` e `.css`, `dungeon-portrait-layers.ts`
+
+**Non comprende** boss, servitori, icone degli oggetti e temi delle mappe.

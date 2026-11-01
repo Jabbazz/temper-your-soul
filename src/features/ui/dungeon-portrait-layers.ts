@@ -10,9 +10,9 @@ export function appendDungeonPortraitLayers(root:HTMLElement,appearance:Characte
   for(const slot of ['armor','boots','secondary_hand','primary_hand'] as const){
     const item=appearance.equipment[slot];if(!item)continue;
     const art=dungeonItemPortrait(item,appearance.body);if(!art)continue;
-    const make=(crop:AtlasRect,rect:AtlasRect,className:string)=>{
+    const make=(crop:AtlasRect,rect:AtlasRect,className:string,texture=art.texture)=>{
       const layer=el('div','illustrated-layer '+className);layer.dataset.familyId=item.familyId;
-      Object.assign(layer.style,{left:rect[0]*100+'%',top:rect[1]*100+'%',width:rect[2]*100+'%',height:rect[3]*100+'%',backgroundImage:'url("'+art.texture.url+'")',backgroundSize:64/crop[2]*100+'% '+64/crop[3]*100+'%',backgroundPosition:crop[0]/(64-crop[2])*100+'% '+crop[1]/(64-crop[3])*100+'%'});
+      Object.assign(layer.style,{left:rect[0]*100+'%',top:rect[1]*100+'%',width:rect[2]*100+'%',height:rect[3]*100+'%',backgroundImage:'url("'+texture.url+'")',backgroundSize:64/crop[2]*100+'% '+64/crop[3]*100+'%',backgroundPosition:crop[0]/(64-crop[2])*100+'% '+crop[1]/(64-crop[3])*100+'%'});
       return layer;
     };
     const attached=(crop:AtlasRect,fit:Similarity,className:string)=>{
@@ -21,10 +21,11 @@ export function appendDungeonPortraitLayers(root:HTMLElement,appearance:Characte
     };
     if(slot==='armor'){
       const anchors={neck:[32,26] as Point,waist:[32,39] as Point,shoulders:[[24,28],[40,28]] as const,hem:1};
-      for(const section of fitArmor([12,24,40,32],anchors,pose)){
-        const wrapper=el('div','illustrated-layer illustrated-armor'),[x,y,w,h]=section.rect;
+      for(const section of fitArmor([12,24,40,32],anchors,pose))for(const [texture,className] of [[art.rearTexture,'illustrated-armor-rear'],[art.texture,'illustrated-armor']] as const){
+        if(!texture)continue;
+        const wrapper=el('div','illustrated-layer '+className),[x,y,w,h]=section.rect;
         Object.assign(wrapper.style,{left:x*100+'%',top:y*100+'%',width:w*100+'%',height:h*100+'%',transformOrigin:'0 0',transform:'skewX('+section.skew+'rad)'});
-        const inner=make(section.crop,[0,0,1,1],'');if(section.mirror)inner.style.transform='scaleX(-1)';
+        const inner=make(section.crop,[0,0,1,1],'',texture);if(section.mirror)inner.style.transform='scaleX(-1)';
         wrapper.dataset.familyId=item.familyId;wrapper.append(inner);root.append(wrapper);
       }
     }else if(slot==='boots'){

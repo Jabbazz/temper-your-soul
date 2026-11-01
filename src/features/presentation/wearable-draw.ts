@@ -84,7 +84,8 @@ export function drawWearable(p: PixelPainter, appearance: CharacterAppearance, s
         for(const x of [10,27]) {p.poly([[x,26+b],[x-2,20+b],[x+4,23+b],[x+5,27+b]],light);p.line(x,23+b,x+3,25+b,'#ecfff5');}
         p.rect(20,27+b,3,4,'#79c5e4');p.rect(21,28+b,1,2,'#e8f8ee');
       } else if(art.shape==='reed') {
-        for(const x of [12,16,24,28]){p.line(x,25+b,x-2,42,c);p.poly([[x,27+b],[x+3,30+b],[x,34+b],[x-2,31+b]],light);}
+        // Due foglie sui lembi: il grosso del mantello sta dietro, tunica e cintura restano visibili.
+        for(const x of [14,26]){p.poly([[x,26+b],[x+2,29+b],[x,33+b],[x-1,29+b]],light);}
       } else {
         p.rect(12,24+b,4,2,trim);p.rect(25,24+b,3,2,trim);p.line(15,25+b,25,26+b,'#d6b969');
         p.rect(20,26+b,2,2,light);
