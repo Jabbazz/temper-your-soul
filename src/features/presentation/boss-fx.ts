@@ -27,6 +27,23 @@ export const BOSS_FX: Readonly<Record<string, BossFx>> = {
     ambient: { colors: ['#e6f7ff', '#9fe4ff', '#ffffff'], rate: 7, rise: 12, spread: 30 },
     rage: { colors: ['#8fe6ff', '#c9b3ff', '#f2fbff'], rate: 26, glow: '#6fd8ff' },
   },
+  // I luogotenenti: le stesse famiglie di colori dei boss, piu' sobrie.
+  belfry_gargoyle: {
+    ambient: { colors: ['#b8b4c0', '#8a8494', '#ffb36b'], rate: 4, rise: 20, spread: 22 },
+    rage: { colors: ['#ff5a3c', '#ffb36b', '#d8d0c0'], rate: 18, glow: '#ff6a4a' },
+  },
+  toad_king: {
+    ambient: { colors: ['#c8e060', '#8ab04a', '#e8c040'], rate: 5, rise: -10, spread: 30 },
+    rage: { colors: ['#c070b0', '#e2ff7a', '#9f6bff'], rate: 18, glow: '#a060d0' },
+  },
+  anvil_master: {
+    ambient: { colors: ['#ff9a3d', '#ffd04a', '#6a5850'], rate: 6, rise: -40, spread: 32 },
+    rage: { colors: ['#ff6a1a', '#ffd04a', '#ff3d12'], rate: 22, glow: '#ff5a00' },
+  },
+  first_apprentice: {
+    ambient: { colors: ['#e6f7ff', '#aef0ff', '#ffffff'], rate: 5, rise: 10, spread: 20 },
+    rage: { colors: ['#c9b3ff', '#8fe6ff', '#f2fbff'], rate: 18, glow: '#9fb0ff' },
+  },
 };
 
 const FALLBACK_FX = BOSS_FX.guardian!;

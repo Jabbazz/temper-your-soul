@@ -23,6 +23,28 @@
 - [ ] Provare manualmente creazione, persistenza, sensazione dei tre set iniziali, grind e premi dei quattro boss.
 - [ ] Tarare GS, livelli oggetto, probabilità e futuro effetto del livello oggetto sulle statistiche.
 - [ ] Prova manuale del grind per classe, della chiarezza delle probabilità condizionate e dei blocchi GS.
+- [x] Discesa a otto stanze con porte e premi, regista delle ondate, insidie, luogotenenti, Prova, Reliquiario con patto, Santuario, Assedio, Caccia e Anticamera (ramo `feature/discesa`, proposta).
+- [x] 32 servitori a tema con comportamenti composti dai dati, élite generiche e a tema, segnali a terra e gettoni d'attacco.
+- [x] Tempre, braci, Altare dell'anima, Bestiario, Duello, Pellegrinaggio e gradi di tempra; salvataggio v7 con migrazione dalla v6.
+- [x] Cooperativa con protocollo 4: modalità e grado nella lobby, servitori compatti, scelta delle tempre e patti dal server.
+- [ ] Decisioni di Jabbaz sulla discesa (Altare al posto della Forgia, sblocco del Duello, bottino solo dal boss, cosa si perde alla sconfitta, scalatura del gruppo).
+- [ ] Prova giocata di una discesa per dungeon, da soli e in quattro, per tarare vita dei servitori, budget, braci e costi dell'Altare.
+- [ ] Banda delle stanze affollate (circa 26 KB/s per client con 35 servitori): valutare posizioni dei servitori a 15 Hz o solo quando cambiano.
+- [x] Fase 0 dello studio sulla grafica: proiettili per squadra, colori nuovi, sagome con bordo, figure ordinate per profondità, particelle sotto i proiettili nemici, luce finta, decori lungo i muri, pavimento della cripta senza strisce (548 test).
+- [ ] Fasi successive dello studio (profondità e luce, minimappa, forme delle stanze, tileset, vene di nemici): dopo le decisioni di Jabbaz.
+
+Incremento discesa: **545 test**, tipi client/server e build superati. Prove nel browser su origini separate:
+- in singolo: Soglia, porte con i cartelli, dissolvenza, scelta della tempra con i tasti 1–3, Reliquiario con patto (vita massima 100 → 80), luogotenente, Assedio, Santuario, Caccia con sigillo, Anticamera, boss, vittoria con bottino e sigilli, sconfitta, Altare, Bestiario, Duello e grado 1 aperti dopo la vittoria;
+- in cooperativa, con due client sul server 4173: lobby con modalità e grado, avvio, servitori replicati, porta attraversata insieme, alleato a terra rialzato nella stanza dopo, sconfitta comune con braci salvate per entrambi.
+
+Corretti durante le prove:
+- miniature del Bestiario che coprivano la schermata;
+- pulsanti delle schede dei dungeon fuori dal riquadro;
+- quinta statistica della vittoria a capo;
+- luogotenenti assenti dal Bestiario;
+- testi con accenti scritti come apostrofi.
+
+Non è una prova giocata a mano: le stanze sono state liberate da script e bot.
 
 Incremento vincoli e probabilità: **383 test**, tipi e build superati. Copertura delle tre classi su tutte le famiglie, dei set iniziali compatibili, della lettura di vecchi equipaggiamenti, dei confini GS e della raggiungibilità delle soglie tramite i dungeon precedenti. Browser isolato a 1440 e 390 px: hover scuro, arco non equipaggiabile al Mago da clic destro o pulsante, trascinamento disattivato, blocchi T3/T4 a 80 GS, sblocco esatto a 100/200, tooltip 33,33%/66,67% e quote per pezzo. Nessuna eccezione JavaScript; conferma giocata ancora da ricevere.
 

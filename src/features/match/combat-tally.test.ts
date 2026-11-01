@@ -55,8 +55,8 @@ describe('resoconto della battaglia', () => {
     match.events.connect((event) => tally.handle(event));
     recordEvents(match);
     const shot = { team: 'player' as const, speed: 0, damage: 25, radius: 4, lifetime: 0.05, visual: 'arcane_bolt' };
-    match.boss.position = new Vec2(2400, 600);
-    match.projectiles.push(new Projectile(1, shot, match.boss.position, 0));
+    match.boss!.position = new Vec2(2400, 600);
+    match.projectiles.push(new Projectile(1, shot, match.boss!.position, 0));
     match.projectiles.push(new Projectile(2, shot, new Vec2(1600, 1600), 0));
     for (let i = 0; i < 10; i++) match.step(STEP, intent(match));
     expect(tally.summary()).toMatchObject({ shotsLanded: 1, shotsMissed: 1, accuracy: 0.5, bossDamage: 25 });

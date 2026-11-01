@@ -11,13 +11,16 @@ import { MAGE_SKILLS } from '../skills/mage-skills';
 import { PartyRoom } from './party-room';
 import { applySnapshot, cleanIntent, NETWORK, parseWire, snapshotOf } from './protocol';
 
-function character(name = 'Alice'): string {
-  const c = Character.createStarter(); c.completeCreation(name, 'female', 'mage'); return serializeCharacter(c);
+function character(name = 'Alice', veteran = true): string {
+  const c = Character.createStarter(); c.completeCreation(name, 'female', 'mage');
+  // Un veterano ha gia' battuto i boss: il duello e' aperto.
+  if (veteran) for (const id of ['crypt', 'swamp', 'forge', 'glacier']) c.records[id] = { clears: 1, bestTimeSeconds: 60 };
+  return serializeCharacter(c);
 }
 function room(): PartyRoom { const r = new PartyRoom('test'); r.enter('a', character()); r.enter('b', character('Bruno')); return r; }
 function match(): Match {
   const m = new Match({ rng: new SeededRng(7), dungeon: CRYPT, loadout: MAGE_SKILLS, members: ['a', 'b'].map(id => ({ id, loadout: MAGE_SKILLS })) });
-  m.boss.attackTimer = 1e6; return m;
+  m.boss!.attackTimer = 1e6; return m;
 }
 const idle: PlayerIntent = { move: Vec2.ZERO, aimOffset: new Vec2(100, 0), skills: [false, false, false, false] };
 
@@ -53,14 +56,88 @@ describe('lobby autorevole', () => {
     expect(r.match!.players.get('a')!.health.isDead).toBe(true); expect(r.playing).toBe(true); expect(r.leaderId).toBe('b');
   });
   it('i premi sono estratti una volta per membro e restano identici negli snapshot successivi', () => {
-    const r = room(); r.ready.add('a'); r.ready.add('b'); r.start('a', 'battle', 7);
-    r.match!.boss.health.current = 1;
-    r.match!.zones.push(new DangerZone(999, { team: 'player', damage: 10, radius: 100, delay: 0 }, r.match!.boss.position));
+    const r = room(); r.chooseMode('a', 'duel', 0); r.ready.add('a'); r.ready.add('b'); r.start('a', 'battle', 7);
+    r.match!.boss!.health.current = 1;
+    r.match!.zones.push(new DangerZone(999, { team: 'player', damage: 10, radius: 100, delay: 0 }, r.match!.boss!.position));
     r.tick(0); const first = r.snapshot()!;
     expect(first.status).toBe('won'); expect(Object.keys(first.rewards)).toEqual(['a', 'b']);
     expect(first.rewards.a.length).toBeLessThanOrEqual(1); expect(first.rewards.b.length).toBeLessThanOrEqual(1);
     r.tick(1000); const next = r.snapshot()!;
     expect(next.rewards).toEqual(first.rewards); expect(next.time).toBe(first.time); expect(next.events).toEqual([]);
+  });
+});
+
+describe('discesa in cooperativa', () => {
+  /** Libera la stanza in corso e porta tutti sulla prima porta, prendendo i premi e scegliendo le tempre. */
+  function clearAndExit(r: PartyRoom): void {
+    const run = r.run!;
+    const match = run.match;
+    for (let i = 0; i < 60 * 240 && !run.encounter.cleared && match.status === 'playing'; i++) {
+      for (const p of match.players.values()) { if (!p.health.isDead) { p.health.current = p.health.max; p.invulnerableFor = 1; } }
+      for (const m of match.minions) if (!m.isHidden) m.health.current = 0;
+      if (match.boss !== null && !match.boss.health.isDead && i > 30) {
+        match.boss.health.current = 1;
+        match.zones.push(new DangerZone(700_000 + i, { team: 'player', damage: 10, radius: 80, delay: 0 }, match.boss.position));
+      }
+      r.tick(i);
+    }
+    for (let i = 0; i < 60 * 30 && run.match === match && match.status === 'playing'; i++) {
+      const view = run.roomView();
+      for (const [id, p] of match.players) {
+        if (p.health.isDead) continue;
+        if (view.offers[id]) r.chooseTemper(id, 0);
+        if (view.pacts.includes(id)) r.answerPact(id, false);
+        const pickup = view.pickups.find((q) => !q.takenBy.includes(id) && q.kind !== 'anvil');
+        p.position = pickup !== undefined && i < 600 ? new Vec2(pickup.x, pickup.y) : run.encounter.doors[0]!.position;
+      }
+      r.tick(i);
+    }
+  }
+
+  it('il leader sceglie modalita\' e grado; il duello chiede il boss gia\' battuto da tutti', () => {
+    const r = new PartyRoom('d'); r.enter('a', character()); r.enter('b', character('Bruno', false));
+    expect(r.mode).toBe('descent');
+    expect(() => r.chooseMode('b', 'duel', 0)).toThrow('Solo il leader');
+    expect(() => r.chooseMode('a', 'arena', 0)).toThrow('Modalità');
+    expect(() => r.chooseMode('a', 'descent', 9)).toThrow('Grado');
+    r.chooseMode('a', 'duel', 0); r.ready.add('a'); r.ready.add('b');
+    expect(() => r.start('a', 'x', 1)).toThrow('Bruno: il duello');
+    r.chooseMode('a', 'descent', 1); r.ready.add('a'); r.ready.add('b');
+    expect(() => r.start('a', 'x', 1)).toThrow('grado 1');
+    r.chooseMode('a', 'pilgrimage', 0); r.ready.add('a'); r.ready.add('b');
+    expect(() => r.start('a', 'x', 1)).toThrow('GS');
+    expect(r.state()).toMatchObject({ mode: 'pilgrimage', grade: 0 });
+  });
+
+  it('una discesa intera sul server: stanze nuove per la rete, tempre scelte dai client, bottino per giocatore', () => {
+    const r = room(); r.ready.add('a'); r.ready.add('b'); r.start('a', 'run', 11);
+    const first = r.snapshot()!;
+    expect(first.id).toBe('run:1'); expect(first.boss).toBeNull(); expect(first.room?.kind).toBe('threshold');
+    expect(first.run?.stage).toBe(0); expect(first.setup.arena).not.toBeNull();
+    const ids = new Set<string>([first.id]);
+    for (let room = 0; room < 12 && r.playing; room++) {
+      clearAndExit(r);
+      const snapshot = r.snapshot()!;
+      ids.add(snapshot.id);
+    }
+    expect(r.playing).toBe(false);
+    expect(r.run!.status).toBe('won');
+    expect(ids.size).toBe(8);
+    const last = r.snapshot()!;
+    expect(last.status).toBe('won');
+    expect(Object.keys(last.rewards).sort()).toEqual(['a', 'b']);
+    expect(last.run!.players.a!.tempers.length).toBeGreaterThan(0);
+    expect(last.run!.victories).toHaveLength(1);
+    expect(() => r.chooseTemper('a', 0)).toThrow();
+  });
+
+  it('chi si disconnette a meta\' discesa resta a terra e non entra nelle stanze dopo', () => {
+    const r = room(); r.ready.add('a'); r.ready.add('b'); r.start('a', 'run', 4);
+    r.leave('b');
+    expect(r.run!.match.players.get('b')!.health.isDead).toBe(true);
+    clearAndExit(r);
+    expect(r.run!.match.players.has('b')).toBe(false);
+    expect(r.playing).toBe(true);
   });
 });
 
@@ -83,13 +160,13 @@ describe('combattimento cooperativo', () => {
     m.players.get('b')!.health.current = 0; m.stepParty(NETWORK.step, new Map()); expect(m.status).toBe('lost');
   });
   it('carica e contatto possono danneggiare un alleato diverso dal bersaglio', () => {
-    const m = match(), b = m.players.get('b')!; b.position = m.boss.position; m.player.position = m.boss.position.add(new Vec2(120, 0));
-    m.boss.charge = { start: m.boss.position, target: m.boss.position.add(new Vec2(300, 0)), elapsed: 1, windup: 0, duration: 1000 };
+    const m = match(), b = m.players.get('b')!; b.position = m.boss!.position; m.player.position = m.boss!.position.add(new Vec2(120, 0));
+    m.boss!.charge = { start: m.boss!.position, target: m.boss!.position.add(new Vec2(300, 0)), elapsed: 1, windup: 0, duration: 1000 };
     m.stepParty(NETWORK.step, new Map()); expect(b.health.current).toBeLessThan(100); expect(m.player.health.current).toBe(100);
   });
   it('attribuisce il danno di skill al proprietario e limita il report agli HP effettivi', () => {
-    const m = match(); const b = m.players.get('b')!; b.position = m.boss.position.sub(new Vec2(80, 0)); m.boss.health.current = 1;
-    for (let i = 0; i < 60 && m.status === 'playing'; i++) m.stepParty(NETWORK.step, new Map([['b', { ...idle, aimOffset: m.boss.position.sub(b.position), skills: [true, false, false, false] }]]));
+    const m = match(); const b = m.players.get('b')!; b.position = m.boss!.position.sub(new Vec2(80, 0)); m.boss!.health.current = 1;
+    for (let i = 0; i < 60 && m.status === 'playing'; i++) m.stepParty(NETWORK.step, new Map([['b', { ...idle, aimOffset: m.boss!.position.sub(b.position), skills: [true, false, false, false] }]]));
     expect(m.status).toBe('won'); expect(m.report.get('b')!.damageDealt).toBe(1); expect(m.report.get('a')!.damageDealt).toBe(0);
     expect(m.report.get('b')!.healing).toBe(0);
   });
@@ -99,7 +176,7 @@ describe('combattimento cooperativo', () => {
     const replica = match(); replica.viewPlayerId = 'b'; applySnapshot(replica, decoded);
     expect(replica.player.position).toEqual(m.players.get('b')!.position); expect(replica.player.position.distanceTo(Vec2.ZERO)).toBeGreaterThan(0);
     expect(replica.player.mana).toBe(m.players.get('b')!.mana); expect(replica.player.skillBar.cooldowns()).toEqual(m.players.get('b')!.skillBar.cooldowns());
-    expect(replica.boss.position).toEqual(m.boss.position); expect(replica.projectiles).toHaveLength(m.projectiles.length);
+    expect(replica.boss!.position).toEqual(m.boss!.position); expect(replica.projectiles).toHaveLength(m.projectiles.length);
   });
   it('rifiuta input non finiti e skill arbitrarie; normalizza movimento e limita la mira', () => {
     expect(cleanIntent({ ...idle, move: { x: Infinity, y: 0 } })).toBeNull(); expect(cleanIntent({ ...idle, skills: ['hack'] })).toBeNull();

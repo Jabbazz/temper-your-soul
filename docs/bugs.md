@@ -63,6 +63,39 @@ Quattro revisori dovevano guardare salvataggio e bottino, flusso delle schermate
 - **La copia `...:corrupt` puo' essere sovrascritta** da un nuovo salvataggio illeggibile (perdendo un backup valido, per esempio di una versione futura); una versione piu' recente del formato verrebbe sovrascritta alla prima vittoria. Da gestire quando si introduce la versione 2.
 Nessuna di queste e' stata riprodotta a mano. Le altre segnalazioni di questa revisione sono state corrette: vedi "Correzioni rapide" in "Risolti".
 
+## Discesa (ramo `feature/discesa`)
+
+Aperti:
+
+- **Banda nelle stanze affollate** (misurata con il benchmark, non un difetto osservato in partita). Una stanza del ghiacciaio con quattro giocatori e 35 servitori invia circa 26 KB/s per client, il doppio del duello. Da tenere d'occhio sui tunnel lenti.
+- **«Contatto con il boss» anche per il luogotenente** (osservato nel resoconto della sconfitta). La fonte del contatto ha un nome fisso in `match.ts`.
+- **Stendardo della fase II sopra la schermata di vittoria** (osservato solo facendo avanzare la simulazione a scatti da script). Il boss era morto prima della fine dello stendardo. In partita normale servirebbe un danno enorme in meno di 1,6 s: non riprodotto giocando.
+- **Nessuna prova giocata a mano**: stanze liberate da script e bot. Sensazione, difficoltà e leggibilità delle ondate restano da confermare.
+
+Risolti con la fase 0 dello studio sulla grafica (rilevati leggendo il codice e confermati nel browser):
+
+- **Colpi dei giocatori confondibili con quelli nemici**: rombo e dardo avevano un colore fisso, quindi il globo di gelo era identico alla nova del Custode e il dardo arcano al dardo a croce. Ora ogni forma usa il suo colore e le squadre hanno un trattamento diverso (test sul contrasto).
+- **Proiettili mimetizzati**: il mantice del Colosso aveva esattamente il colore della lava; le spore della Madre il colore dei funghi del pavimento. Ricolorati mantice, braci e scossa; i funghi ora sono ciano.
+- **Particelle sopra i proiettili**: le scie additive, disegnate dopo, sbiadivano i proiettili nemici. Ora stanno sotto.
+- **Figure non ordinate**: chi stava dietro un nemico veniva disegnato sopra. Ora le figure si ordinano per profondità.
+- **Strisce nel pavimento della cripta**: il "rumore" era una sinusoide regolare. Ora è un hash.
+- **Decori fuori posto nelle stanze**: bracieri sulla porta centrale e sull'ingresso, torce in mezzo al campo. Ora stanno lungo i muri e lasciano liberi porte, ingresso e pilastri (test su tutte le stanze).
+
+Aperti dopo la fase 0:
+
+- **La zona libera davanti alle porte vale anche nell'arena del boss**, che porte non ne ha: lì il muro in alto ha meno torce. È solo aspetto.
+- **Il contorno scuro dei proiettili è uguale in tutti i temi**: lo studio propone di farlo più spesso nel ghiacciaio.
+- **Boss e luogotenenti senza bordo chiaro**: per i fogli PNG serve una variante in più, rinviata.
+
+Risolti durante le prove nel browser:
+
+- **Bestiario vuoto a schermo**: le miniature dei servitori ereditavano la regola `canvas` dell'arena (assolute, a tutto schermo) e coprivano le schede. Ora restano nel flusso.
+- **Pulsanti Discesa/Duello fuori dalle schede dei dungeon**: l'altezza fissa di 480 px non bastava per la riga in più della discesa. Ora la scheda cresce e i pulsanti restano allineati in fondo.
+- **Quinta statistica della vittoria della discesa da sola su una riga**: colonne più strette, ora stanno tutte e cinque su una riga.
+- **Luogotenenti assenti dal Bestiario**: le uccisioni non venivano contate e il salvataggio le scartava. Ora contano, si salvano (test) e hanno la loro pagina.
+- **Record del boss nella scheda**: diceva «1 vittorie · duello» anche per il boss battuto in discesa; ora «1 vittoria · in m:ss».
+- **Accenti scritti con l'apostrofo** in alcuni testi a schermo nuovi («piu'», «li'», «priorita'»): corretti.
+
 ## Risolti
 
 - **In partita singola la finestra «Combat report» si apriva sopra la schermata di vittoria o sconfitta**, con una sola riga (osservato nel browser). Ora le statistiche stanno nella schermata finale; la finestra resta solo in cooperativa, dopo la schermata.

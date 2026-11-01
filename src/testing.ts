@@ -32,7 +32,7 @@ export function createBoss(definition: BossDefinition = GUARDIAN): Boss {
 /** Partita con il boss "spento": non lancia attacchi (si muove comunque). */
 export function createQuietMatch(seed = 1, options: { dungeon?: DungeonDefinition; loadout?: Loadout } = {}): Match {
   const match = createMatch(seed, options);
-  match.boss.attackTimer = Number.POSITIVE_INFINITY;
+  match.boss!.attackTimer = Number.POSITIVE_INFINITY;
   return match;
 }
 

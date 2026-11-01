@@ -4,16 +4,20 @@ import { angleDifference, TAU, Vec2 } from '../../core/vec2';
 import { clampToArena, isOutsideProjectileBounds, moveBody, pillarAt, pillarBetween, pushOutOfPillars, type ArenaDefinition } from '../arena/arena';
 import { Boss } from '../boss/boss';
 import type { BossContext } from '../boss/boss-context';
+import type { BossDefinition } from '../boss/boss-definition';
 import { HIT_RADIUS, ZONE_EDGE_FORGIVENESS } from '../combat/collision';
 import { DangerZone, type DangerZoneSpec } from '../combat/danger-zone';
 import type { DamageSource, GameEvent } from '../combat/events';
 import { Projectile, type ProjectileSpec } from '../combat/projectile';
 import type { DungeonDefinition } from '../dungeons/dungeon-definition';
-import { Minion } from '../minions/minion';
-import type { BossSummons } from '../minions/minion-definition';
+import { Minion, type MinionOptions } from '../minions/minion';
+import { stepMinion, wakeIfDormant, type MinionContext } from '../minions/minion-ai';
+import { MINIONS } from '../minions/minion-catalog';
+import type { BossSummons, MinionDefinition } from '../minions/minion-definition';
 import { Player } from '../player/player';
 import type { Loadout } from '../skills/skill-definition';
 import { tryCastSkill, type SkillContext } from '../skills/skill-effects';
+import type { Encounter } from './encounter';
 
 /** Che cosa vuole fare il giocatore in questo passo. Lo produce l'input (o un test). */
 export interface PlayerIntent {
@@ -31,21 +35,51 @@ export interface PlayerIntent {
 
 export type MatchStatus = 'playing' | 'won' | 'lost';
 
+/** Un giocatore della partita: skill e, fra una stanza e l'altra della discesa, la vita e il mana che porta con se'. */
+export interface MatchMember {
+  readonly id: string;
+  readonly loadout: Loadout;
+  readonly health?: number;
+  readonly maxHealth?: number;
+  readonly mana?: number;
+}
+
 export interface MatchOptions {
   /** Casualita' della simulazione: con lo stesso seme e gli stessi comandi la partita e' identica. */
   readonly rng: Rng;
   readonly dungeon: DungeonDefinition;
   /** Le skill del giocatore per slot (derivano dall'equipaggiamento). */
   readonly loadout: Loadout;
-  readonly members?: readonly { id: string; loadout: Loadout }[];
+  readonly members?: readonly MatchMember[];
+  /** La mappa: predefinita quella del dungeon (il duello); le stanze della discesa hanno la propria. */
+  readonly arena?: ArenaDefinition;
+  /** Il boss: predefinito quello del dungeon; `null` = nessun boss (stanza di servitori); un luogotenente nelle stanze. */
+  readonly boss?: BossDefinition | null;
+  /** L'obiettivo della stanza della discesa (ondate, porte, premi). Senza: il duello di sempre. */
+  readonly encounter?: Encounter;
 }
+
+/** Limiti del gruppo dei servitori. Provvisori (vedi lo studio sulla progressione). */
+export const MINION_LIMITS = {
+  /** Proiettili dei servitori vivi insieme: oltre, chi deve sparare salta la raffica. */
+  projectiles: 80,
+  /** Gettoni d'attacco: quanti servitori possono annunciare una raffica insieme, piu' uno per giocatore. */
+  tokens: 3,
+} as const;
+
+/** Chi infligge i danni dell'ambiente (zone dei servitori che feriscono altri servitori): non e' un giocatore. */
+export const ENVIRONMENT_ID = 'ambiente';
 
 /** Fonte dei danni di contatto con il boss. */
 const CONTACT_SOURCE: DamageSource = { kind: 'contact', name: 'Contatto con il boss' };
 
+/** Come un colpo ha raggiunto un servitore: decide scudi e rinascite. */
+type MinionHitVia = 'projectile' | 'zone' | 'arc' | 'environment';
+
 /**
- * Una partita: il giocatore contro il boss di un dungeon. E' la simulazione completa, senza DOM ne' disegno:
- * avanza a passo fisso con `step()` e racconta cio' che accade con gli eventi (`events`).
+ * Una partita: i giocatori contro il boss di un dungeon, oppure una stanza della discesa (servitori, luogotenente,
+ * premi). E' la simulazione completa, senza DOM ne' disegno: avanza a passo fisso con `step()` e racconta cio' che
+ * accade con gli eventi (`events`).
  */
 export class Match {
   /** Eventi della simulazione, per rappresentazione e audio. */
@@ -58,34 +92,56 @@ export class Match {
   viewPlayerId = 'local';
   get player(): Player { return this.players.get(this.viewPlayerId) ?? this.players.values().next().value!; }
   private readonly owners = new Map<number, string>();
-  /** Da quale schema del boss viene ogni proiettile o zona nemica (per la fonte dei danni subiti). */
+  /** Da quale schema del boss (o servitore) viene ogni proiettile o zona nemica (per la fonte dei danni subiti). */
   private readonly sources = new Map<number, DamageSource>();
+  /** Proiettili dei servitori ancora vivi (per il loro limite). */
+  private readonly minionShots = new Set<number>();
+  /** Proiettili nemici che rallentano chi colpiscono: secondi. */
+  private readonly slowingShots = new Map<number, number>();
+  /** Servitori che tengono un gettone d'attacco. */
+  private readonly tokens = new Set<number>();
+  /** Zone programmate (pozze che pulsano): partono quando `at` arriva. */
+  private delayed: { at: number; spec: DangerZoneSpec; position: Vec2; source: DamageSource }[] = [];
   /** Nome dell'ultimo schema annunciato dal boss: le sue azioni programmate gli appartengono. */
   private currentPattern = '';
   private actingId = 'local';
-  readonly boss: Boss;
+  /** Il boss: quello del dungeon nel duello, il luogotenente nella sua stanza, nessuno nelle stanze di servitori. */
+  readonly boss: Boss | null;
+  readonly encounter: Encounter | null;
   projectiles: Projectile[] = [];
   zones: DangerZone[] = [];
-  /** Servitori vivi (evocati dal boss in furia). */
+  /** Servitori vivi (evocati dal boss o mandati dal regista della stanza). */
   minions: Minion[] = [];
   status: MatchStatus = 'playing';
   /** Secondi di partita trascorsi (si fermano alla fine). */
   time = 0;
 
   private nextId = 1;
-
+  private readonly minionContext: MinionContext;
 
   constructor(options: MatchOptions) {
     this.dungeon = options.dungeon;
-    this.arena = options.dungeon.arena;
+    this.arena = options.arena ?? options.dungeon.arena;
     this.rng = options.rng;
     const members = options.members ?? [{ id: 'local', loadout: options.loadout }];
-    this.viewPlayerId = members[0].id;
+    this.viewPlayerId = members[0]!.id;
     for (const member of members) {
-      this.players.set(member.id, new Player(this.arena, member.loadout));
+      const player = new Player(this.arena, member.loadout, member.maxHealth);
+      if (member.health !== undefined) player.health.current = Math.max(0, Math.min(player.health.max, member.health));
+      if (member.mana !== undefined) player.mana = Math.max(0, Math.min(player.maxMana, member.mana));
+      this.players.set(member.id, player);
       this.report.set(member.id, { damageDealt: 0, damageReceived: 0, healing: 0 });
     }
-    this.boss = new Boss(options.dungeon.boss, this.arena);
+    const bossDefinition = options.boss === undefined ? options.dungeon.boss : options.boss;
+    this.boss = bossDefinition === null ? null : new Boss(bossDefinition, this.arena);
+    this.encounter = options.encounter ?? null;
+    this.minionContext = this.createMinionContext();
+    this.encounter?.attach(this);
+  }
+
+  /** Il prossimo id di un'entita' (proiettili, zone, servitori): unico nella partita. */
+  private mintId(): number {
+    return this.nextId++;
   }
 
   private context(id: string, player: Player): SkillContext {
@@ -108,7 +164,7 @@ export class Match {
     if (this.status !== 'playing') return;
     this.time += dt;
 
-    this.boss.tick(dt);
+    this.boss?.tick(dt);
     for (const [id, player] of this.players) {
       if (player.health.isDead) continue;
       player.tick(dt);
@@ -127,13 +183,19 @@ export class Match {
       syncAim();
     }
     if (this.status !== 'playing') return;
-    const target = this.nearestPlayer(this.boss.position);
-    if (!target) { this.end(false); return; }
-    this.boss.step(dt, this.bossContext(target));
-    for (const player of this.players.values()) {
-      if (player.position.distanceTo(this.boss.position) < this.boss.stats.contactDistance) this.hurtPlayer(this.boss.stats.contactDamage, player, CONTACT_SOURCE);
+    const boss = this.boss;
+    if (boss !== null && !boss.health.isDead) {
+      const target = this.nearestPlayer(boss.position);
+      if (!target) { this.end(false); return; }
+      boss.step(dt, this.bossContext(target));
+      for (const player of this.players.values()) {
+        if (player.position.distanceTo(boss.position) < boss.stats.contactDistance) this.hurtPlayer(boss.stats.contactDamage, player, CONTACT_SOURCE);
+      }
     }
 
+    this.encounter?.step(dt, this);
+    if (this.status !== 'playing') return;
+    this.runDelayed();
     this.stepMinions(dt);
     this.stepProjectiles(dt);
     this.stepZones(dt);
@@ -141,7 +203,7 @@ export class Match {
   }
 
   /** Il giocatore vivo piu' vicino a un punto. */
-  private nearestPlayer(point: Vec2): Player | undefined {
+  nearestPlayer(point: Vec2): Player | undefined {
     let target: Player | undefined;
     let nearest = Infinity;
     for (const p of this.players.values()) {
@@ -150,6 +212,11 @@ export class Match {
       if (distance < nearest) { nearest = distance; target = p; }
     }
     return target;
+  }
+
+  /** I giocatori ancora in piedi. */
+  livingPlayers(): Player[] {
+    return [...this.players.values()].filter((player) => !player.health.isDead);
   }
 
   private bossContext(target: Player): BossContext {
@@ -170,8 +237,10 @@ export class Match {
         this.hurtPlayer(amount, target, chargeSource());
       },
       hurtNearbyPlayers: amount => {
+        const boss = this.boss;
+        if (boss === null) return;
         for (const player of this.players.values()) {
-          if (player.position.distanceTo(this.boss.position) < this.boss.stats.chargeHitDistance) this.hurtPlayer(amount, player, chargeSource());
+          if (player.position.distanceTo(boss.position) < boss.stats.chargeHitDistance) this.hurtPlayer(amount, player, chargeSource());
         }
       },
       summon: (summons, count, center) => this.summon(summons, count, center),
@@ -183,11 +252,36 @@ export class Match {
   }
 
   private spawnProjectile(spec: ProjectileSpec, position: Vec2, angle: number): void {
-    this.projectiles.push(new Projectile(this.nextId++, spec, position, angle));
+    this.projectiles.push(new Projectile(this.mintId(), spec, position, angle));
   }
 
   private spawnZone(spec: DangerZoneSpec, position: Vec2): void {
-    this.zones.push(new DangerZone(this.nextId++, spec, position));
+    this.zones.push(new DangerZone(this.mintId(), spec, position));
+  }
+
+  /** Una zona nemica dell'ambiente (insidie della stanza): `source` dice cosa l'ha creata. */
+  spawnHazardZone(spec: DangerZoneSpec, position: Vec2, source: DamageSource): void {
+    this.spawnZone(spec, clampToArena(this.arena, position, this.arena.playerMargin));
+    this.sources.set(this.nextId - 1, source);
+  }
+
+  /**
+   * Mette in campo un servitore (regista della stanza, nidi, divisioni, test): dentro l'arena, fuori dai pilastri se
+   * non vola, e lo annuncia con `minion_spawned`.
+   */
+  spawnMinion(definition: MinionDefinition, position: Vec2, options: MinionOptions = {}): Minion {
+    const inside = clampToArena(this.arena, position, this.arena.playerMargin);
+    const placed = definition.flying ? inside : pushOutOfPillars(this.arena, inside, definition.hitRadius);
+    const minion = new Minion(this.mintId(), definition, placed, options);
+    this.minions.push(minion);
+    this.events.emit({
+      type: 'minion_spawned',
+      position: placed,
+      minionId: minion.id,
+      visual: definition.visual,
+      ...(options.elite ? { elite: options.elite } : {}),
+    });
+    return minion;
   }
 
   /**
@@ -200,51 +294,127 @@ export class Match {
     const start = center.angleTo(this.nearestPlayer(center)?.position ?? center);
     for (let i = 0; i < n; i++) {
       const angle = start + Math.PI / 4 + (i * TAU) / Math.max(n, 1);
-      const raw = clampToArena(this.arena, center.add(Vec2.fromAngle(angle, summons.ringRadius)), this.arena.playerMargin);
-      const position = pushOutOfPillars(this.arena, raw, summons.minion.hitRadius);
-      const minion = new Minion(this.nextId++, summons.minion, position);
-      this.minions.push(minion);
-      this.events.emit({ type: 'minion_spawned', position, minionId: minion.id, visual: summons.minion.visual });
+      this.spawnMinion(summons.minion, center.add(Vec2.fromAngle(angle, summons.ringRadius)));
     }
   }
 
-  /** Comportamento dei servitori: inseguire, esplodere a contatto o sparare da fermi. */
+  /** Quanti servitori ostili sono ancora vivi (o stanno per rialzarsi). */
+  hostileCount(): number {
+    let count = 0;
+    for (const minion of this.minions) if (!minion.isDead && minion.hostile) count++;
+    return count;
+  }
+
+  /** Fa sparire tutti i servitori, senza i loro effetti di morte (stanza liberata, boss caduto). */
+  dismissMinions(): void {
+    for (const minion of [...this.minions]) this.killMinion(minion, false, 'environment', false);
+    this.minions = [];
+    this.tokens.clear();
+  }
+
+  /** Comportamento dei servitori, poi la spinta che li tiene separati. */
   private stepMinions(dt: number): void {
-    for (const minion of this.minions) {
+    for (const minion of [...this.minions]) {
       if (minion.isDead || this.status !== 'playing') continue;
-      const target = this.nearestPlayer(minion.position);
-      if (!target) continue;
-      const { definition } = minion;
-      const source: DamageSource = { kind: 'minion', name: definition.name };
-      if (definition.behavior === 'turret') {
-        minion.shotTimer -= dt;
-        if (definition.shot !== undefined && minion.shotTimer <= 0) {
-          minion.shotTimer = definition.shot.interval;
-          this.spawnProjectile(definition.shot.projectile, minion.position, minion.position.angleTo(target.position));
-          this.sources.set(this.nextId - 1, source);
-        }
-      } else {
-        const step = minion.position.add(Vec2.fromAngle(minion.position.angleTo(target.position), definition.speed * dt));
-        minion.position = moveBody(this.arena, minion.position, step, definition.hitRadius, this.arena.playerMargin);
-      }
-      const touching = minion.position.distanceTo(target.position) < definition.hitRadius + HIT_RADIUS.player;
-      if (!touching) continue;
-      if (definition.behavior === 'kamikaze') {
-        const reach = definition.blastRadius ?? definition.hitRadius;
-        for (const player of this.players.values()) {
-          if (player.position.distanceTo(minion.position) < reach + HIT_RADIUS.player) this.hurtPlayer(definition.contactDamage, player, source);
-        }
-        this.killMinion(minion, true);
-      } else {
-        this.hurtPlayer(definition.contactDamage, target, source);
-      }
+      stepMinion(minion, this.minionContext, dt);
     }
+    this.separateMinions();
     this.minions = this.minions.filter((minion) => !minion.isDead);
   }
 
-  /** Il primo servitore vivo che il punto tocca (entro `extra` dal suo raggio di colpo). */
+  /** I servitori non si ammucchiano in un punto: chi si sovrappone viene spinto via (le torrette restano ferme). */
+  private separateMinions(): void {
+    const bodies = this.minions.filter((m) => !m.isDead && !m.isHidden && m.state !== 'airborne' && m.state !== 'dash');
+    for (let i = 0; i < bodies.length; i++) {
+      const a = bodies[i]!;
+      for (let j = i + 1; j < bodies.length; j++) {
+        const b = bodies[j]!;
+        if (a.definition.flying !== b.definition.flying) continue;
+        const minimum = (a.hitRadius + b.hitRadius) * 0.85;
+        const offset = b.position.sub(a.position);
+        const distance = offset.length();
+        if (distance >= minimum) continue;
+        const direction = distance > 0.01 ? offset.mul(1 / distance) : Vec2.fromAngle(((a.id * 7 + b.id * 13) % 360) * (Math.PI / 180));
+        const aMoves = a.definition.speed > 0, bMoves = b.definition.speed > 0;
+        if (!aMoves && !bMoves) continue;
+        const overlap = minimum - distance;
+        const share = aMoves && bMoves ? 0.5 : 1;
+        if (aMoves) a.position = this.settle(a, a.position.sub(direction.mul(overlap * share)));
+        if (bMoves) b.position = this.settle(b, b.position.add(direction.mul(overlap * share)));
+      }
+    }
+  }
+
+  private settle(minion: Minion, point: Vec2): Vec2 {
+    const inside = clampToArena(this.arena, point, this.arena.playerMargin);
+    return minion.definition.flying ? inside : pushOutOfPillars(this.arena, inside, minion.hitRadius);
+  }
+
+  /** Che cosa la partita offre ai servitori (vedi `minion-ai.ts`). */
+  private createMinionContext(): MinionContext {
+    const sourceOf = (minion: Minion): DamageSource => ({ kind: 'minion', name: minion.definition.name });
+    // Il getter legge sempre la lista corrente: la partita la sostituisce a ogni passo.
+    const self = this;
+    return {
+      arena: this.arena,
+      rng: this.rng,
+      get minions() { return self.minions; },
+      nearestPlayer: (point) => this.nearestPlayer(point),
+      spawnProjectile: (spec, position, angle, minion) => {
+        if (this.minionShots.size >= MINION_LIMITS.projectiles) return false;
+        this.spawnProjectile(spec, position, angle);
+        const id = this.nextId - 1;
+        this.sources.set(id, sourceOf(minion));
+        this.minionShots.add(id);
+        const slow = minion.definition.slowOnHit ?? minion.elite?.slowOnHit;
+        if (slow !== undefined) this.slowingShots.set(id, slow);
+        return true;
+      },
+      spawnZone: (spec, position, minion) => {
+        this.spawnZone(spec, position);
+        this.sources.set(this.nextId - 1, sourceOf(minion));
+      },
+      spawnChild: (definitionId, position, parent) => {
+        const definition = MINIONS[definitionId];
+        if (definition === undefined) return;
+        this.spawnMinion(definition, position, { parentId: parent.id, maxHealth: this.minionHealth(definition) });
+      },
+      hurtPlayer: (amount, player, minion) => {
+        if (this.hurtPlayer(amount, player, sourceOf(minion))) {
+          const slow = minion.definition.slowOnHit ?? minion.elite?.slowOnHit;
+          if (slow !== undefined) player.slowFor = Math.max(player.slowFor, slow);
+        }
+      },
+      explode: (minion) => {
+        const reach = minion.definition.blastRadius ?? minion.hitRadius;
+        for (const player of this.players.values()) {
+          if (player.position.distanceTo(minion.position) < reach + HIT_RADIUS.player) this.hurtPlayer(minion.definition.contactDamage, player, sourceOf(minion));
+        }
+        this.killMinion(minion, true, 'environment');
+      },
+      takeToken: (minion) => {
+        if (this.tokens.has(minion.id)) return true;
+        if (this.tokens.size >= MINION_LIMITS.tokens + this.livingPlayers().length) return false;
+        this.tokens.add(minion.id);
+        minion.hasToken = true;
+        return true;
+      },
+      releaseToken: (minion) => {
+        this.tokens.delete(minion.id);
+        minion.hasToken = false;
+      },
+      emit: (event) => this.events.emit(event),
+    };
+  }
+
+  /** Vita di un servitore generato in partita: quella della stanza, se la stanza la decide. */
+  private minionHealth(definition: MinionDefinition): number {
+    return this.encounter?.minionHealth?.(definition) ?? definition.maxHealth;
+  }
+
+  /** Il primo servitore colpibile che il punto tocca (entro `extra` dal suo raggio di colpo). */
   private minionAt(point: Vec2, extra: number): Minion | undefined {
-    return this.minions.find((minion) => !minion.isDead && point.distanceTo(minion.position) < minion.hitRadius + extra);
+    return this.minions.find((minion) => !minion.isDead && !minion.isHidden && point.distanceTo(minion.position) < minion.hitRadius + extra);
   }
 
   /**
@@ -253,9 +423,11 @@ export class Match {
    */
   private strikeArc(origin: Vec2, angle: number, range: number, arc: number, damage: number): void {
     for (const minion of [...this.minions]) {
-      if (this.inArc(origin, angle, range, arc, minion.position, minion.hitRadius)) this.hitMinion(minion, damage);
+      if (minion.isDead || minion.isHidden) continue;
+      if (this.inArc(origin, angle, range, arc, minion.position, minion.hitRadius)) this.hitMinion(minion, damage, this.actingId, 'arc');
     }
-    if (this.inArc(origin, angle, range, arc, this.boss.position, this.boss.stats.hitRadius)) this.hitBoss(damage);
+    const boss = this.boss;
+    if (boss !== null && this.inArc(origin, angle, range, arc, boss.position, boss.stats.hitRadius)) this.hitBoss(damage);
   }
 
   private inArc(origin: Vec2, angle: number, range: number, arc: number, target: Vec2, hitRadius: number): boolean {
@@ -279,6 +451,7 @@ export class Match {
    * Un proiettile del giocatore che finisce nel vuoto e' un colpo mancato (`projectile_faded`).
    */
   private stepProjectiles(dt: number): void {
+    const boss = this.boss;
     for (const projectile of this.projectiles) {
       projectile.advance(dt);
       if (pillarAt(this.arena, projectile.position) !== undefined) {
@@ -292,7 +465,10 @@ export class Match {
           if (!p.health.isDead && projectile.position.distanceTo(p.position) < projectile.radius + HIT_RADIUS.player) { victim = p; break; }
         }
         if (victim) {
-          this.hurtPlayer(projectile.damage, victim, this.sources.get(projectile.id));
+          if (this.hurtPlayer(projectile.damage, victim, this.sources.get(projectile.id))) {
+            const slow = this.slowingShots.get(projectile.id);
+            if (slow !== undefined) victim.slowFor = Math.max(victim.slowFor, slow);
+          }
           this.emitProjectileHit(projectile, 'player');
           projectile.expire();
         }
@@ -300,12 +476,13 @@ export class Match {
         const owner = this.owners.get(projectile.id);
         const minion = this.minionAt(projectile.position, projectile.radius);
         if (minion !== undefined) {
-          this.hitMinion(minion, projectile.damage, owner);
+          this.hitMinion(minion, projectile.damage, owner, 'projectile');
+          if (projectile.spec.slowSeconds !== undefined) minion.slowFor = Math.max(minion.slowFor, projectile.spec.slowSeconds);
           this.emitProjectileHit(projectile, 'minion');
           projectile.expire();
-        } else if (projectile.position.distanceTo(this.boss.position) < projectile.radius + this.boss.stats.hitRadius) {
+        } else if (boss !== null && !boss.health.isDead && projectile.position.distanceTo(boss.position) < projectile.radius + boss.stats.hitRadius) {
           this.hitBoss(projectile.damage, owner);
-          if (projectile.spec.slowSeconds !== undefined) this.boss.slowFor = projectile.spec.slowSeconds;
+          if (projectile.spec.slowSeconds !== undefined) boss.slowFor = projectile.spec.slowSeconds;
           this.emitProjectileHit(projectile, 'boss');
           projectile.expire();
         } else if (projectile.isExpired || isOutsideProjectileBounds(this.arena, projectile.position)) {
@@ -318,6 +495,8 @@ export class Match {
       if (projectile.isExpired) {
         this.owners.delete(projectile.id);
         this.sources.delete(projectile.id);
+        this.minionShots.delete(projectile.id);
+        this.slowingShots.delete(projectile.id);
       }
       return !projectile.isExpired;
     });
@@ -342,22 +521,50 @@ export class Match {
       if (zone.team === 'player') {
         const owner = this.owners.get(zone.id);
         for (const minion of [...this.minions]) {
-          if (zone.position.distanceTo(minion.position) < zone.radius + minion.hitRadius - ZONE_EDGE_FORGIVENESS) this.hitMinion(minion, zone.spec.damage, owner);
+          if (minion.isDead || minion.isHidden) continue;
+          if (zone.position.distanceTo(minion.position) < zone.radius + minion.hitRadius - ZONE_EDGE_FORGIVENESS) {
+            this.hitMinion(minion, zone.spec.damage, owner, 'zone');
+            if (zone.spec.slowSeconds !== undefined) minion.slowFor = Math.max(minion.slowFor, zone.spec.slowSeconds);
+          }
         }
-        const reach = zone.radius + this.boss.stats.hitRadius - ZONE_EDGE_FORGIVENESS;
-        if (zone.position.distanceTo(this.boss.position) < reach) {
-          this.hitBoss(zone.spec.damage, owner);
-          if (zone.spec.slowSeconds !== undefined) this.boss.slowFor = zone.spec.slowSeconds;
+        const boss = this.boss;
+        if (boss !== null && !boss.health.isDead) {
+          const reach = zone.radius + boss.stats.hitRadius - ZONE_EDGE_FORGIVENESS;
+          if (zone.position.distanceTo(boss.position) < reach) {
+            this.hitBoss(zone.spec.damage, owner);
+            if (zone.spec.slowSeconds !== undefined) boss.slowFor = zone.spec.slowSeconds;
+          }
         }
       } else {
         for (const player of this.players.values()) {
-          if (zone.position.distanceTo(player.position) < zone.radius + HIT_RADIUS.player - ZONE_EDGE_FORGIVENESS) this.hurtPlayer(zone.spec.damage, player, this.sources.get(zone.id));
+          if (zone.position.distanceTo(player.position) < zone.radius + HIT_RADIUS.player - ZONE_EDGE_FORGIVENESS) {
+            if (this.hurtPlayer(zone.spec.damage, player, this.sources.get(zone.id)) && zone.spec.slowSeconds !== undefined) {
+              player.slowFor = Math.max(player.slowFor, zone.spec.slowSeconds);
+            }
+          }
+        }
+        if (zone.spec.hurtsMinions) {
+          for (const minion of [...this.minions]) {
+            if (minion.isDead || minion.isHidden) continue;
+            if (zone.position.distanceTo(minion.position) < zone.radius + minion.hitRadius - ZONE_EDGE_FORGIVENESS) {
+              this.hitMinion(minion, zone.spec.damage, ENVIRONMENT_ID, 'environment');
+            }
+          }
         }
       }
       this.owners.delete(zone.id);
       this.sources.delete(zone.id);
     }
     this.zones = pending;
+  }
+
+  /** Zone programmate (pozze): partono al loro momento, con la fonte che le ha create. */
+  private runDelayed(): void {
+    if (this.delayed.length === 0) return;
+    const due = this.delayed.filter((entry) => entry.at <= this.time);
+    if (due.length === 0) return;
+    this.delayed = this.delayed.filter((entry) => entry.at > this.time);
+    for (const entry of due) this.spawnHazardZone(entry.spec, entry.position, entry.source);
   }
 
   private emitProjectileHit(projectile: Projectile, struck: 'boss' | 'player' | 'minion' | 'obstacle'): void {
@@ -373,50 +580,144 @@ export class Match {
     });
   }
 
-  /** Danno al giocatore: ignorato se e' invulnerabile o la partita e' finita. `source` dice da dove viene. */
-  private hurtPlayer(amount: number, player: Player = this.player, source?: DamageSource): void {
-    if (this.status !== 'playing' || player.health.isDead) return;
+  /**
+   * Danno al giocatore: ignorato se e' invulnerabile o la partita e' finita. `source` dice da dove viene. Restituisce
+   * vero se il colpo e' andato a segno.
+   */
+  private hurtPlayer(amount: number, player: Player = this.player, source?: DamageSource): boolean {
+    if (this.status !== 'playing' || player.health.isDead) return false;
     const actual = Math.min(player.health.current, amount);
-    if (!player.tryHurt(amount)) return;
+    if (!player.tryHurt(amount)) return false;
     const id = [...this.players].find(([, p]) => p === player)![0];
     this.report.get(id)!.damageReceived += actual;
     this.events.emit({ type: 'damage_dealt', target: 'player', amount, position: player.position, playerId: id, ...(source && source.name ? { source } : {}) });
+    if (player.health.isDead && this.encounter?.onPlayerDown?.(this, id)) return true;
     if ([...this.players.values()].every(p => p.health.isDead)) this.end(false);
+    return true;
+  }
+
+  /** Cura un giocatore (premi della discesa), entro la vita massima; conta nel resoconto. */
+  heal(playerId: string, amount: number): number {
+    const player = this.players.get(playerId);
+    if (player === undefined || player.health.isDead) return 0;
+    const healed = Math.min(amount, player.health.max - player.health.current);
+    player.health.current += healed;
+    const stats = this.report.get(playerId);
+    if (stats) stats.healing += healed;
+    return healed;
   }
 
   private hitBoss(amount: number, owner = this.actingId): void {
-    if (this.status !== 'playing' || this.boss.health.isDead) return;
-    const actual = this.boss.health.takeDamage(amount);
+    const boss = this.boss;
+    if (this.status !== 'playing' || boss === null || boss.health.isDead) return;
+    const actual = boss.health.takeDamage(amount);
     const stats = this.report.get(owner);
     if (stats) stats.damageDealt += actual;
-    this.events.emit({ type: 'damage_dealt', target: 'boss', amount, position: this.boss.position, playerId: owner });
-    if (this.boss.health.isDead) {
-      this.events.emit({ type: 'boss_defeated', position: this.boss.position });
+    this.events.emit({ type: 'damage_dealt', target: 'boss', amount, position: boss.position, playerId: owner });
+    if (boss.health.isDead) {
+      this.events.emit({ type: 'boss_defeated', position: boss.position });
       // Con il boss cadono anche i suoi servitori.
-      for (const minion of [...this.minions]) this.killMinion(minion, false);
-      this.minions = [];
-      this.end(true);
+      this.dismissMinions();
+      if (this.encounter !== null) this.encounter.onBossDefeated(this);
+      else this.end(true);
     }
   }
 
-  private hitMinion(minion: Minion, amount: number, owner = this.actingId): void {
-    if (this.status !== 'playing' || minion.isDead) return;
-    const actual = minion.health.takeDamage(amount);
+  private hitMinion(minion: Minion, amount: number, owner: string = this.actingId, via: MinionHitVia = 'projectile'): void {
+    if (this.status !== 'playing' || minion.isDead || minion.isHidden) return;
+    wakeIfDormant(minion, this.minionContext);
+    if (minion.warded) {
+      // Lo scudo dell'elite ferma i proiettili; una zona o un colpo ravvicinato lo spezzano.
+      if (via === 'projectile') return;
+      minion.warded = false;
+    }
+    let damage = amount;
+    if (via === 'projectile' && minion.shield > 0) {
+      const absorbed = Math.min(minion.shield, damage);
+      minion.shield -= absorbed;
+      damage -= absorbed;
+      if (damage <= 0) return;
+    }
+    const actual = minion.health.takeDamage(damage);
     const stats = this.report.get(owner);
     if (stats) stats.damageDealt += actual;
-    this.events.emit({ type: 'damage_dealt', target: 'minion', amount, position: minion.position, minionId: minion.id, playerId: owner });
-    if (minion.isDead) this.killMinion(minion, false);
+    this.events.emit({ type: 'damage_dealt', target: 'minion', amount: damage, position: minion.position, minionId: minion.id, playerId: owner });
+    if (minion.health.isDead) this.killMinion(minion, false, via);
   }
 
-  /** Toglie un servitore (morto, esploso o caduto con il boss) e lo racconta. */
-  private killMinion(minion: Minion, exploded: boolean): void {
-    if (!minion.isDead) minion.health.takeDamage(minion.health.current);
-    const { visual } = minion.definition;
-    this.events.emit({ type: 'minion_defeated', position: minion.position, minionId: minion.id, visual, ...(exploded ? { exploded } : {}) });
+  /**
+   * Toglie un servitore (morto, esploso o sparito con il boss o con la stanza) e lo racconta. Con `effects` (la morte
+   * in combattimento) scattano i suoi effetti: rinascita, divisione, pozza, anello di schegge, gemello.
+   */
+  private killMinion(minion: Minion, exploded: boolean, via: MinionHitVia, effects = true): void {
+    const definition = minion.definition;
+    this.tokens.delete(minion.id);
+    minion.hasToken = false;
+    const death = definition.onDeath;
+    if (effects && !exploded && death?.kind === 'revive' && !minion.revived && via === 'projectile') {
+      // Lo scheletro crolla e si rialza, a meno che non lo finisca una zona o un colpo ravvicinato.
+      minion.revived = true;
+      minion.health.current = 0;
+      minion.state = 'reviving';
+      minion.stateTimer = death.delay;
+      minion.pending = null;
+      this.events.emit({ type: 'minion_defeated', position: minion.position, minionId: minion.id, visual: definition.visual, revives: true });
+      return;
+    }
+    if (minion.state === 'reviving') minion.state = 'idle';
+    if (!minion.health.isDead) minion.health.takeDamage(minion.health.current);
+    this.events.emit({ type: 'minion_defeated', position: minion.position, minionId: minion.id, visual: definition.visual, ...(exploded ? { exploded } : {}) });
+    if (!effects) return;
+    this.deathEffects(minion);
+    this.encounter?.onMinionKilled?.(this, minion, exploded);
   }
 
-  private end(won: boolean): void {
+  private deathEffects(minion: Minion): void {
+    const { definition } = minion;
+    const source: DamageSource = { kind: 'minion', name: definition.name };
+    const death = definition.onDeath;
+    if (death?.kind === 'split' && !(definition.inertWhenSlowed && minion.slowFor > 0)) {
+      const into = MINIONS[death.into];
+      if (into !== undefined) {
+        for (let i = 0; i < death.count; i++) {
+          const angle = (i * TAU) / death.count + minion.id;
+          this.spawnMinion(into, minion.position.add(Vec2.fromAngle(angle, minion.hitRadius)), { maxHealth: this.minionHealth(into), parentId: minion.id });
+        }
+      }
+    }
+    if (death?.kind === 'pool') this.pool(death, minion.position, source);
+    if (death?.kind === 'ring') {
+      for (let i = 0; i < death.count; i++) {
+        this.spawnProjectile(death.projectile, minion.position, (i * TAU) / death.count + minion.heading);
+        this.sources.set(this.nextId - 1, source);
+      }
+    }
+    const elite = minion.elite;
+    if (elite?.deathPool) this.pool(elite.deathPool, minion.position, source);
+    if (elite?.twin) this.spawnMinion(definition, minion.position, { maxHealth: this.minionHealth(definition) });
+  }
+
+  /** Una pozza: la prima zona subito, le altre a intervalli nello stesso punto. */
+  private pool(pool: { readonly zone: DangerZoneSpec; readonly pulses: number; readonly interval: number }, position: Vec2, source: DamageSource): void {
+    this.spawnHazardZone(pool.zone, position, source);
+    for (let i = 1; i < pool.pulses; i++) this.delayed.push({ at: this.time + i * pool.interval, spec: pool.zone, position, source });
+  }
+
+  /** Fine della partita (vittoria o sconfitta). La discesa la chiama quando il gruppo attraversa una porta. */
+  end(won: boolean): void {
+    if (this.status !== 'playing') return;
     this.status = won ? 'won' : 'lost';
     this.events.emit({ type: 'match_ended', won });
+  }
+}
+
+/** Sposta i giocatori attorno alla partenza, cosi' in cooperativa non nascono uno sopra l'altro. */
+export function spreadPlayers(match: Match): void {
+  let index = 0;
+  for (const player of match.players.values()) {
+    const offset = new Vec2((index % 2) * 48 - 24, Math.floor(index / 2) * 48);
+    player.position = moveBody(match.arena, player.position, player.position.add(offset), 10, match.arena.playerMargin);
+    player.aim = player.position;
+    index++;
   }
 }

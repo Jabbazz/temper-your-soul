@@ -15,7 +15,7 @@ import type { Match } from '../match/match';
 
 /** Porta il boss appena sotto la soglia della furia e fa un passo: entra in fase 2 ed evoca. */
 function enrage(match: Match): void {
-  match.boss.health.current = match.boss.health.max * match.boss.stats.phaseTwoThreshold - 1;
+  match.boss!.health.current = match.boss!.health.max * match.boss!.stats.phaseTwoThreshold - 1;
   match.step(STEP, intent(match));
 }
 
@@ -36,7 +36,7 @@ describe('servitori: evocazione', () => {
       const match = createQuietMatch(1, { dungeon });
       const events = recordEvents(match);
       enrage(match);
-      expect(match.boss.phase).toBe(2);
+      expect(match.boss!.phase).toBe(2);
       expect(match.minions).toHaveLength(summons!.onRage);
       expect(eventsOfType(events, 'minion_spawned')).toHaveLength(summons!.onRage);
       const { arena } = dungeon;
@@ -57,7 +57,7 @@ describe('servitori: evocazione', () => {
     const events = recordEvents(match);
     enrage(match);
     const summons = swamp.boss.summons!;
-    match.boss.attackTimer = 0;
+    match.boss!.attackTimer = 0;
     for (let i = 0; i < 60 * 60; i++) {
       match.player.invulnerableFor = 1;
       match.player.health.current = 100;
@@ -123,13 +123,13 @@ describe('servitori: si possono colpire', () => {
   it('un proiettile del giocatore si ferma sul servitore prima del boss (fa da scudo) e conta nei danni', () => {
     const match = createQuietMatch(1);
     const events = recordEvents(match);
-    match.boss.position = new Vec2(1600, 1100);
+    match.boss!.position = new Vec2(1600, 1100);
     const wisp = place(match, CINDER_WISP, new Vec2(1600, 1180));
     match.player.position = new Vec2(1600, 1400);
     match.projectiles.push(new Projectile(1, PLAYER_SHOT, wisp.position, 0));
     match.step(STEP, intent(match));
     expect(wisp.health.current).toBe(CINDER_WISP.maxHealth - 25);
-    expect(match.boss.health.current).toBe(match.boss.health.max);
+    expect(match.boss!.health.current).toBe(match.boss!.health.max);
     expect(eventsOfType(events, 'projectile_hit')[0]).toMatchObject({ struck: 'minion' });
     expect(eventsOfType(events, 'damage_dealt')[0]).toMatchObject({ target: 'minion', amount: 25, minionId: wisp.id });
     expect(match.report.get('local')!.damageDealt).toBe(25);
@@ -140,7 +140,7 @@ describe('servitori: si possono colpire', () => {
     const match = createQuietMatch(1, { loadout: [slash, null, null, null] });
     const events = recordEvents(match);
     match.player.position = new Vec2(1600, 1400);
-    match.boss.position = new Vec2(1000, 600);
+    match.boss!.position = new Vec2(1000, 600);
     place(match, CINDER_WISP, match.player.position.add(new Vec2(50, 0)));
     match.step(STEP, { move: Vec2.ZERO, aimOffset: new Vec2(100, 0), skills: [true, false, false, false] });
     expect(match.minions).toHaveLength(0);
@@ -154,9 +154,9 @@ describe('servitori: si possono colpire', () => {
     enrage(match);
     const count = match.minions.length;
     expect(count).toBeGreaterThan(0);
-    match.boss.health.current = 1;
-    match.boss.position = new Vec2(2400, 600);
-    match.projectiles.push(new Projectile(1, PLAYER_SHOT, match.boss.position, 0));
+    match.boss!.health.current = 1;
+    match.boss!.position = new Vec2(2400, 600);
+    match.projectiles.push(new Projectile(1, PLAYER_SHOT, match.boss!.position, 0));
     match.step(STEP, intent(match));
     expect(match.status).toBe('won');
     expect(match.minions).toHaveLength(0);
@@ -170,9 +170,9 @@ describe('eventi per la rappresentazione: colpi, mancati e fonti dei danni', () 
     const withPillar: DungeonDefinition = { ...CRYPT, arena: { ...CRYPT_ARENA, pillars: [{ position: pillar, radius: 40 }] } };
     const match = createQuietMatch(1, { dungeon: withPillar });
     const events = recordEvents(match);
-    match.boss.position = new Vec2(2200, 800);
+    match.boss!.position = new Vec2(2200, 800);
     match.player.position = new Vec2(1700, 1350);
-    match.projectiles.push(new Projectile(1, PLAYER_SHOT, match.boss.position, 0));
+    match.projectiles.push(new Projectile(1, PLAYER_SHOT, match.boss!.position, 0));
     match.projectiles.push(new Projectile(2, PLAYER_SHOT, pillar, 0));
     match.projectiles.push(new Projectile(3, { ...PLAYER_SHOT, team: 'enemy' }, match.player.position, 0));
     match.step(STEP, intent(match));
@@ -182,7 +182,7 @@ describe('eventi per la rappresentazione: colpi, mancati e fonti dei danni', () 
   it('un proiettile del giocatore che finisce nel vuoto e\' un colpo mancato; quelli nemici no', () => {
     const match = createQuietMatch(1);
     const events = recordEvents(match);
-    match.boss.position = new Vec2(300, 300);
+    match.boss!.position = new Vec2(300, 300);
     match.projectiles.push(new Projectile(1, { ...PLAYER_SHOT, lifetime: 0.05 }, new Vec2(1600, 1600), 0));
     match.projectiles.push(new Projectile(2, { ...PLAYER_SHOT, team: 'enemy', lifetime: 0.05 }, new Vec2(1700, 1700), 0));
     run(match, 0.2);
@@ -196,7 +196,7 @@ describe('eventi per la rappresentazione: colpi, mancati e fonti dei danni', () 
     const match = createQuietMatch(1);
     const events = recordEvents(match);
     match.player.position = new Vec2(1600, 1400);
-    match.boss.position = match.player.position.add(new Vec2(0, 10));
+    match.boss!.position = match.player.position.add(new Vec2(0, 10));
     match.step(STEP, intent(match));
     const contact = eventsOfType(events, 'damage_dealt').find((e) => e.target === 'player');
     expect(contact?.source).toEqual({ kind: 'contact', name: 'Contatto con il boss' });
@@ -204,13 +204,13 @@ describe('eventi per la rappresentazione: colpi, mancati e fonti dei danni', () 
     // Proiettile di uno schema: il nome viene dall'ultimo annuncio del boss.
     const attack = createQuietMatch(2);
     const attackEvents = recordEvents(attack);
-    attack.boss.attackTimer = 0;
+    attack.boss!.attackTimer = 0;
     run(attack, 0.02);
     const announced = eventsOfType(attackEvents, 'boss_attack')[0]!;
     attack.player.invulnerableFor = 0;
     let hit;
     for (let i = 0; i < 60 * 6 && !hit; i++) {
-      attack.boss.attackTimer = 99;
+      attack.boss!.attackTimer = 99;
       attack.step(STEP, intent(attack));
       hit = eventsOfType(attackEvents, 'damage_dealt').find((e) => e.target === 'player' && e.source?.kind !== 'contact');
     }

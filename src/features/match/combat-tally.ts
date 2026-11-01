@@ -91,7 +91,7 @@ export class CombatTally {
         if (mine) this.shotsMissed++;
         break;
       case 'minion_defeated':
-        if (!event.exploded) this.minionsDefeated++;
+        if (!event.exploded && !event.revives) this.minionsDefeated++;
         break;
       default:
         break;

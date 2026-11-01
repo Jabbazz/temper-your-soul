@@ -3,13 +3,19 @@ import { EQUIPMENT_SLOTS } from '../items/equipment-slot';
 import { familyById } from '../items/item-families';
 import type { Item } from '../items/item';
 import { isRarity } from '../items/rarity';
-import { Character, type DungeonRecord } from './character';
+import { Character, MAX_DESCENT_GRADE, type DescentRecord, type DungeonRecord } from './character';
+import { MINIONS } from '../minions/minion-catalog';
+import { cleanBlessings } from '../run/blessings';
+import { LIEUTENANT_LORE } from '../run/bestiary-lore';
 import { isCharacterClass } from './character-class';
 import { cleanCharacterName } from './creation';
 import { cleanItemLevel } from '../items/gear-score';
 
-/** Versione del formato di salvataggio. Se cambia la struttura, alzarla e aggiungere la migrazione in `deserializeCharacter`. */
-export const SAVE_VERSION = 6;
+/**
+ * Versione del formato di salvataggio. Se cambia la struttura, alzarla e aggiungere la migrazione in `deserializeCharacter`.
+ * v7: braci, benedizioni dell'Altare, bestiario, record delle discese e del Pellegrinaggio (vuoti nei salvataggi vecchi).
+ */
+export const SAVE_VERSION = 7;
 
 /**
  * Tetto per i numeri degli `uid` (`i1`, `i2`, ...): lascia un ampio margine sotto 2^53, oltre cui gli interi non sono
@@ -30,6 +36,11 @@ export function serializeCharacter(character: Character): string {
     equipped: Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, character.equipped[slot]])),
     records: character.records,
     nextItemNumber: character.nextItemNumber,
+    embers: character.embers,
+    blessings: character.blessings,
+    bestiary: character.bestiary,
+    descents: character.descents,
+    pilgrimage: character.pilgrimage,
   });
 }
 
@@ -87,6 +98,13 @@ export function deserializeCharacter(text: string): Character | null {
   }
 
   character.records = cleanRecords(records);
+  if (version >= 7) {
+    character.embers = cleanCount(data.embers);
+    character.blessings = cleanBlessings(data.blessings);
+    character.bestiary = cleanBestiary(data.bestiary);
+    character.descents = cleanDescents(data.descents);
+    character.pilgrimage = cleanPilgrimage(data.pilgrimage);
+  }
 
   let highest = 0;
   for (const { uid } of character.inventory) {
@@ -107,6 +125,47 @@ export function deserializeCharacter(text: string): Character | null {
   }
   character.reconcileEquipment();
   return character;
+}
+
+/** Un conteggio intero, non negativo, entro un tetto ragionevole (0 se non valido). */
+function cleanCount(raw: unknown): number {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? Math.min(1_000_000_000, Math.floor(raw)) : 0;
+}
+
+function cleanTime(raw: unknown): number | null {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : null;
+}
+
+/** Bestiario: solo servitori noti. */
+function cleanBestiary(raw: unknown): Record<string, number> {
+  const bestiary: Record<string, number> = {};
+  if (!isObject(raw)) return bestiary;
+  for (const [id, count] of Object.entries(raw)) {
+    const value = cleanCount(count);
+    if ((Object.hasOwn(MINIONS, id) || Object.hasOwn(LIEUTENANT_LORE, id)) && value > 0) bestiary[id] = value;
+  }
+  return bestiary;
+}
+
+function cleanDescents(raw: unknown): Record<string, DescentRecord> {
+  const descents: Record<string, DescentRecord> = {};
+  if (!isObject(raw)) return descents;
+  for (const [dungeonId, value] of Object.entries(raw)) {
+    if (dungeonById(dungeonId) === undefined || !isObject(value)) continue;
+    const grade = typeof value.bestGrade === 'number' && Number.isInteger(value.bestGrade) ? Math.max(-1, Math.min(MAX_DESCENT_GRADE, value.bestGrade)) : -1;
+    descents[dungeonId] = {
+      clears: cleanCount(value.clears),
+      bestTimeSeconds: cleanTime(value.bestTimeSeconds),
+      bestGrade: cleanCount(value.clears) > 0 ? Math.max(0, grade) : -1,
+      furthestStage: Math.min(64, cleanCount(value.furthestStage)),
+    };
+  }
+  return descents;
+}
+
+function cleanPilgrimage(raw: unknown): { clears: number; bestTimeSeconds: number | null } {
+  if (!isObject(raw)) return { clears: 0, bestTimeSeconds: null };
+  return { clears: cleanCount(raw.clears), bestTimeSeconds: cleanTime(raw.bestTimeSeconds) };
 }
 
 function cleanRecords(raw: unknown): Record<string, DungeonRecord> {

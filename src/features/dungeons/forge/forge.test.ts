@@ -534,7 +534,7 @@ describe('forge: partita intera', () => {
     run(match, 30, (m) => {
       m.player.health.current = 100;
       const t = m.time;
-      return intent(m, { move: new Vec2(Math.cos(t * 0.7), Math.sin(t * 1.1)), aim: m.boss.position, skills: [true, false, false, false] });
+      return intent(m, { move: new Vec2(Math.cos(t * 0.7), Math.sin(t * 1.1)), aim: m.boss!.position, skills: [true, false, false, false] });
     });
     return { match, events };
   };
@@ -545,7 +545,7 @@ describe('forge: partita intera', () => {
     const ids = eventsOfType(a.events, 'boss_attack').map((e) => e.patternId);
     expect(ids.slice(0, 6)).toEqual(FORGE_COLOSSUS.patterns.map((p) => p.id));
     expect(eventsOfType(b.events, 'boss_attack').map((e) => e.patternId)).toEqual(ids);
-    expect(b.match.boss.position.equals(a.match.boss.position)).toBe(true);
+    expect(b.match.boss!.position.equals(a.match.boss!.position)).toBe(true);
     expect(b.match.player.position.equals(a.match.player.position)).toBe(true);
     expect(b.match.projectiles.length).toBe(a.match.projectiles.length);
     expect(b.match.zones.length).toBe(a.match.zones.length);

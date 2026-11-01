@@ -2,7 +2,7 @@
 
 Gioco d’azione 2D per browser in **TypeScript strict**, Canvas 2D e DOM, senza motore di gioco né dipendenze runtime nel browser (server cooperativo Node con WebSocket). I principi sono ispirati ad Ashen Realm: le abilità dipendono dall’equipaggiamento. Il prototipo originale si chiamava Emberfall; il nome del gioco attuale è **Temper your soul**.
 
-**Stato al 31 ottobre 2026:** prototipo giocabile con quattro dungeon, tre classi, personaggi multipli locali, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, gear score e bottino specifico per boss. Implementata la **cooperativa sincronizzata fino a quattro giocatori tramite link**, con server autorevole, leader, ping e combat report. Audio a canali con registrazioni vere a licenza libera (musica per menu, dungeon e furia, ambienti, effetti) e pannello dei volumi. Risposta ai colpi, fase II con stendardo e servitori dei boss, schermate di vittoria e sconfitta con statistiche. Boss in pixel art di terzi a licenza libera, con animazioni di attacco, trasformazione e morte (proposta in revisione). Ultima verifica automatica: **476 test, controllo dei tipi client/server e build superati**. Rete e rendering ottimizzati con protocollo v2; benchmark ripetibile incluso. Bilanciamento e qualità visiva non sono definitivi; il permadeath non è ancora implementato.
+**Stato al 31 ottobre 2026:** prototipo giocabile con quattro dungeon, tre classi, personaggi multipli locali, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, gear score e bottino specifico per boss. Implementata la **cooperativa sincronizzata fino a quattro giocatori tramite link**, con server autorevole, leader, ping e combat report. Audio a canali con registrazioni vere a licenza libera (musica per menu, dungeon e furia, ambienti, effetti) e pannello dei volumi. Risposta ai colpi, fase II con stendardo e servitori dei boss, schermate di vittoria e sconfitta con statistiche. Boss in pixel art di terzi a licenza libera, con animazioni di attacco, trasformazione e morte (proposta in revisione). Sul ramo `feature/discesa` (proposta da approvare): **discesa a otto stanze** prima del boss, 32 servitori a tema con élite, luogotenenti, tempre, braci, Altare, Bestiario, Duello, Pellegrinaggio, gradi di tempra, salvataggio v7 e protocollo cooperativo 4, più una prima passata di leggibilità grafica (proiettili per squadra, sagome, luce, decori). Ultima verifica automatica: **548 test, controllo dei tipi client/server e build superati**. Rete e rendering ottimizzati con protocollo v2; benchmark ripetibile incluso. Bilanciamento e qualità visiva non sono definitivi; il permadeath non è ancora implementato.
 
 ## Prima di lavorare: istruzioni per collaboratori e agenti AI
 
@@ -105,6 +105,30 @@ Ogni singolo pezzo di set ha quindi **2,0833% per uccisione**; ogni singolo verd
 
 Ogni boss ha **otto combinazioni esplicite** in [loot-tables.ts](src/features/loot/loot-tables.ts), non pesca liberamente dal catalogo. I set sono tematici: **nessun bonus al completamento del set**. La Cripta non supera il Raro. Le famiglie di origine di un set possono comparire altrove in variante verde; `exclusiveTo` indica l’origine storica, non sostituisce le tabelle effettive.
 
+### Discesa (proposta del ramo `feature/discesa`)
+
+Dalla scheda del dungeon, **Discesa →** porta in otto tappe fino al boss:
+
+1. Soglia;
+2. due Scontri;
+3. Scontro, Prova o Reliquiario;
+4. Luogotenente;
+5. Santuario o Assedio;
+6. Scontro o Caccia;
+7. Anticamera;
+8. Boss.
+
+- **Porte**: ognuna mostra tipo di stanza e premio (tempra, braci, ristoro o sigillo). In cooperativa la porta si attraversa insieme.
+- **Servitori**: sono quelli del tema del boss (nella cripta fiammelle, ceri, pipistrelli, scheletri, doccioni…). Arrivano a ondate decise da un regista a budget, con un segnale a terra prima di ogni comparsa.
+- **Tempre**: potenziano una skill fino alla fine della discesa.
+- **Braci**: restano anche dopo una sconfitta e si offrono all'**Altare** per benedizioni permanenti, valide solo nelle discese.
+- **Bestiario**: si apre con la prima uccisione di ogni servitore e luogotenente.
+- **Duello** (solo il boss): si apre vincendo una discesa in quel dungeon.
+- **Pellegrinaggio**: le quattro discese brevi di fila; si apre con una discesa vinta in ogni dungeon.
+- **Gradi di tempra** 0–5: alzano nemici e braci.
+
+Regole, numeri e decisioni da confermare: [docs/game-design.md](docs/game-design.md), sezione «Discesa, servitori a tema e progressione».
+
 ### Party cooperativo sincronizzato
 
 Server autorevole **Node + WebSocket**: una sola simulazione a 60 Hz per stanza, input e snapshot a 30 Hz. Il browser rappresenta lo stato ricevuto; HP, mana, collisioni, ricariche, danni, esito e bottino sono decisi dal server. Il client non invia posizioni o danni. Nessuna dipendenza di rete nel bundle browser; `ws` gira soltanto sul server e `tsx` esegue il server TypeScript.
@@ -147,10 +171,10 @@ Confronto browser tramite tunnel, due Edge headless isolati a 1440×1000, finest
 
 ### Salvataggi locali
 
-- Chiave: `temper-your-soul:save`; formato **v6**, raccolta `character-roster` con profili, id attivo e contatore degli id.
+- Chiave: `temper-your-soul:save`; formato **v7**, raccolta `character-roster` con profili, id attivo e contatore degli id. La v7 aggiunge braci, benedizioni, bestiario, record delle discese e Pellegrinaggio; i salvataggi v6 si leggono senza perdite.
 - Migrazione dei precedenti salvataggi singoli v1–v5 senza reset di inventario, XP o record. Copia precedente alla raccolta in `temper-your-soul:save:before-roster`.
 - Dati illeggibili conservati in `temper-your-soul:save:corrupt`. Dati esterni sempre validati: vedere [save-format.ts](src/features/character/save-format.ts), [character-roster.ts](src/features/character/character-roster.ts) e [save-store.ts](src/features/character/save-store.ts).
-- Si salva a creazione/selezione/rimozione, cambio equipaggiamento e vittoria, prima di mostrare i premi. Skill, GS e classe richiesta dell’oggetto si ricalcolano dal catalogo; non si salvano statistiche duplicate.
+- Si salva a creazione/selezione/rimozione, cambio equipaggiamento e vittoria, prima di mostrare i premi; nella discesa anche a ogni stanza (braci, esperienza, bestiario). Skill, GS e classe richiesta dell’oggetto si ricalcolano dal catalogo; non si salvano statistiche duplicate.
 - Nessun account, salvataggio cloud, inventario condiviso fra profili o sincronizzazione dei progressi tra dispositivi. Il server conserva solo stanze/incontri temporanei. Con due schede aperte, ognuna riprende i salvataggi dell’altra appena avvengono; due salvataggi quasi simultanei possono ancora sovrascriversi.
 - **Permadeath non implementato:** una sconfitta non elimina attualmente il personaggio. La rimozione dal menu è manuale.
 
@@ -208,7 +232,7 @@ Per un nuovo oggetto servono: id stabile, famiglia e classe, skill/statistiche/c
 
 ## Verifiche e prossimi passi
 
-`npm run verify` deve uscire con codice 0. I **476 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
+`npm run verify` deve uscire con codice 0. I **548 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
 
 Priorità per chi riprende il lavoro:
 

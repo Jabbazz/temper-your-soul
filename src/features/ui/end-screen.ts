@@ -129,6 +129,99 @@ export function renderDefeat(view: DefeatView): HTMLElement {
   return root;
 }
 
+/** Cio' che la schermata finale di una discesa racconta. */
+export interface DescentSummaryView {
+  readonly title: string;
+  /** Secondi di tutta la discesa. */
+  readonly seconds: number;
+  readonly newBest: boolean;
+  readonly firstClear: boolean;
+  readonly stage: number;
+  readonly stages: number;
+  readonly rooms: number;
+  readonly embers: number;
+  readonly tempers: number;
+  readonly seals: number;
+  readonly summary: CombatSummary;
+  readonly xp: VictoryView['xp'];
+  readonly items: readonly Item[];
+  readonly saved: boolean;
+  readonly characterClass: CharacterClass | null;
+  /** Probabilita' di bottino del boss con i sigilli. */
+  readonly dropChance: number;
+}
+
+/** Fine di una discesa vinta: tempo totale, stanze, braci, tempre, esperienza e bottino del boss. */
+export function renderDescentVictory(view: DescentSummaryView): HTMLElement {
+  const root = el('div', 'result result-victory');
+  root.append(el('p', 'result-subtitle', view.title));
+  const stats = el('div', 'result-stats');
+  stats.append(
+    tile('Tempo della discesa', formatSeconds(view.seconds), view.firstClear ? 'Prima vittoria' : view.newBest ? 'Record!' : undefined, 0),
+    tile('Stanze liberate', number(view.rooms), undefined, 90),
+    tile('Braci', number(view.embers), undefined, 180),
+    tile('Tempre', number(view.tempers), undefined, 270),
+    tile('Servitori abbattuti', number(view.summary.minionsDefeated), undefined, 360),
+  );
+  root.append(stats);
+  root.append(xpTrack(view.xp));
+  const loot = renderLoot(view.items, { firstClear: false, newBest: false, seconds: view.seconds }, view.saved, view.characterClass);
+  loot.classList.add('result-loot');
+  if (view.items.length === 0) {
+    loot.querySelector('.loot-title')!.textContent = 'Nessun oggetto questa volta';
+    loot.querySelector('.loot-grid')?.remove();
+  }
+  loot.insertBefore(
+    el('small', 'result-note', `Con ${view.seals} ${view.seals === 1 ? 'sigillo' : 'sigilli'} la probabilità di bottino era del ${Math.round(view.dropChance * 100)}%.`),
+    loot.querySelector('.loot-saved'),
+  );
+  root.append(loot);
+  return root;
+}
+
+/** Fine di una discesa persa: dove si e' arrivati, cosa resta (braci ed esperienza), cosa ha colpito di piu'. */
+export function renderDescentDefeat(view: DescentSummaryView & { readonly onInventory: () => void }): HTMLElement {
+  const root = el('div', 'result result-defeat');
+  root.append(el('p', 'result-subtitle', view.title));
+  const stats = el('div', 'result-stats');
+  stats.append(
+    tile('Tappa raggiunta', `${view.stage} di ${view.stages}`, undefined, 0),
+    tile('Resistito', formatSeconds(view.seconds), undefined, 90),
+    tile('Braci tenute', number(view.embers), undefined, 180),
+    tile('Stanze liberate', number(view.rooms), undefined, 270),
+  );
+  root.append(stats);
+  root.append(xpTrack(view.xp));
+  const top = view.summary.topSources.slice(0, 2);
+  if (top.length > 0) {
+    const cause = el('div', 'result-cause');
+    cause.append(el('b', '', 'Ti ha colpito soprattutto'));
+    const list = el('ul');
+    for (const source of top) list.append(el('li', '', `${source.name} · ${source.hits} ${source.hits === 1 ? 'colpo' : 'colpi'} · ${number(source.damage)} danni`));
+    cause.append(list, el('p', 'result-tip', DEFEAT_TIPS[top[0]!.kind]));
+    root.append(cause);
+  }
+  root.append(el('small', 'result-note', 'Braci, esperienza e bestiario restano; le tempre si spengono con la discesa.'));
+  const inventory = el('button', 'result-link', 'Cambia equipaggiamento');
+  inventory.type = 'button';
+  inventory.addEventListener('click', view.onInventory);
+  root.append(inventory);
+  return root;
+}
+
+function xpTrack(xp: VictoryView['xp']): HTMLElement {
+  const root = el('div', 'result-xp');
+  const leveled = xp.levelAfter > xp.levelBefore;
+  const track = el('div', 'result-xp-track');
+  const fill = el('i');
+  fill.style.setProperty('--from', `${(leveled ? 0 : xp.before) * 100}%`);
+  fill.style.setProperty('--to', `${xp.after * 100}%`);
+  track.append(fill);
+  root.append(el('b', '', `+${xp.gained} XP`), track, el('span', '', `Livello ${xp.levelAfter}`));
+  if (leveled) root.append(el('em', 'result-levelup', `Livello ${xp.levelAfter}!`));
+  return root;
+}
+
 /** "GUARDIANO DELLA CRIPTA" -> "Guardiano della cripta". */
 function titleCase(name: string): string {
   const lower = name.toLocaleLowerCase('it-IT');

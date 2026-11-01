@@ -11,8 +11,13 @@ export interface DangerZoneSpec {
   readonly damage: number;
   /** Aspetto della zona (chiave in `presentation/visuals.ts`); se manca vale quello della squadra. */
   readonly visual?: string;
-  /** Se maggiore di zero e la zona e' del giocatore, colpire il boss lo rallenta per questi secondi. */
+  /**
+   * Se maggiore di zero: una zona del giocatore rallenta il boss e i servitori colpiti per questi secondi; una zona
+   * nemica rallenta i giocatori colpiti (melma, gelo).
+   */
   readonly slowSeconds?: number;
+  /** Solo zone nemiche: feriscono anche i servitori (nubi di spore, cera che brucia). */
+  readonly hurtsMinions?: boolean;
 }
 
 export class DangerZone {

@@ -279,6 +279,133 @@ Regole comuni:
 - compaiono in cerchio attorno al boss, senza casualità (la partita resta riproducibile);
 - fermano i proiettili del giocatore prima del boss (fanno da scudo) e sono colpiti da zone e colpi ravvicinati;
 - contano nei danni del resoconto e muoiono con il boss;
-- in cooperativa viaggiano nelle istantanee (protocollo **3**: lista `m` con id, tipo, posizione e vita).
+- in cooperativa viaggiano nelle istantanee (protocollo **3**: lista `m` con id, tipo, posizione e vita; nel ramo `feature/discesa` protocollo 4, vedi sotto).
 
 Grafica nel codice in `presentation/minion-art.ts`. Punti aperti: numeri e frequenze, esperienza o bottino per i servitori (oggi nessuno), servitori anche in fase I.
+
+## Discesa, servitori a tema e progressione (proposta del ramo `feature/discesa`, da approvare)
+
+Implementa lo studio sulla progressione (documento a parte, condiviso dall'utente): prima del boss si scende per stanze piene di servitori del suo stesso tema. Ispirazioni dichiarate: porte con il premio scritto sopra (Hades), regista a budget delle ondate (Risk of Rain 2), stanze modello con ripari (The Binding of Isaac, Enter the Gungeon), scalatura per il gruppo (Realm of the Mad God). **Tutti i valori sono provvisori**, nelle tabelle con nome indicate; le regole restano da confermare da Jabbaz.
+
+### Modalità e sblocchi
+
+- **Discesa** (predefinita, dalla scheda del dungeon): otto tappe fino al boss.
+- **Duello**: solo il boss, come prima. Si apre vincendo una discesa in quel dungeon; chi aveva già battuto il boss con un salvataggio v6 lo trova aperto.
+- **Pellegrinaggio**: le quattro discese di fila in versione breve (5 tappe ciascuna), dalla cripta al ghiacciaio. Si apre dopo una discesa vinta in ogni dungeon e chiede il GS d'ingresso più alto (oggi 200).
+- **Gradi di tempra** 0–5: ogni grado aggiunge il 10% al budget dei nemici e alle braci (`DESCENT.gradeBudget`, `gradeEmbers`). Il grado n+1 si apre vincendo al grado n.
+
+### La discesa (`features/run/`)
+
+| Tappa | Porte (`plan.ts`) |
+| --- | --- |
+| 1 | Soglia (scontro facile, braci) |
+| 2 | due Scontri con premi diversi, uno con la tempra |
+| 3 | Scontro, Prova (più dura, teschio sulla porta) o Reliquiario |
+| 4 | Luogotenente |
+| 5 | Santuario o Assedio (più duro) |
+| 6 | Scontro o Caccia (con sigillo) |
+| 7 | Anticamera |
+| 8 | Boss |
+
+- **Porte**: a stanza libera si aprono sul muro in alto con il cartello tipo · premio. Si esce restando tutti i vivi sulla stessa porta per 0,8 s, e solo dopo aver scelto le tempre in sospeso (`DESCENT.doorHold`).
+- **Premi**: tempra, braci, ristoro (+30% vita), sigillo (+5 punti alla probabilità di bottino del boss, fino a +20). I premi a terra sono **per giocatore**: in cooperativa ognuno raccoglie il suo.
+- **Stanze**:
+  - Prova: senza un graffio oppure entro 45 s; premio doppio e un sigillo.
+  - Reliquiario: un forziere, a volte un patto (due tempre per −20 vita massima fino alla fine della discesa).
+  - Santuario: si sceglie fra la fonte (+40% vita) e l'incudine (una tempra).
+  - Assedio: 45 s fra i nidi, ogni nido distrutto toglie 8 s.
+  - Caccia: una preda che fugge ed evoca.
+  - Anticamera: +25% vita.
+- **Stanze modello** (`room-templates.ts`): sei per dungeon (cinque di scontro e una di calma), da 1600–2400 × 1000–1500, con ripari e punti di comparsa. Il boss combatte nella mappa originale del dungeon.
+- **Regista delle ondate** (`director.ts`):
+  - budget = 60 × (1 + 0,15 × tappa) × tipo di stanza × (giocatori + 1)/2 × (1 + 0,1 × grado);
+  - al massimo tre tipi per stanza, la minaccia dalla seconda ondata, un pesante nell'ultima, al massimo un nido o un sostegno;
+  - le élite costano il triplo;
+  - la prossima ondata arriva quando ne resta vivo meno del 30% o dopo 20 s;
+  - vivi al massimo 30, +5 per ogni giocatore in più;
+  - ogni comparsa è annunciata a terra per 0,9 s, a lotti di sei, ad almeno 300 unità dai giocatori.
+- **Insidie** (`hazards.ts`), una per dungeon: vetrate che cadono in linea (cripta), bolle di gas (palude), bocchette di lava fisse (fucina), stalattiti (ghiacciaio).
+- **Luogotenenti** (`lieutenants.ts`): uno per dungeon, con due o tre schemi del boss in piccolo e la folla del dungeon in furia. Doccione del campanile 800, Rospo re 1000, Maestro d'incudine 1100, Prima allieva 1200; +50% di vita per ogni giocatore in più.
+- **Sconfitta**: la discesa finisce. Braci, esperienza e bestiario restano; le tempre si spengono.
+
+### Servitori a tema (`features/minions/`)
+
+32 servitori più la goccia della colata, otto per dungeon, coerenti con il boss: cripta (fiammelle, ceri, pipistrelli, scheletri, doccioni dormienti, accoliti, campane, reliquiari), palude, fucina e ghiacciaio con lo stesso schema di ruoli.
+
+- **Comportamenti composti dai dati**: inseguitore, kamikaze, torretta, tiratore, caricatore, volante, saltatore, scavatore, nido, sostegno, orbitante, fuggitivo. Opzioni: raffiche, cariche, salti, scavo, aure, lanci, teletrasporto, effetti alla morte (scissione, pozza, anello, rinascita), scie, sonno, volo.
+- **Élite**: generiche (robusta, rapida, gemella, schermata) e una a tema per dungeon (ardente, marcia, incandescente, gelida).
+- **Leggibilità**: ogni attacco ha un segnale a terra. Al massimo 3 + (giocatori vivi) servitori attaccano insieme (gettoni). Il tetto è di 80 proiettili dei servitori. I proiettili nemici non usano l'arancio sui fondi caldi.
+- **Vita** per dungeon: ×1 / 1,6 / 2,4 / 3,2, perché l'equipaggiamento dei dungeon alti è più forte.
+- **Ricompense**: ogni stanza di combattimento vale il 5% dell'esperienza del boss del dungeon. Le braci per premio vanno da 6 a 35, × 1 / 1,4 / 1,8 / 2,2 per dungeon.
+- **Grafica**: disegnata nel codice (`presentation/minion-art/`, `boss-art/lieutenants.ts`), senza nuovi asset. L'audio riusa le registrazioni già presenti.
+
+### Tempre, braci, Altare e Bestiario
+
+- **Tempre** (`tempers.ts`): nove, in tre famiglie del gesto del fabbro.
+  - Fuoco: Brace viva, Fiamma concentrata.
+  - Martello: Colpo doppio, Onda larga, Punta pesante.
+  - Acqua: Mano svelta, Risparmio, Passo lungo, Tempra d'acqua.
+  - Ognuna si applica a uno slot e sale fino al grado 3. Si sceglie fra tre carte, con un clic o con i tasti 1–4.
+- **Altare dell'anima** (`blessings.ts`): le braci comprano benedizioni permanenti, valide solo nelle discese e nel Pellegrinaggio e che non cambiano il GS:
+  - Vigore +10 vita (60/120/200);
+  - Prima scintilla (150);
+  - Seconda vita (300);
+  - Occhio del fabbro, quattro offerte (200);
+  - Fortuna, sigilli iniziali (120/240).
+- **Bestiario**: una pagina per servitore e per luogotenente, aperta dalla prima uccisione, con ruolo, schema del boss che insegna e un'iscrizione (`bestiary-lore.ts`).
+- **Salvataggio v7** (`save-format.ts`): aggiunge braci, benedizioni, bestiario, record delle discese (vittorie, miglior tempo, grado massimo, tappa più lontana) e Pellegrinaggio. I salvataggi v6 si leggono senza perdite. Braci, esperienza e bestiario si salvano a ogni stanza, quindi un ricaricamento a metà discesa non li perde.
+
+### Cooperativa (protocollo 4)
+
+- Il leader sceglie destinazione, modalità e grado; il server controlla GS, Duello, Pellegrinaggio e grado di **ogni** membro.
+- I servitori nascono una volta, poi viaggiano come posizione intera, stato e flag; la vita solo quando cambia. Stanza e discesa viaggiano solo quando cambiano. Ogni stanza ha un id d'incontro proprio.
+- Nuovi messaggi del client: `mode`, `temper`, `pact`. Chi è a terra si rialza nella stanza dopo con il 30% della vita.
+- **Benchmark** (`npm run benchmark:network`):
+  - duello: fino a 231 proiettili, 552.886 byte in 40 s, −98,2% rispetto agli snapshot completi;
+  - stanza piena del ghiacciaio con quattro giocatori: fino a 35 servitori, 1.037.484 byte in 40 s, cioè circa 26 KB/s per client, il doppio del duello.
+
+### Decisioni da confermare con Jabbaz
+
+1. Le braci comprano **benedizioni** all'Altare, non il livello degli oggetti (la "Forgia" dello studio): alzare il livello degli oggetti con le braci aggirerebbe le soglie GS di T3/T4.
+2. Il Duello si apre dopo la prima discesa vinta in quel dungeon.
+3. Il bottino resta **solo** dal boss, con i sigilli che ne alzano la probabilità; i servitori non lasciano oggetti.
+4. Alla sconfitta si tengono braci, esperienza e bestiario; si perdono le tempre.
+5. Scalatura del gruppo: budget × (giocatori + 1)/2, luogotenente +50% per giocatore, il boss resta senza aumento (come prima).
+
+### Punti aperti
+
+- Taratura di vita, danni e budget con partite vere: ogni dungeon è stato provato a fondo solo con simulazioni e bot.
+- Banda nelle stanze affollate: si potrebbero inviare le posizioni dei servitori a 15 Hz o solo quando cambiano.
+- Il resoconto della sconfitta chiama "Contatto con il boss" anche il contatto con il luogotenente.
+- La pagina dell'Altare e il Bestiario usano il tema Reliquiario, ma la revisione grafica complessiva resta sospesa.
+
+## Grafica: fase 0 dello studio (proposta del ramo `feature/discesa`, da approvare)
+
+Primo passo dello studio su grafica, stanze, minimappa e nemici (documento a parte, condiviso dall'utente): leggibilità a costo basso, senza nuovi asset e senza toccare le regole. Valori provvisori nelle tabelle indicate.
+
+- **Proiettili per squadra** (`draw-combat.ts`, `PROJECTILE_STYLE`):
+  - quelli nemici hanno alone, contorno scuro e nucleo chiaro;
+  - quelli dei giocatori sono al 70% di opacità, con scia leggera e senza alone.
+
+  Tutte le forme usano il colore del loro aspetto. Prima il rombo e il dardo avevano un colore fisso, quindi il globo di gelo era uguale alla nova del Custode e il dardo arcano uguale al dardo a croce.
+- **Colori nuovi dei proiettili nemici** che si confondevano con la lava o con i colpi dei giocatori:
+  - fucina: mantice, braci e scossa del Colosso, dardo a croce e schegge d'incudine;
+  - ghiacciaio: nova, schegge, bufera antioraria e schegge dell'apprendista;
+  - cripta: incensiere e campana.
+
+  Le zone a terra restano del loro materiale. Un test controlla la distanza di colore fra colpi dei giocatori e proiettili nemici della stessa forma, e fra i proiettili di un dungeon e i colori a terra del suo tema (`ArenaTheme.groundColors`).
+- **Ordine di disegno**: le figure (servitori, boss, eroi) si ordinano per profondità, poi vengono i colpi dei giocatori, le particelle e infine i proiettili nemici. Nomi e vita degli alleati stanno sopra tutto. Con più di 40 proiettili le particelle di scia si dimezzano.
+- **Sagome**: i servitori hanno un bordo chiaro di un'unità del colore del tema (`ArenaTheme.silhouette`), cotto nel raster in cache. I dormienti non ce l'hanno: devono sembrare pietra.
+- **Luce finta** (`presentation/lights.ts`):
+  - aloni in cache sotto torce, bracieri, crepe di lava, funghi e cristalli;
+  - buio ai bordi dello schermo, del colore del tema.
+
+  I funghi della palude diventano ciano: il giallo e il viola sono della Madre delle spore.
+- **Decori**:
+  - torce della cripta e bracieri della fucina stanno lungo i muri, a passo regolare;
+  - le incudini stanno in posizioni relative alla mappa;
+  - tutti lontano da ingresso, porte e pilastri (`themes/decor.ts`);
+  - tappeto e cerchi runici della cripta sono frazioni della mappa: nell'arena del boss restano dov'erano.
+
+  Prima, nelle stanze, un braciere cadeva sulla porta centrale e uno sull'ingresso.
+- **Pavimento della cripta**: un hash vero al posto della sinusoide, che disegnava strisce regolari.
