@@ -194,13 +194,17 @@ function traceShape(ctx: CanvasRenderingContext2D, shape: ProjectileShape, r: nu
   }
 }
 
-/** Proiettile con la sua scia e la sua forma. `time` fa ruotare il rombo e oscillare lo specchio. */
+/**
+ * Proiettile con la sua scia e la sua forma. `time` fa ruotare il rombo e oscillare lo specchio. `rimWidth` e' lo
+ * spessore del contorno scuro dei proiettili nemici (piu' spesso sui pavimenti chiari, vedi `ArenaTheme.projectileRim`).
+ */
 export function drawProjectile(
   ctx: CanvasRenderingContext2D,
   projectile: Projectile,
   trail: readonly Vec2[],
   camera: Camera,
   time: number,
+  rimWidth: number = PROJECTILE_STYLE.enemyRimWidth,
 ): void {
   if (!camera.isVisible(projectile.position, 80)) return;
   const look = projectileLook(projectile.spec.visual);
@@ -233,7 +237,7 @@ export function drawProjectile(
     ctx.globalAlpha = 0.9;
     traceShape(ctx, look.shape, r);
     ctx.strokeStyle = style.enemyRim;
-    ctx.lineWidth = style.enemyRimWidth;
+    ctx.lineWidth = rimWidth;
     ctx.stroke();
   }
   const body = enemy ? 1 : style.playerAlpha;

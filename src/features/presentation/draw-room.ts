@@ -6,7 +6,11 @@ import type { PickupKind, RoomView } from '../run/encounter';
 import { ROOM_LAYOUT } from '../run/room-templates';
 import { ROOM_LABELS, type DoorOption } from '../run/rooms';
 import { drawBossIndicator } from './draw-effects';
+import { drawLight } from './lights';
+import { ROOM_MOOD, type MoodFrame } from './room-mood';
 import { drawSprite, type Palette, type SpriteFrame } from './sprites';
+import { wallFaceHeight } from './themes/wall';
+import { canvasFont } from './fonts';
 
 /*
  * La stanza della discesa nel mondo: i cancelli delle porte (chiusi finche' la stanza non e' libera), i cartelli con
@@ -14,12 +18,15 @@ import { drawSprite, type Palette, type SpriteFrame } from './sprites';
  * regole stanno in `run/encounter.ts`.
  */
 
-/** Colori dei cancelli per tema: grata della cripta, radici della palude, saracinesca della fucina, lastra di ghiaccio. */
-const GATES: Readonly<Record<ArenaThemeId, { readonly bar: string; readonly frame: string; readonly glow: string }>> = {
-  crypt: { bar: '#6a6474', frame: '#3a3644', glow: '#ffd27a' },
-  swamp: { bar: '#5a4428', frame: '#2a2414', glow: '#c8e060' },
-  forge: { bar: '#4a4a56', frame: '#24242c', glow: '#ff9a3d' },
-  glacier: { bar: '#9fe4ff', frame: '#2a4a6a', glow: '#e8fbff' },
+/**
+ * Colori dei cancelli per tema: grata della cripta, radici della palude, saracinesca della fucina, lastra di ghiaccio.
+ * `dust` e' la polvere (o la neve) che si alza quando la grata dell'ingresso tocca terra.
+ */
+const GATES: Readonly<Record<ArenaThemeId, { readonly bar: string; readonly frame: string; readonly glow: string; readonly dust: string }>> = {
+  crypt: { bar: '#6a6474', frame: '#3a3644', glow: '#ffd27a', dust: '#a49eb0' },
+  swamp: { bar: '#5a4428', frame: '#2a2414', glow: '#c8e060', dust: '#7e7050' },
+  forge: { bar: '#4a4a56', frame: '#24242c', glow: '#ff9a3d', dust: '#8e7e74' },
+  glacier: { bar: '#9fe4ff', frame: '#2a4a6a', glow: '#e8fbff', dust: '#eef8ff' },
 };
 
 /** Icone dei premi: pixel art 7x7. */
@@ -44,6 +51,10 @@ export interface RoomLook {
   readonly nextOptions: readonly DoorOption[];
   /** Il giocatore di questo client (i premi gia' presi da lui non si vedono piu'). */
   readonly localId: string;
+  /** L'atmosfera della stanza (grate che calano e salgono); senza, le grate seguono `view.doorsOpen` di colpo. */
+  readonly mood?: MoodFrame;
+  /** La vena di servitori dietro le porte ("Catacombe"), se la discesa ne usa piu' d'una. */
+  readonly nextVein?: string;
 }
 
 function pickupHidden(view: RoomView, pickup: RoomView['pickups'][number], localId: string): boolean {
@@ -56,21 +67,26 @@ function pickupHidden(view: RoomView, pickup: RoomView['pickups'][number], local
   return false;
 }
 
-/** Sotto i personaggi: cancelli, soglie e premi. */
+/**
+ * L'ambiente della stanza, sotto la luce: soglie e cancelli delle porte (alti quanto la faccia del muro). Le porte
+ * aperte e i premi accendono una luce nella mappa.
+ */
 export function drawRoomFloor(ctx: CanvasRenderingContext2D, look: RoomLook, clock: number): void {
   const { view, arena } = look;
   const gate = GATES[arena.theme];
   const wall = ROOM_LAYOUT.wallThickness;
-  // L'ingresso alle spalle, sempre chiuso.
-  drawGate(ctx, arena.width / 2, arena.height - wall, wall, gate, false, clock, true);
+  const face = wallFaceHeight(arena);
+  // Le grate salgono quando la stanza e' libera (di colpo se non c'e' l'atmosfera).
+  const raised = look.mood?.exits ?? (view.doorsOpen ? 1 : 0);
   for (const door of view.doors) {
-    const open = view.doorsOpen;
+    const open = raised > 0.5;
     // La soglia: una lastra davanti al cancello, che si accende quando il gruppo ci sta sopra.
     ctx.save();
     ctx.fillStyle = open ? `${gate.glow}${door.progress > 0 ? '40' : '18'}` : '#00000030';
     ctx.fillRect(door.x - ROOM_LAYOUT.doorHalfWidth, wall, ROOM_LAYOUT.doorHalfWidth * 2, ROOM_LAYOUT.doorDepth);
     ctx.restore();
-    drawGate(ctx, door.x, 0, wall, gate, open, clock, false);
+    drawGate(ctx, door.x, 0, wall + face, gate, raised, clock, false);
+    if (raised > 0) drawLight(ctx, door.x, wall + face, gate.glow, 170, (0.55 + 0.25 * door.progress) * raised);
     if (door.progress > 0) {
       ctx.save();
       ctx.strokeStyle = gate.glow;
@@ -81,6 +97,46 @@ export function drawRoomFloor(ctx: CanvasRenderingContext2D, look: RoomLook, clo
       ctx.restore();
     }
   }
+  for (const pickup of view.pickups) {
+    if (!pickupHidden(view, pickup, look.localId)) drawLight(ctx, pickup.x, pickup.y, '#ffe9a0', 120, 0.7);
+  }
+}
+
+/**
+ * L'ingresso alle spalle: sta nel muro in basso, quindi davanti alle figure. Con l'atmosfera la sua grata cala poco
+ * dopo l'arrivo e alza un po' di polvere; senza, e' sempre chiusa.
+ */
+export function drawRoomFront(ctx: CanvasRenderingContext2D, look: RoomLook, clock: number): void {
+  const wall = ROOM_LAYOUT.wallThickness;
+  const gate = GATES[look.arena.theme];
+  const x = look.arena.width / 2;
+  const top = look.arena.height - wall;
+  drawGate(ctx, x, top, wall, gate, 1 - (look.mood?.entrance ?? 1), clock, true);
+  const since = look.mood?.sinceImpact ?? null;
+  if (since !== null && since < ROOM_MOOD.dustTime) drawGateDust(ctx, x, top, gate.dust, since / ROOM_MOOD.dustTime);
+}
+
+/** Sbuffi di polvere ai lati della grata appena caduta: `t` da 0 (impatto) a 1 (spariti). */
+function drawGateDust(ctx: CanvasRenderingContext2D, x: number, top: number, color: string, t: number): void {
+  const half = ROOM_LAYOUT.doorHalfWidth;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.65 * (1 - t);
+  for (let i = 0; i < 12; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const spread = 0.35 + ((i * 37) % 11) / 11;
+    const rise = 10 + ((i * 53) % 7) * 4;
+    const size = 3 + (i % 3);
+    const px = x + side * (half * 0.6 + spread * 70 * Math.sqrt(t));
+    const py = top - 4 - rise * Math.sqrt(t);
+    ctx.fillRect(Math.round(px - size / 2), Math.round(py - size / 2), size, size);
+  }
+  ctx.restore();
+}
+
+/** I premi a terra, a piena luce (sopra la mappa di luce, sotto le figure). */
+export function drawRoomPickups(ctx: CanvasRenderingContext2D, look: RoomLook, clock: number): void {
+  const { view } = look;
   for (const pickup of view.pickups) {
     if (pickupHidden(view, pickup, look.localId)) continue;
     const icon = PICKUP_ICONS[pickup.kind];
@@ -101,31 +157,47 @@ export function drawRoomFloor(ctx: CanvasRenderingContext2D, look: RoomLook, clo
   }
 }
 
+/**
+ * Un cancello alto `height` nel muro. `raised` dice quanto e' alzata la grata (0 giu', 1 tutta dentro il muro): sale e
+ * scende scorrendo, con le punte in basso. Le uscite aperte brillano; l'ingresso aperto resta buio.
+ */
 function drawGate(
   ctx: CanvasRenderingContext2D,
   x: number,
   top: number,
-  wall: number,
+  height: number,
   gate: (typeof GATES)[ArenaThemeId],
-  open: boolean,
+  raised: number,
   clock: number,
   entrance: boolean,
 ): void {
   const half = ROOM_LAYOUT.doorHalfWidth - 6;
+  const lift = Math.max(0, Math.min(1, raised));
   ctx.save();
   ctx.fillStyle = gate.frame;
-  ctx.fillRect(x - half - 8, top - 2, half * 2 + 16, wall + 4);
+  ctx.fillRect(x - half - 8, top - 2, half * 2 + 16, height + 4);
   ctx.fillStyle = '#07060a';
-  ctx.fillRect(x - half, top, half * 2, wall);
-  if (open) {
+  ctx.fillRect(x - half, top, half * 2, height);
+  if (lift > 0 && !entrance) {
     const pulse = 0.5 + 0.5 * Math.sin(clock * 4 + x);
-    ctx.globalAlpha = 0.35 + 0.35 * pulse;
+    ctx.globalAlpha = (0.35 + 0.35 * pulse) * lift;
     ctx.fillStyle = gate.glow;
-    ctx.fillRect(x - half, top, half * 2, wall);
-  } else {
+    ctx.fillRect(x - half, top, half * 2, height);
+    ctx.globalAlpha = 1;
+  }
+  const hanging = height * (1 - lift);
+  if (hanging > 0.5) {
+    ctx.beginPath();
+    ctx.rect(x - half, top, half * 2, height);
+    ctx.clip();
     ctx.fillStyle = gate.bar;
-    for (let bx = x - half + 6; bx < x + half; bx += 12) ctx.fillRect(bx, top, 4, wall);
-    if (!entrance) ctx.fillRect(x - half, top + wall / 2 - 2, half * 2, 4);
+    for (let bx = x - half + 6; bx < x + half; bx += 12) {
+      ctx.fillRect(bx, top, 4, hanging);
+      // Punte in fondo alle sbarre.
+      ctx.fillRect(bx - 1, top + hanging - 3, 6, 2);
+    }
+    // La traversa sale con la grata.
+    if (!entrance) ctx.fillRect(x - half, top + height / 2 - 2 - height * lift, half * 2, 4);
   }
   ctx.restore();
 }
@@ -140,7 +212,7 @@ export function drawRoomLabels(ctx: CanvasRenderingContext2D, look: RoomLook): v
     const reward = '';
     const text = reward !== '' ? `${room} · ${reward}` : room;
     ctx.save();
-    ctx.font = 'bold 10px sans-serif';
+    ctx.font = canvasFont(10, 'text', 'bold');
     ctx.textAlign = 'center';
     const width = ctx.measureText(text).width + (option.hard ? 26 : 14);
     const y = ROOM_LAYOUT.wallThickness + ROOM_LAYOUT.doorDepth + 18;
@@ -152,12 +224,18 @@ export function drawRoomLabels(ctx: CanvasRenderingContext2D, look: RoomLook): v
     ctx.fillStyle = view.doorsOpen ? '#ffe7c6' : '#a89aa0';
     ctx.fillText(text, door.x + (option.hard ? 6 : 0), y);
     if (option.hard) drawSprite(ctx, SKULL, door.x - width / 2 + 9, y - 4, 2, SKULL_PALETTE);
+    // La vena dietro la porta, sotto il cartello.
+    if (look.nextVein !== undefined && option.kind !== 'sanctuary' && option.kind !== 'antechamber' && option.kind !== 'boss') {
+      ctx.font = canvasFont(9, 'text');
+      ctx.fillStyle = view.doorsOpen ? '#d8c0e8' : '#8a7a90';
+      ctx.fillText(look.nextVein, door.x, y + 13);
+    }
     ctx.restore();
   });
   for (const pickup of view.pickups) {
     if (pickupHidden(view, pickup, look.localId)) continue;
     ctx.save();
-    ctx.font = '9px sans-serif';
+    ctx.font = canvasFont(9, 'text');
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffe9a0';
     ctx.fillText(PICKUP_ICONS[pickup.kind].label, pickup.x, pickup.y + 28);

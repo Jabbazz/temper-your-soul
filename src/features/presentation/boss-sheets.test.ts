@@ -8,6 +8,7 @@ import { ART_CREDITS } from './art-credits';
 import { BOSS_SHEETS, DEATH_ANIMATION_SHARE, sheetFrame, type BossSheet, type SheetState } from './boss-art';
 import { Effects, FEEDBACK } from './effects';
 import { ActorPoses } from './poses';
+import { TILE_CREDITS } from './themes/tiles';
 
 /** Il minimo di `node:fs` che serve ai test (il progetto non include i tipi di Node e non li aggiunge per questo). */
 interface FileSystem {
@@ -78,7 +79,7 @@ describe('fogli di sprite dei boss', () => {
   });
 
   it('ogni foglio ha i crediti, con una licenza ammessa; nessun credito resta senza uso', () => {
-    const used = new Set(Object.values(BOSS_SHEETS).flatMap((sheet) => sheet.credits));
+    const used = new Set([...Object.values(BOSS_SHEETS).flatMap((sheet) => sheet.credits), ...Object.values(TILE_CREDITS).flat()]);
     for (const [id, sheet] of Object.entries(BOSS_SHEETS)) {
       expect(sheet.credits.length, id).toBeGreaterThan(0);
       for (const credit of sheet.credits) expect(ART_CREDITS[credit], `${id}: ${credit}`).toBeDefined();

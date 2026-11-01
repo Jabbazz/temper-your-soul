@@ -16,7 +16,8 @@ import { MINIONS } from '../minions/minion-catalog';
 import { ActorPoses } from './poses';
 import { MAGE_CASTING, MAGE_PALETTE, MAGE_WALK, type SpriteFrame } from './sprites';
 import { ARENA_THEMES } from './themes';
-import { DECOR_CLEARANCE, wallSpots } from './themes/decor';
+import { DECOR_CLEARANCE, faceSpots, wallSpots } from './themes/decor';
+import { wallFaceHeight } from './themes/wall';
 import { PROJECTILE_LOOKS, ZONE_LOOKS, zoneLook } from './visuals';
 import { ITEM_FAMILIES } from '../items/item-families';
 import { roomArena, roomDoors, ROOM_TEMPLATES } from '../run/room-templates';
@@ -414,5 +415,83 @@ describe('leggibilità (fase 0 dello studio sulla grafica)', () => {
         }
       }
     }
+  });
+  it('le applique sulla faccia del muro in alto restano lontane dai cancelli di ogni porta possibile', () => {
+    for (const dungeon of DUNGEONS) {
+      for (const room of ROOM_TEMPLATES[dungeon.id] ?? []) {
+        const arena = roomArena(room, dungeon.arena.theme);
+        const y = arena.wallThickness + wallFaceHeight(arena) / 2;
+        const spots = faceSpots(arena, y, 192);
+        expect(spots.length, room.id).toBeGreaterThan(1);
+        for (const spot of spots) {
+          expect(spot.y).toBe(y);
+          expect(spot.x).toBeGreaterThan(arena.wallThickness);
+          expect(spot.x).toBeLessThan(arena.width - arena.wallThickness);
+          for (const count of [1, 2, 3]) {
+            for (const door of roomDoors(room, count)) expect(Math.abs(spot.x - door.position.x), `${room.id}: cancello`).toBeGreaterThanOrEqual(DECOR_CLEARANCE.gateHalfWidth);
+          }
+        }
+      }
+    }
+  });
+
+  it('la faccia del muro in alto arriva ai piedi del giocatore e resta fra 18 e 40 unità', () => {
+    for (const dungeon of DUNGEONS) {
+      const face = wallFaceHeight(dungeon.arena);
+      expect(face).toBeGreaterThanOrEqual(18);
+      expect(face).toBeLessThanOrEqual(40);
+      expect(dungeon.arena.wallThickness + face).toBeLessThanOrEqual(dungeon.arena.playerMargin + 14);
+    }
+  });
+});
+
+describe('bordo chiaro dei boss', () => {
+  /** Un contesto finto che annota il colore di ogni rettangolo pieno. */
+  function recordingContext(): { ctx: CanvasRenderingContext2D; fills: string[] } {
+    const fills: string[] = [];
+    const state: Record<string | symbol, unknown> = { fillStyle: '#000000', globalAlpha: 1 };
+    const ctx = new Proxy(state, {
+      get: (target, key) => {
+        if (key === 'fillRect') return () => fills.push(String(target.fillStyle));
+        if (key === 'createRadialGradient' || key === 'createLinearGradient') return () => ({ addColorStop: () => undefined });
+        if (key in target) return target[key];
+        return () => undefined;
+      },
+      set: (target, key, value) => {
+        target[key] = value;
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    return { ctx, fills };
+  }
+
+  it('i luogotenenti a matrici hanno la sagoma tinta sotto la figura, solo se richiesta e non morendo', async () => {
+    const { LIEUTENANTS } = await import('../run/lieutenants');
+    const { drawBoss } = await import('./draw-actors');
+    const match = createQuietMatch();
+    const definition = Object.values(LIEUTENANTS)[0]!;
+    const boss = new Boss(definition, match.arena);
+    const look = { flash: 0, offset: Vec2.ZERO, death: null, clock: 0 };
+    const plain = recordingContext();
+    drawBoss(plain.ctx, boss, match.player, new ActorPoses(), 0, look);
+    const rimmed = recordingContext();
+    drawBoss(rimmed.ctx, boss, match.player, new ActorPoses(), 0, { ...look, rim: '#d8d2ff73' });
+    const rim = rimmed.fills.filter((color) => color === '#d8d2ff').length;
+    expect(plain.fills.filter((color) => color === '#d8d2ff').length).toBe(0);
+    // Quattro copie della sagoma, una per direzione, tante quanti i pixel della figura.
+    expect(rim).toBeGreaterThan(0);
+    expect(rim % 4).toBe(0);
+    expect(rimmed.fills.length - rim).toBe(plain.fills.length);
+    const dying = recordingContext();
+    drawBoss(dying.ctx, boss, match.player, new ActorPoses(), 0, { ...look, death: 0.5, rim: '#d8d2ff73' });
+    expect(dying.fills.filter((color) => color === '#d8d2ff').length).toBe(0);
+  });
+});
+
+describe('contorno dei proiettili nemici', () => {
+  it('nel ghiacciaio, che ha il pavimento chiaro, e\' piu\' spesso che altrove', async () => {
+    const { PROJECTILE_STYLE } = await import('./draw-combat');
+    expect(ARENA_THEMES.glacier.projectileRim).toBeGreaterThan(PROJECTILE_STYLE.enemyRimWidth);
+    for (const id of ['crypt', 'swamp', 'forge'] as const) expect(ARENA_THEMES[id].projectileRim).toBeUndefined();
   });
 });

@@ -26,6 +26,9 @@ export interface ArtCredit {
 /** Modifica comune ai fogli dei boss (`tools/arte/prepara_boss.py`). */
 const BOSS_EDIT = 'animazioni scelte ritagliate in un unico foglio e ricolorate con la tavolozza del gioco, in calma e in furia';
 
+/** Modifica comune ai tile dei dungeon (`tools/arte/prepara_tile.py`). */
+const TILE_EDIT = 'tile scelti ritagliati in un foglio per dungeon e ricolorati con le rampe di colori del tema';
+
 /** Crediti per id (`<fonte>-<opera>`), consultati e scaricati il 1 novembre 2026. */
 export const ART_CREDITS: Readonly<Record<string, ArtCredit>> = {
   'oga-animated-statue': {
@@ -54,6 +57,42 @@ export const ART_CREDITS: Readonly<Record<string, ArtCredit>> = {
     retrieved: '2026-11-01',
     use: 'colosso della fornace',
     changes: `golem corazzato in calma, senza armatura in furia; ${BOSS_EDIT}`,
+  },
+  'itch-0x72-dungeontileset-ii': {
+    title: 'DungeonTileset II',
+    author: '0x72',
+    source: 'https://0x72.itch.io/dungeontileset-ii',
+    license: 'CC0-1.0',
+    retrieved: '2026-11-01',
+    use: 'pavimenti, faccia del muro e cima dei massicci dei dungeon; casse della fucina',
+    changes: TILE_EDIT,
+  },
+  'oga-eman-quest-tiles': {
+    title: 'Forest and Dungeon Tilesets from Eman Quest',
+    author: 'Night Blade',
+    source: 'https://opengameart.org/content/forest-and-dungeon-tilesets-from-eman-quest',
+    license: 'CC0-1.0',
+    retrieved: '2026-11-01',
+    use: 'pozzi, lava, ponti, radici e terra della palude',
+    changes: `riportati a 16 pixel (erano ingranditi x4); ${TILE_EDIT}`,
+  },
+  'itch-kmh-dungeon': {
+    title: 'dungeon_',
+    author: "Kevin's Mom's House",
+    source: 'https://kevins-moms-house.itch.io/dungeon',
+    license: 'CC0-1.0',
+    retrieved: '2026-11-01',
+    use: 'panche della navata della cripta',
+    changes: TILE_EDIT,
+  },
+  'itch-kmh-tundra': {
+    title: 'tundra_',
+    author: "Kevin's Mom's House",
+    source: 'https://kevins-moms-house.itch.io/tundra',
+    license: 'CC0-1.0',
+    retrieved: '2026-11-01',
+    use: 'blocchi di ghiaccio del ghiacciaio',
+    changes: TILE_EDIT,
   },
   'itch-evil-wizard-2': {
     title: 'EVil Wizard 2',

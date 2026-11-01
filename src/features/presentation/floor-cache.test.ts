@@ -21,6 +21,14 @@ it('spostamenti nella stessa zona riutilizzano il pavimento; arene differenti no
   expect(paint).toHaveBeenCalledTimes(2);
 });
 
+it('quando cambia la versione (per esempio arrivano i tile) i tasselli si ridipingono una volta sola', () => {
+  const { cache, camera, paint, ctx } = fixture();
+  cache.draw(ctx, CRYPT_ARENA, camera);
+  cache.draw(ctx, CRYPT_ARENA, camera, 'tiles');
+  cache.draw(ctx, CRYPT_ARENA, camera, 'tiles');
+  expect(paint).toHaveBeenCalledTimes(2);
+});
+
 it('dopo una lunga esplorazione elimina i tasselli vecchi senza una cache crescente', () => {
   const { cache, camera, paint, ctx } = fixture(), visited = FLOOR_CACHE.maxChunks + 4;
   for (let i = 0; i < visited; i++) {

@@ -2,7 +2,11 @@ import type { Camera } from '../../../core/camera';
 import { TAU } from '../../../core/vec2';
 import type { ArenaDefinition, Pillar } from '../../arena/arena';
 import { drawLight } from '../lights';
+import { faceSpots } from './decor';
 import type { ArenaTheme } from './theme';
+import { drawBottomWallLip, drawTopWallFace, wallFaceHeight, type WallFaceStyle } from './wall';
+import { FloorCache } from '../floor-cache';
+import { drawTile, pickVariant, tileColors, tileSheet, tileVariants, TILE_SIZE } from './tiles';
 
 /**
  * Il ghiacciaio: lastre di ghiaccio azzurro con crepe e riflessi che scorrono, banchi di neve, cristalli che brillano,
@@ -20,6 +24,9 @@ const GLACIER_DECOR = {
   toothSpacing: 56,
 };
 
+/** Faccia del muro in alto: una parete di ghiaccio con colate chiare e scure. */
+const GLACIER_WALL_FACE: WallFaceStyle = { face: '#7fb0d3', dark: '#5f8fb8', light: '#e4f4fc', pattern: 'ice' };
+
 /** Tre sfumature di lastra, dalla piu' scura alla piu' chiara. */
 const SLAB_COLORS = ['#17344f', '#1b3c5a', '#214566'] as const;
 
@@ -29,10 +36,24 @@ function cellValue(x: number, y: number, salt = 0): number {
   return n - Math.floor(n);
 }
 
-function drawSlab(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, clock: number): void {
+/**
+ * La parte ferma di una lastra: il colore (o, con il foglio caricato, i tile di 0x72 ricolorati nei toni del ghiaccio),
+ * le giunture con il bordo illuminato e, a volte, una crepa.
+ */
+function drawSlab(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, sheet: HTMLImageElement | null): void {
   const h = cellValue(x, y);
   ctx.fillStyle = SLAB_COLORS[Math.floor(h * 3)]!;
   ctx.fillRect(x, y, size, size);
+  if (sheet !== null) {
+    // Una lastra su tre di ghiaccio piu' scuro, come i tre toni delle lastre disegnate nel codice.
+    const variants = tileVariants('glacier', h < 0.34 ? 'floorDark' : 'floor');
+    for (let ty = y; ty < y + size; ty += TILE_SIZE) {
+      for (let tx = x; tx < x + size; tx += TILE_SIZE) {
+        const tile = pickVariant(variants, cellValue(tx, ty, 3));
+        if (tile !== undefined) drawTile(ctx, sheet, tile, tx, ty);
+      }
+    }
+  }
   // Giunture tra le lastre e bordo illuminato in alto a sinistra.
   ctx.fillStyle = '#0d2238';
   ctx.fillRect(x, y, size, 2);
@@ -40,20 +61,6 @@ function drawSlab(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
   ctx.fillStyle = '#4a7ca64d';
   ctx.fillRect(x + 2, y + 2, size - 2, 1);
   ctx.fillRect(x + 2, y + 2, 1, size - 2);
-
-  // Riflesso: una fascia diagonale la cui luminosita' oscilla lentamente e in modo diverso per ogni lastra.
-  if (h > 0.3 && h < 0.7) {
-    const alpha = 0.05 + 0.06 * (Math.sin(clock * 0.9 + h * TAU) * 0.5 + 0.5);
-    ctx.fillStyle = `rgba(214, 243, 255, ${alpha.toFixed(3)})`;
-    const offset = h * 40;
-    ctx.beginPath();
-    ctx.moveTo(x + offset, y + size);
-    ctx.lineTo(x + offset + 26, y + size);
-    ctx.lineTo(x + offset + 62, y);
-    ctx.lineTo(x + offset + 36, y);
-    ctx.closePath();
-    ctx.fill();
-  }
 
   // Crepa: spezzata di quattro segmenti con un filo di luce accanto.
   if (h > 0.82) {
@@ -69,6 +76,22 @@ function drawSlab(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
       ctx.stroke();
     }
   }
+}
+
+/** Riflesso: una fascia diagonale la cui luminosita' oscilla lentamente e in modo diverso per ogni lastra. */
+function drawSlabShine(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, clock: number): void {
+  const h = cellValue(x, y);
+  if (h <= 0.3 || h >= 0.7) return;
+  const alpha = 0.05 + 0.06 * (Math.sin(clock * 0.9 + h * TAU) * 0.5 + 0.5);
+  ctx.fillStyle = `rgba(214, 243, 255, ${alpha.toFixed(3)})`;
+  const offset = h * 40;
+  ctx.beginPath();
+  ctx.moveTo(x + offset, y + size);
+  ctx.lineTo(x + offset + 26, y + size);
+  ctx.lineTo(x + offset + 62, y);
+  ctx.lineTo(x + offset + 36, y);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /** Un cristallo (tre schegge appoggiate a terra) che scintilla: `shine` va da 0 a 1. */
@@ -116,7 +139,8 @@ function forVisibleCells(
   }
 }
 
-function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+/** La parte ferma del pavimento, dipinta una volta nei tasselli della cache: lastre, banchi di neve, muro e stalattiti. */
+function drawStaticFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
   const { x: camX, y: camY } = camera.position;
   const decor = GLACIER_DECOR;
 
@@ -124,7 +148,8 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
   ctx.fillStyle = '#0b1c2e';
   ctx.fillRect(camX - 4, camY - 4, camera.width + 8, camera.height + 8);
 
-  forVisibleCells(arena, camera, decor.slabSize, 0, (x, y) => drawSlab(ctx, x, y, decor.slabSize, clock));
+  const sheet = tileSheet('glacier');
+  forVisibleCells(arena, camera, decor.slabSize, 0, (x, y) => drawSlab(ctx, x, y, decor.slabSize, sheet));
 
   // Banchi di neve: macchie chiare e basse, piu' fitte lungo il muro.
   forVisibleCells(arena, camera, decor.snowCell, 80, (cx, cy) => {
@@ -142,28 +167,6 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
     ctx.fill();
   });
 
-  // Cristalli a terra: scintillano a turno.
-  forVisibleCells(arena, camera, decor.crystalCell, 60, (cx, cy) => {
-    const h = cellValue(cx, cy, 21);
-    if (h < 0.45) return;
-    const x = cx + 40 + cellValue(cx, cy, 22) * (decor.crystalCell - 80);
-    const y = cy + 40 + cellValue(cx, cy, 23) * (decor.crystalCell - 80);
-    const shine = Math.sin(clock * 2.2 + h * 20) * 0.5 + 0.5;
-    drawLight(ctx, x, y - 10, '#7fd8ff', 64, 0.25 + 0.3 * shine);
-    drawCrystalCluster(ctx, x, y, h, shine);
-  });
-
-  // Pulviscolo di neve: puntini che scivolano e ondeggiano, avvolti attorno alla cella.
-  forVisibleCells(arena, camera, decor.moteCell, 20, (cx, cy) => {
-    for (let i = 0; i < 3; i++) {
-      const h = cellValue(cx, cy, 31 + i);
-      const x = cx + ((h * decor.moteCell + clock * (10 + h * 14)) % decor.moteCell);
-      const y = cy + ((cellValue(cx, cy, 41 + i) * decor.moteCell + clock * (16 + h * 10)) % decor.moteCell) + Math.sin(clock * 1.3 + h * TAU) * 6;
-      ctx.fillStyle = i === 0 ? '#ffffffb0' : '#cfeeffa0';
-      ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
-    }
-  });
-
   // Il muro perimetrale appartiene al mondo, non allo schermo: ghiaccio chiaro con stalattiti sul lato interno.
   const wall = arena.wallThickness;
   ctx.fillStyle = '#b4d6ea';
@@ -177,16 +180,19 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
   ctx.fillStyle = '#7fb0d3';
   ctx.fillRect(0, arena.height - 6, arena.width, 6);
   ctx.fillRect(arena.width - 6, 0, 6, arena.height);
+  drawTopWallFace(ctx, arena, camera, GLACIER_WALL_FACE);
+  const face = wallFaceHeight(arena);
 
   const spacing = decor.toothSpacing;
   const firstX = Math.max(spacing, Math.floor((camX - spacing) / spacing) * spacing);
   for (let x = firstX; x < Math.min(arena.width - spacing, camX + camera.width + spacing); x += spacing) {
-    const length = 12 + cellValue(x, 1) * 14;
+    // In alto le stalattiti pendono dalla base della faccia di ghiaccio.
+    const length = 8 + cellValue(x, 1) * 10;
     ctx.fillStyle = '#9ec9e2';
     ctx.beginPath();
-    ctx.moveTo(x - 8, wall);
-    ctx.lineTo(x, wall + length);
-    ctx.lineTo(x + 8, wall);
+    ctx.moveTo(x - 7, wall + face);
+    ctx.lineTo(x, wall + face + length);
+    ctx.lineTo(x + 7, wall + face);
     ctx.fill();
     const lengthBottom = 12 + cellValue(x, 2) * 14;
     ctx.beginPath();
@@ -209,6 +215,61 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
     ctx.moveTo(arena.width - wall, y - 8);
     ctx.lineTo(arena.width - wall - lengthRight, y);
     ctx.lineTo(arena.width - wall, y + 8);
+    ctx.fill();
+  }
+}
+
+const floorCache = new FloorCache(drawStaticFloor);
+
+function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+  const decor = GLACIER_DECOR;
+  floorCache.draw(ctx, arena, camera, tileSheet('glacier') === null ? '' : 'tiles');
+
+  // Riflessi sulle lastre, sotto banchi di neve e cristalli come prima (i riflessi sono tenui).
+  forVisibleCells(arena, camera, decor.slabSize, 0, (x, y) => drawSlabShine(ctx, x, y, decor.slabSize, clock));
+
+  // Cristalli a terra: scintillano a turno.
+  forVisibleCells(arena, camera, decor.crystalCell, 60, (cx, cy) => {
+    const h = cellValue(cx, cy, 21);
+    if (h < 0.45) return;
+    const x = cx + 40 + cellValue(cx, cy, 22) * (decor.crystalCell - 80);
+    const y = cy + 40 + cellValue(cx, cy, 23) * (decor.crystalCell - 80);
+    const shine = Math.sin(clock * 2.2 + h * 20) * 0.5 + 0.5;
+    drawLight(ctx, x, y - 10, '#7fd8ff', 110, 0.3 + 0.3 * shine);
+    drawCrystalCluster(ctx, x, y, h, shine);
+  });
+
+  // Pulviscolo di neve: puntini che scivolano e ondeggiano, avvolti attorno alla cella.
+  forVisibleCells(arena, camera, decor.moteCell, 20, (cx, cy) => {
+    for (let i = 0; i < 3; i++) {
+      const h = cellValue(cx, cy, 31 + i);
+      const x = cx + ((h * decor.moteCell + clock * (10 + h * 14)) % decor.moteCell);
+      const y = cy + ((cellValue(cx, cy, 41 + i) * decor.moteCell + clock * (16 + h * 10)) % decor.moteCell) + Math.sin(clock * 1.3 + h * TAU) * 6;
+      ctx.fillStyle = i === 0 ? '#ffffffb0' : '#cfeeffa0';
+      ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+    }
+  });
+
+  // Cristalli incastonati nella parete, che brillano a turno.
+  const face = wallFaceHeight(arena);
+  for (const spot of faceSpots(arena, arena.wallThickness + face * 0.5, 200)) {
+    if (!camera.isVisible(spot, 130)) continue;
+    const shine = Math.sin(clock * 2.2 + spot.x * 0.02) * 0.5 + 0.5;
+    drawLight(ctx, spot.x, spot.y, '#7fd8ff', 120, 0.3 + 0.3 * shine);
+    ctx.fillStyle = '#3f7fb0';
+    ctx.beginPath();
+    ctx.moveTo(spot.x, spot.y - 9);
+    ctx.lineTo(spot.x + 6, spot.y);
+    ctx.lineTo(spot.x, spot.y + 9);
+    ctx.lineTo(spot.x - 6, spot.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = shine > 0.5 ? '#e8fbff' : '#a9e6fa';
+    ctx.beginPath();
+    ctx.moveTo(spot.x, spot.y - 9);
+    ctx.lineTo(spot.x + 6, spot.y);
+    ctx.lineTo(spot.x, spot.y);
+    ctx.closePath();
     ctx.fill();
   }
 }
@@ -249,8 +310,9 @@ function drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camer
   }
   ctx.stroke();
 
-  // Nucleo luminoso: pulsa lentamente.
+  // Nucleo luminoso: pulsa lentamente e rischiara il ghiaccio attorno.
   const glow = 0.35 + 0.3 * (Math.sin(clock * 1.8 + x * 0.01) * 0.5 + 0.5);
+  drawLight(ctx, x, y, '#bef4ff', r * 3.2, glow * 0.8);
   ctx.fillStyle = `rgba(190, 244, 255, ${glow.toFixed(3)})`;
   ctx.beginPath();
   ctx.arc(x, y, r * 0.38, 0, TAU);
@@ -264,7 +326,15 @@ function drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camer
 export const glacierTheme: ArenaTheme = {
   drawFloor,
   drawPillar,
+  drawForeground: (ctx, arena, camera, _clock, ambient) => drawBottomWallLip(ctx, arena, camera, '#b4d6ea', '#e4f4fc', ambient),
+  ambient: '#3e4c64',
+  // Pavimento chiaro: i proiettili nemici, quasi tutti chiari, hanno bisogno di un contorno piu' spesso.
+  projectileRim: 4.5,
+  block: { cap: '#b4d6ea', edge: '#e4f4fc', face: GLACIER_WALL_FACE, tiles: 'glacier' },
   silhouette: '#f0fbff66',
   vignette: '#030a14',
-  groundColors: [...SLAB_COLORS, '#0d2238', '#0a1b2e'],
+  groundColors: [
+    ...SLAB_COLORS, '#0d2238', '#0a1b2e',
+    ...tileColors('glacier', 'floor'), ...tileColors('glacier', 'floorDark'), ...tileColors('glacier', 'chasm'), ...tileColors('glacier', 'bridgeEW'),
+  ],
 };

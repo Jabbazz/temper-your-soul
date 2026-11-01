@@ -1,13 +1,13 @@
 import type { Rng } from '../../core/rng';
 import { TAU, Vec2 } from '../../core/vec2';
-import { clampToArena, moveBody, pushOutOfPillars, type ArenaDefinition } from '../arena/arena';
+import { clampToArena, moveBody, pushOutOfPillars, solidBetween, type ArenaDefinition } from '../arena/arena';
 import { HIT_RADIUS } from '../combat/collision';
 import type { DangerZoneSpec } from '../combat/danger-zone';
 import type { GameEvent } from '../combat/events';
 import type { ProjectileSpec } from '../combat/projectile';
 import type { Player } from '../player/player';
 import type { Minion } from './minion';
-import { minionTier, type ShotPattern } from './minion-definition';
+import { minionTier, type MinionArrivalRing, type MinionCharge, type ShotPattern } from './minion-definition';
 
 /*
  * Comportamento dei servitori: movimento, attacchi annunciati, abilita'. Funzioni senza stato proprio: leggono e
@@ -23,6 +23,11 @@ export interface MinionContext {
   readonly rng: Rng;
   readonly minions: readonly Minion[];
   nearestPlayer(point: Vec2): Player | undefined;
+  /**
+   * Dove dirigersi a piedi per arrivare a `to` girando attorno a massicci, ripari e pozzi (il punto stesso se la strada
+   * e' libera): l'angolo dell'ostacolo, o nelle stanze con i pozzi la cella successiva del campo di flusso.
+   */
+  route(from: Vec2, to: Vec2, bodyRadius: number): Vec2;
   /** Crea un proiettile nemico del servitore; false se il limite dei proiettili dei servitori e' raggiunto. */
   spawnProjectile(spec: ProjectileSpec, position: Vec2, angle: number, minion: Minion): boolean;
   spawnZone(spec: DangerZoneSpec, position: Vec2, minion: Minion): void;
@@ -43,6 +48,7 @@ export function stepMinion(minion: Minion, ctx: MinionContext, dt: number): void
   minion.rootFor = Math.max(0, minion.rootFor - dt);
   minion.slowFor = Math.max(0, minion.slowFor - dt);
   minion.shield = Math.max(0, minion.shield - dt * 2);
+  minion.hasteFor = Math.max(0, minion.hasteFor - dt);
   if (minion.state === 'reviving') {
     minion.stateTimer -= dt;
     if (minion.stateTimer <= 0) revive(minion, ctx);
@@ -66,6 +72,7 @@ export function stepMinion(minion: Minion, ctx: MinionContext, dt: number): void
     case 'chaser':
     case 'kamikaze':
       if (definition.charge) stepCharger(minion, target, ctx, dt);
+      else if (minion.pending === 'ambush') stepWindup(minion, target, ctx, dt);
       else moveToward(minion, target.position, minion.speed, dt, ctx);
       break;
     case 'turret':
@@ -103,6 +110,7 @@ export function stepMinion(minion: Minion, ctx: MinionContext, dt: number): void
   }
   if (definition.behavior !== 'nest' && definition.behavior !== 'fleer' && definition.nest) tickNest(minion, ctx, dt);
   if (definition.blink) tickBlink(minion, target, ctx, dt);
+  if (definition.ambush) tickAmbush(minion, target, ctx, dt);
   if (definition.lob) tickLob(minion, target, ctx, dt);
   if (definition.shot) tickShot(minion, target, ctx, dt);
   touch(minion, target, ctx);
@@ -110,12 +118,16 @@ export function stepMinion(minion: Minion, ctx: MinionContext, dt: number): void
 
 // --- Movimento --------------------------------------------------------------------------------------------------
 
-/** Porta il servitore verso `point`: chi vola ignora i pilastri, gli altri ci scivolano attorno. */
-function moveToward(minion: Minion, point: Vec2, speed: number, dt: number, ctx: MinionContext): void {
-  const distance = minion.position.distanceTo(point);
+/**
+ * Porta il servitore verso `point`: chi vola ignora i pilastri, gli altri ci scivolano attorno e girano attorno ai
+ * massicci delle stanze che li hanno (`straight` per le cariche, che vanno dritte e si fermano contro il blocco).
+ */
+function moveToward(minion: Minion, point: Vec2, speed: number, dt: number, ctx: MinionContext, straight = false): void {
+  const goal = minion.definition.flying || straight ? point : ctx.route(minion.position, point, minion.hitRadius);
+  const distance = minion.position.distanceTo(goal);
   if (distance < 0.5) return;
   const step = Math.min(distance, speed * dt);
-  step2(minion, minion.position.add(point.sub(minion.position).mul(step / distance)), ctx);
+  step2(minion, minion.position.add(goal.sub(minion.position).mul(step / distance)), ctx);
 }
 
 /** Sposta il servitore al punto `to`, nell'arena e (se non vola) fuori dai pilastri. */
@@ -132,7 +144,9 @@ function keepDistance(minion: Minion, target: Player, ctx: MinionContext, dt: nu
   const preferred = minion.definition.preferredDistance ?? 280;
   const distance = minion.position.distanceTo(target.position);
   const speed = minion.speed * factor;
-  if (distance > preferred + 40) moveToward(minion, target.position, speed, dt, ctx);
+  // Dietro un massiccio non si vede il bersaglio: chi tiene la distanza gli gira attorno (o ci vola sopra) finche' non lo vede.
+  const hidden = solidBetween(ctx.arena, minion.position, target.position) !== undefined;
+  if (distance > preferred + 40 || hidden) moveToward(minion, target.position, speed, dt, ctx);
   else if (distance < preferred - 40) {
     const away = minion.position.add(minion.position.sub(target.position).normalized().mul(speed * dt));
     step2(minion, away, ctx);
@@ -228,6 +242,7 @@ function stepCharger(minion: Minion, target: Player, ctx: MinionContext, dt: num
         if (minion.stateTimer <= 0) {
           minion.state = 'dash';
           minion.chargeTrail = 0;
+          minion.bouncesLeft = charge.bounces ?? 0;
           minion.stateTimer = charge.distance / charge.speed + 0.1;
         }
       } else stepWindup(minion, target, ctx, dt);
@@ -235,7 +250,7 @@ function stepCharger(minion: Minion, target: Player, ctx: MinionContext, dt: num
     case 'dash': {
       const destination = minion.target ?? minion.position;
       const before = minion.position;
-      moveToward(minion, destination, charge.speed, dt, ctx);
+      moveToward(minion, destination, charge.speed, dt, ctx, true);
       const moved = before.distanceTo(minion.position);
       if (charge.trail) {
         minion.chargeTrail += moved;
@@ -245,9 +260,13 @@ function stepCharger(minion: Minion, target: Player, ctx: MinionContext, dt: num
         }
       }
       minion.stateTimer -= dt;
-      if (minion.stateTimer <= 0 || minion.position.distanceTo(destination) < 2 || moved < charge.speed * dt * 0.25) {
+      const stopped = minion.position.distanceTo(destination) < 2 || moved < charge.speed * dt * 0.25;
+      if (minion.stateTimer <= 0 || stopped) {
+        // Contro un muro della stanza, con rimbalzi rimasti: riparte di sponda con la distanza che resta.
+        if (stopped && minion.stateTimer > 0 && minion.bouncesLeft > 0 && bounce(minion, charge, ctx)) return;
         minion.state = 'recover';
         minion.stateTimer = charge.recover;
+        if (charge.arrivalRing) arrivalRing(minion, charge.arrivalRing, ctx);
       }
       return;
     }
@@ -297,6 +316,7 @@ function stepLeaper(minion: Minion, target: Player, ctx: MinionContext, dt: numb
       minion.position = pushOutOfPillars(ctx.arena, to, minion.hitRadius);
       minion.state = 'idle';
       minion.abilityTimer = leap.cooldown * minion.cadence;
+      if (leap.arrivalRing) arrivalRing(minion, leap.arrivalRing, ctx);
     }
     return;
   }
@@ -337,6 +357,7 @@ function stepBurrower(minion: Minion, target: Player, ctx: MinionContext, dt: nu
       minion.state = 'exposed';
       minion.stateTimer = burrow.exposed;
       lash(minion, target, ctx);
+      if (burrow.arrivalRing) arrivalRing(minion, burrow.arrivalRing, ctx);
       return;
     case 'exposed':
       minion.stateTimer -= dt;
@@ -355,6 +376,55 @@ function lash(minion: Minion, target: Player, ctx: MinionContext): void {
     const point = clampToArena(ctx.arena, minion.position.add(direction.mul(lash.spacing * i)), ctx.arena.playerMargin);
     ctx.spawnZone({ ...lash.zone, delay: lash.zone.delay + i * 0.04 }, point, minion);
   }
+}
+
+/**
+ * La carica ha toccato un muro della stanza: riparte riflessa (sul lato toccato) per la distanza che le resta. Falso se
+ * non e' contro un muro (pilastro, massiccio) o se resta troppo poco.
+ */
+function bounce(minion: Minion, charge: MinionCharge, ctx: MinionContext): boolean {
+  const margin = ctx.arena.playerMargin;
+  const position = minion.position;
+  const from = minion.origin ?? position;
+  const travel = position.sub(from);
+  if (travel.length() < 1) return false;
+  const hitX = position.x <= margin + 1 || position.x >= ctx.arena.width - margin - 1;
+  const hitY = position.y <= margin + 1 || position.y >= ctx.arena.height - margin - 1;
+  if (!hitX && !hitY) return false;
+  const direction = travel.normalized();
+  const reflected = new Vec2(hitX ? -direction.x : direction.x, hitY ? -direction.y : direction.y);
+  const remaining = minion.stateTimer * charge.speed;
+  if (remaining < 40) return false;
+  minion.origin = position;
+  minion.target = clampToArena(ctx.arena, position.add(reflected.mul(remaining)), margin);
+  minion.bouncesLeft--;
+  ctx.emit({ type: 'minion_telegraph', action: 'charge', minionId: minion.id, position, to: minion.target, seconds: 0.2 });
+  return true;
+}
+
+/** Anello di colpi attorno al servitore (fine della carica, atterraggio, emersione). */
+function arrivalRing(minion: Minion, ring: MinionArrivalRing, ctx: MinionContext): void {
+  for (let i = 0; i < ring.count; i++) ctx.spawnProjectile(ring.projectile, minion.position, minion.heading + (i * TAU) / ring.count, minion);
+  minion.heading += 0.7;
+}
+
+/** Agguato: segna un punto dietro il bersaglio, sulla sua via di fuga; alla fine della posa ci ricompare e morde. */
+function tickAmbush(minion: Minion, target: Player, ctx: MinionContext, dt: number): void {
+  const ambush = minion.definition.ambush!;
+  // Solo gli inseguitori tendono agguati: la loro posa si chiude nel loro passo (un test sul catalogo lo controlla).
+  if (minion.definition.behavior !== 'chaser' || minion.definition.charge !== undefined) return;
+  if (minion.state !== 'idle' || minion.pending !== null) return;
+  minion.ambushTimer -= dt;
+  if (minion.ambushTimer > 0 || minion.age < MINION_GRACE) return;
+  if (minion.position.distanceTo(target.position) > ambush.trigger) return;
+  const direction = target.position.sub(minion.position).normalized();
+  const raw = clampToArena(ctx.arena, target.position.add(direction.mul(ambush.behind)), ctx.arena.playerMargin + 10);
+  minion.target = pushOutOfPillars(ctx.arena, raw, minion.hitRadius);
+  minion.state = 'windup';
+  minion.pending = 'ambush';
+  minion.stateTimer = ambush.windup;
+  minion.ambushTimer = ambush.cooldown * minion.cadence;
+  ctx.emit({ type: 'minion_telegraph', action: 'blink', minionId: minion.id, position: minion.position, to: minion.target, seconds: ambush.windup });
 }
 
 function tickBlink(minion: Minion, target: Player, ctx: MinionContext, dt: number): void {
@@ -383,15 +453,19 @@ function tickBlink(minion: Minion, target: Player, ctx: MinionContext, dt: numbe
   ctx.emit({ type: 'minion_telegraph', action: 'blink', minionId: minion.id, position: minion.position, to: best, seconds: blink.windup });
 }
 
-/** Annuncio di un teletrasporto o di una raffica dei tiratori in posa. */
-function stepWindup(minion: Minion, _target: Player, ctx: MinionContext, dt: number): void {
+/** Annuncio di un teletrasporto, di un agguato o di una raffica dei tiratori in posa. */
+function stepWindup(minion: Minion, target: Player, ctx: MinionContext, dt: number): void {
   minion.stateTimer -= dt;
   if (minion.stateTimer > 0) return;
   minion.state = 'idle';
-  if (minion.pending === 'blink' && minion.target !== null) {
+  if ((minion.pending === 'blink' || minion.pending === 'ambush') && minion.target !== null) {
     const from = minion.position;
     minion.position = minion.target;
     ctx.emit({ type: 'minion_blinked', position: minion.position, from, minionId: minion.id, visual: minion.definition.visual });
+    const ambush = minion.definition.ambush;
+    if (minion.pending === 'ambush' && ambush !== undefined) {
+      fire(minion, target, ambush.projectile, { kind: 'aimed', count: ambush.count, spread: ambush.spread }, ctx);
+    }
   }
   minion.pending = null;
 }
@@ -421,10 +495,24 @@ function tickAura(minion: Minion, ctx: MinionContext, dt: number): void {
   let covered = 0;
   for (const other of ctx.minions) {
     if (other === minion || other.isDead || other.position.distanceTo(minion.position) > aura.radius) continue;
-    other.shield = Math.max(other.shield, aura.amount);
+    if (aura.kind !== 'shield' && other.isHidden) continue;
+    switch (aura.kind) {
+      case 'shield':
+        other.shield = Math.max(other.shield, aura.amount);
+        break;
+      case 'haste':
+        other.hasteFor = Math.max(other.hasteFor, aura.duration ?? 3);
+        other.hasteFactor = aura.amount;
+        break;
+      case 'repair': {
+        if (other.health.current >= other.health.max) continue;
+        other.health.current = Math.min(other.health.max, other.health.current + Math.ceil(other.health.max * aura.amount));
+        break;
+      }
+    }
     covered++;
   }
-  if (covered > 0) ctx.emit({ type: 'minion_aura', position: minion.position, radius: aura.radius, minionId: minion.id });
+  if (covered > 0) ctx.emit({ type: 'minion_aura', position: minion.position, radius: aura.radius, minionId: minion.id, aura: aura.kind });
 }
 
 function tickLob(minion: Minion, target: Player, ctx: MinionContext, dt: number): void {
@@ -438,6 +526,37 @@ function tickLob(minion: Minion, target: Player, ctx: MinionContext, dt: number)
   }
   minion.abilityTimer = lob.interval * minion.cadence;
   const margin = ctx.arena.playerMargin;
+  const at = (point: Vec2, delay: number): void => ctx.spawnZone({ ...lob.zone, delay: lob.zone.delay + delay }, clampToArena(ctx.arena, point, margin), minion);
+  if (lob.shape === 'ring') {
+    // Un cerchio di zone attorno al bersaglio: il centro e' il posto sicuro.
+    const phase = ctx.rng.next() * TAU;
+    for (let i = 0; i < lob.count; i++) at(target.position.add(Vec2.fromAngle(phase + (i * TAU) / lob.count, lob.scatter)), 0);
+    return;
+  }
+  if (lob.shape === 'cross') {
+    // Una zona sul bersaglio e quattro bracci che scoppiano dal centro verso fuori.
+    const spacing = lob.zone.radius * 1.7;
+    const base = minion.position.angleTo(target.position);
+    at(target.position, 0);
+    for (let arm = 0; arm < 4; arm++) {
+      const direction = Vec2.fromAngle(base + (arm * Math.PI) / 2);
+      for (let i = 1; i <= lob.count; i++) at(target.position.add(direction.mul(spacing * i)), i * 0.15);
+    }
+    return;
+  }
+  if (lob.shape === 'cone') {
+    // Ondate di zone dal servitore verso il bersaglio, sempre piu' larghe, una dopo l'altra.
+    const rows = lob.rows ?? 3;
+    const direction = Vec2.fromAngle(minion.position.angleTo(target.position));
+    const across = new Vec2(-direction.y, direction.x);
+    const reach = Math.min(lob.range, minion.position.distanceTo(target.position) + lob.scatter);
+    for (let wave = 1; wave <= lob.count; wave++) {
+      const center = minion.position.add(direction.mul((reach * wave) / lob.count));
+      const width = lob.zone.radius * 1.8 * (0.6 + (0.4 * wave) / lob.count);
+      for (let row = 0; row < rows; row++) at(center.add(across.mul((row - (rows - 1) / 2) * width)), wave * 0.18);
+    }
+    return;
+  }
   if (lob.shape === 'spots') {
     for (let i = 0; i < lob.count; i++) {
       const offset = i === 0 ? Vec2.ZERO : Vec2.fromAngle(ctx.rng.next() * TAU, lob.scatter * (0.4 + ctx.rng.next() * 0.6));
@@ -460,11 +579,23 @@ function tickShot(minion: Minion, target: Player, ctx: MinionContext, dt: number
   const shot = minion.definition.shot!;
   const state = minion.state;
   if (state !== 'idle' && state !== 'exposed' && !(state === 'windup' && minion.pending === 'shot')) return;
+  if (minion.seriesLeft > 0 && shot.series !== undefined) {
+    // Raffica in serie: le raffiche dopo la prima, senza nuova posa, ognuna mirata di nuovo e ruotata.
+    minion.seriesTimer -= dt;
+    if (minion.seriesTimer <= 0) {
+      fire(minion, target, shot.projectile, shot.pattern ?? { kind: 'aimed', count: 1, spread: 0 }, ctx, minion.seriesIndex * (shot.series.turn ?? 0));
+      minion.seriesIndex++;
+      minion.seriesLeft--;
+      minion.seriesTimer = shot.series.gap;
+      minion.volleys++;
+    }
+  }
   minion.shotTimer -= dt;
   const windup = shot.windup ?? 0;
   if (minion.pending !== 'shot') {
     if (minion.shotTimer > windup) return;
-    const inRange = shot.range === undefined || minion.position.distanceTo(target.position) <= shot.range;
+    // Non si spara contro un massiccio: si aspetta di vedere il bersaglio.
+    const inRange = (shot.range === undefined || minion.position.distanceTo(target.position) <= shot.range) && solidBetween(ctx.arena, minion.position, target.position) === undefined;
     const tokened = minionTier(minion.definition) !== 'swarm';
     if (!inRange || minion.age < MINION_GRACE - windup || (tokened && !ctx.takeToken(minion))) {
       minion.shotTimer = windup + 0.25;
@@ -481,22 +612,31 @@ function tickShot(minion: Minion, target: Player, ctx: MinionContext, dt: number
   minion.pending = null;
   minion.volleys++;
   minion.shotTimer = shot.interval * minion.cadence;
+  if (shot.series !== undefined && shot.series.count > 1) {
+    minion.seriesLeft = shot.series.count - 1;
+    minion.seriesIndex = 1;
+    minion.seriesTimer = shot.series.gap;
+  }
 }
 
-/** Spara una raffica secondo la disposizione dei dati. */
-function fire(minion: Minion, target: Player, spec: ProjectileSpec, pattern: ShotPattern, ctx: MinionContext): void {
+/** Spara una raffica secondo la disposizione dei dati; `turn` ruota la raffica (le raffiche in serie). */
+function fire(minion: Minion, target: Player, spec: ProjectileSpec, pattern: ShotPattern, ctx: MinionContext, turn = 0): void {
   const origin = minion.position;
-  const aim = origin.angleTo(target.position);
+  const aim = origin.angleTo(target.position) + turn;
   switch (pattern.kind) {
     case 'aimed':
       for (let i = 0; i < pattern.count; i++) ctx.spawnProjectile(spec, origin, aim + (i - (pattern.count - 1) / 2) * pattern.spread, minion);
       return;
     case 'ring': {
-      const base = aim + (pattern.turn ?? 0) * minion.volleys;
+      const spin = (pattern.turn ?? 0) * minion.volleys;
       const gap = pattern.gap ?? 0;
-      for (let i = 0; i < pattern.count; i++) {
-        if (gap > 0 && Math.min(i, pattern.count - i) < gap / 2) continue;
-        ctx.spawnProjectile(spec, origin, base + (i * TAU) / pattern.count, minion);
+      // La spirale doppia: il secondo anello gira al contrario (non alla prima raffica, quando coinciderebbe col primo).
+      const mirrored = pattern.mirror === true && Math.abs(Math.sin(spin)) > 1e-6;
+      for (const base of mirrored ? [aim + spin, aim - spin] : [aim + spin]) {
+        for (let i = 0; i < pattern.count; i++) {
+          if (gap > 0 && Math.min(i, pattern.count - i) < gap / 2) continue;
+          ctx.spawnProjectile(spec, origin, base + (i * TAU) / pattern.count, minion);
+        }
       }
       return;
     }

@@ -24,6 +24,8 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
+    // I caratteri dell'interfaccia vanno dentro il CSS: da file:// il browser non carica i caratteri come file a parte.
+    assetsInlineLimit: (file: string) => (file.endsWith('.woff2') ? true : undefined),
     rollupOptions: { output: { format: 'iife', inlineDynamicImports: true } },
   },
   plugins: [classicScript()],

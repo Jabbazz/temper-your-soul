@@ -41,7 +41,7 @@ export class Minion {
   /** Secondi rimasti nella fase corrente (`windup`, `dash`, `recover`, `emerging`, `exposed`, `reviving`, `airborne`). */
   stateTimer = 0;
   /** Che cosa sta annunciando in `windup`. */
-  pending: 'shot' | 'charge' | 'leap' | 'blink' | null = null;
+  pending: 'shot' | 'charge' | 'leap' | 'blink' | 'ambush' | null = null;
   /** Punto di arrivo di carica, salto o teletrasporto; punto di partenza della carica. */
   target: Vec2 | null = null;
   origin: Vec2 | null = null;
@@ -66,6 +66,18 @@ export class Minion {
   chargeTrail = 0;
   /** Quante raffiche ha sparato (rotazione del varco). */
   volleys = 0;
+  /** Raffica in serie: raffiche ancora da sparare, secondi alla prossima e posizione nella serie. */
+  seriesLeft = 0;
+  seriesTimer = 0;
+  seriesIndex = 0;
+  /** Secondi di fervore rimasti (aura del sostegno: attacca piu' spesso). */
+  hasteFor = 0;
+  /** Moltiplicatore degli intervalli durante il fervore. */
+  hasteFactor = 1;
+  /** Rimbalzi sui muri rimasti nella carica in corso. */
+  bouncesLeft = 0;
+  /** Secondi al prossimo agguato: un tempo suo, non condiviso con le altre abilita'. */
+  ambushTimer: number;
   readonly elite: EliteModifier | null;
   readonly parentId: number | null;
   readonly hostile: boolean;
@@ -83,6 +95,7 @@ export class Minion {
     this.health = new Health(Math.max(1, Math.round(base * (options.exactHealth ? 1 : this.elite?.healthMultiplier ?? 1))));
     this.shotTimer = definition.shot?.firstDelay ?? 0;
     this.abilityTimer = firstAbilityDelay(definition);
+    this.ambushTimer = (definition.ambush?.cooldown ?? 0) * 0.5;
     this.heading = (id * 2.399) % (Math.PI * 2);
     this.warded = this.elite?.warded === true;
     this.parentId = options.parentId ?? null;
@@ -110,9 +123,9 @@ export class Minion {
     return this.definition.speed * (this.elite?.speedMultiplier ?? 1) * (this.slowFor > 0 ? 0.5 : 1);
   }
 
-  /** Moltiplicatore degli intervalli di attacco (elite Rapido). */
+  /** Moltiplicatore degli intervalli di attacco (elite Rapido, fervore dei sostegni). */
   get cadence(): number {
-    return this.elite?.cadence ?? 1;
+    return (this.elite?.cadence ?? 1) * (this.hasteFor > 0 ? this.hasteFactor : 1);
   }
 }
 

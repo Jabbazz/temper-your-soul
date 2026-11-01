@@ -55,7 +55,16 @@ const VARIANT_FILL: Readonly<Record<SheetVariant, { readonly color: string; read
 
 /** Il foglio colorato una volta sola su un canvas: si disegna con le stesse coordinate dell'immagine. */
 export function sheetVariant(url: string, image: HTMLImageElement, variant: SheetVariant): HTMLCanvasElement {
-  const key = `${variant}|${url}`;
+  return tinted(url, image, VARIANT_FILL[variant].color, VARIANT_FILL[variant].alpha);
+}
+
+/** La sagoma del foglio tutta di un colore (#rrggbb): per il bordo chiaro che stacca il boss dal pavimento. */
+export function sheetSilhouette(url: string, image: HTMLImageElement, color: string): HTMLCanvasElement {
+  return tinted(url, image, color.slice(0, 7), 1);
+}
+
+function tinted(url: string, image: HTMLImageElement, color: string, alpha: number): HTMLCanvasElement {
+  const key = `${color}|${alpha}|${url}`;
   let canvas = variants.get(key);
   if (canvas === undefined) {
     canvas = document.createElement('canvas');
@@ -65,8 +74,8 @@ export function sheetVariant(url: string, image: HTMLImageElement, variant: Shee
     ctx.drawImage(image, 0, 0);
     // 'source-atop' colora solo i pixel gia' disegnati: resta la sagoma, senza leggere l'immagine.
     ctx.globalCompositeOperation = 'source-atop';
-    ctx.globalAlpha = VARIANT_FILL[variant].alpha;
-    ctx.fillStyle = VARIANT_FILL[variant].color;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     variants.set(key, canvas);
   }

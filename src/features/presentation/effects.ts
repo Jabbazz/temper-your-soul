@@ -152,9 +152,30 @@ export interface Telegraph {
   readonly visual?: string;
   readonly elite?: string;
   readonly radius?: number;
+  /** Tipo d'aura (scudo, fervore, riparazione): cambia il colore dell'onda. */
+  readonly aura?: 'shield' | 'haste' | 'repair';
   remaining: number;
   readonly total: number;
 }
+
+/**
+ * Traccia dello scontro sul pavimento: la bruciatura di una zona scoppiata o i resti di un servitore abbattuto. Resta
+ * qualche decina di secondi e poi svanisce; solo aspetto (ogni client le crea dagli stessi eventi).
+ */
+export interface Decal {
+  readonly x: number;
+  readonly y: number;
+  readonly kind: 'scorch' | 'remains';
+  readonly color: string;
+  readonly radius: number;
+  /** Seme della forma, stabile per tutta la vita della traccia. */
+  readonly seed: number;
+  remaining: number;
+  readonly total: number;
+}
+
+/** Durata delle tracce e quante ne restano al massimo (le piu' vecchie lasciano il posto). Provvisori. */
+export const DECALS = { life: 26, max: 60 } as const;
 
 const SLASH_LIFE = 0.18;
 const TEXT_LIFE = 0.9;
@@ -181,6 +202,8 @@ export class Effects {
   bossJolt = 0;
   /** Lampi dei servitori colpiti, per id. */
   readonly minionFlashes = new Map<number, number>();
+  /** Lampi dei ripari colpiti (fase 5), per indice del riparo. */
+  readonly coverFlashes = new Map<number, number>();
   /** Vignetta rossa (colpo subito dal giocatore di questo client). */
   hurtFlash = 0;
   /** Lampo rosso del passaggio in furia. */
@@ -195,6 +218,8 @@ export class Effects {
   telegraphs: Telegraph[] = [];
   /** Rallentatore della stanza appena liberata (secondi rimasti): solo aspetto. */
   roomClearFlash = 0;
+  /** Tracce dello scontro sul pavimento, dalla piu' vecchia alla piu' recente. */
+  decals: Decal[] = [];
 
   private readonly trails = new Map<number, { emit: number; points: Vec2[]; emitted: number }>();
   /** Particelle d'ambiente del boss "in debito" (frazioni accumulate fra un passo e l'altro). */
@@ -213,6 +238,7 @@ export class Effects {
     this.bossFlash = 0;
     this.bossJolt = 0;
     this.minionFlashes.clear();
+    this.coverFlashes.clear();
     this.hurtFlash = 0;
     this.rageFlash = 0;
     this.bossTransform = 0;
@@ -220,6 +246,7 @@ export class Effects {
     this.bossDeath = null;
     this.telegraphs = [];
     this.roomClearFlash = 0;
+    this.decals = [];
     this.ambientDebt = 0;
     this.trails.clear();
   }
@@ -254,6 +281,19 @@ export class Effects {
       case 'projectile_hit':
         this.onProjectileHit(event);
         break;
+      case 'cover_hit':
+        // Il riparo trema e schiarisce; qualche scheggia.
+        this.coverFlashes.set(event.cover, FEEDBACK.hitFlash);
+        this.burst(event.position, '#bba98f', 4);
+        break;
+      case 'cover_broken':
+        this.coverFlashes.delete(event.cover);
+        this.burst(event.position, '#bba98f', 34);
+        this.burst(event.position, '#6b5d52', 18);
+        this.wave(event.position, 70, '#d8c8b0', 0.35);
+        this.decal(event.position, 'remains', '#4a3f38', 34);
+        this.shake = Math.max(this.shake, 3);
+        break;
       case 'projectile_faded':
         // Colpo mancato: uno sbuffo grigio e spento, l'opposto della scintilla di un colpo a segno.
         for (let i = 0; i < 5; i++) {
@@ -261,9 +301,12 @@ export class Effects {
           this.particle(event.position.x, event.position.y, Math.cos(a) * 18, Math.sin(a) * 18 - 12, '#8d8794', 0.35, 2);
         }
         break;
-      case 'zone_detonated':
-        this.onZoneDetonated(event.position, event.radius, zoneLook(event.team, event.visual));
+      case 'zone_detonated': {
+        const look = zoneLook(event.team, event.visual);
+        this.onZoneDetonated(event.position, event.radius, look);
+        this.decal(event.position, 'scorch', look.ring, event.radius * 0.8);
         break;
+      }
       case 'boss_teleported':
         for (const point of [event.from, event.to]) {
           this.burst(point, '#d9c6ff', 22);
@@ -302,6 +345,8 @@ export class Effects {
         // Le morti in massa restano leggere: poche particelle per servitore, un'onda piccola.
         this.burst(event.position, art.color, event.exploded ? 26 : event.revives ? 6 : 10);
         this.wave(event.position, event.exploded ? 44 : 22, art.color, 0.3);
+        // Chi si rialza non lascia resti: le sue ossa si vedono gia' a terra.
+        if (!event.revives) this.decal(event.position, event.exploded ? 'scorch' : 'remains', art.color, event.exploded ? 30 : 12);
         this.minionFlashes.delete(event.minionId);
         this.telegraphs = this.telegraphs.filter((telegraph) => telegraph.minionId !== event.minionId);
         if (event.exploded) this.shake = Math.max(this.shake, 4);
@@ -328,7 +373,7 @@ export class Effects {
         });
         break;
       case 'minion_aura':
-        this.telegraphs.push({ kind: 'aura', position: event.position, radius: event.radius, minionId: event.minionId, remaining: 0.6, total: 0.6 });
+        this.telegraphs.push({ kind: 'aura', position: event.position, radius: event.radius, minionId: event.minionId, ...(event.aura ? { aura: event.aura } : {}), remaining: 0.6, total: 0.6 });
         break;
       case 'minion_woke':
       case 'minion_revived': {
@@ -376,6 +421,8 @@ export class Effects {
     }
     for (const telegraph of this.telegraphs) telegraph.remaining -= dt;
     this.telegraphs = this.telegraphs.filter((telegraph) => telegraph.remaining > 0);
+    for (const decal of this.decals) decal.remaining -= dt;
+    if (this.decals.some((decal) => decal.remaining <= 0)) this.decals = this.decals.filter((decal) => decal.remaining > 0);
     this.updateDeath(dt);
 
     for (const f of this.particles) {
@@ -403,6 +450,10 @@ export class Effects {
     for (const [id, left] of this.minionFlashes) {
       if (left - dt <= 0) this.minionFlashes.delete(id);
       else this.minionFlashes.set(id, left - dt);
+    }
+    for (const [index, left] of this.coverFlashes) {
+      if (left - dt <= 0) this.coverFlashes.delete(index);
+      else this.coverFlashes.set(index, left - dt);
     }
     this.shake = Math.max(0, this.shake - dt * 25);
     this.bossFlash = Math.max(0, this.bossFlash - dt);
@@ -641,6 +692,11 @@ export class Effects {
       }
     }
     for (const id of this.trails.keys()) if (!alive.has(id)) this.trails.delete(id);
+  }
+
+  private decal(position: Vec2, kind: Decal['kind'], color: string, radius: number): void {
+    this.decals.push({ x: position.x, y: position.y, kind, color, radius, seed: this.rng.next(), remaining: DECALS.life, total: DECALS.life });
+    if (this.decals.length > DECALS.max) this.decals.shift();
   }
 
   private particle(x: number, y: number, vx: number, vy: number, color: string, life = 0.45, size = 3, gravity = 0): void {

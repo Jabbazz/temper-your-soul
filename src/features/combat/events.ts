@@ -77,7 +77,7 @@ export type GameEvent = (
   /** Un servitore si e' teletrasportato da `from` a `position`. */
   | { type: 'minion_blinked'; position: Vec2; from: Vec2; minionId: number; visual: string }
   /** Un sostegno ha coperto di scudi i servitori entro `radius`. */
-  | { type: 'minion_aura'; position: Vec2; radius: number; minionId: number }
+  | { type: 'minion_aura'; position: Vec2; radius: number; minionId: number; aura?: 'shield' | 'haste' | 'repair' }
   /**
    * Un servitore annuncia un'azione per `seconds` secondi: una raffica, una carica (fino a `to`), l'uscita da sotto
    * terra o un teletrasporto (verso `to`).
@@ -89,6 +89,10 @@ export type GameEvent = (
   | { type: 'last_enemy'; position: Vec2 }
   /** La stanza e' libera: le porte si aprono e compare il premio. */
   | { type: 'room_cleared'; position: Vec2 }
+  /** Un colpo ha raggiunto un riparo (fase 5): `left` e' la vita che gli resta, da 0 a 1. */
+  | { type: 'cover_hit'; position: Vec2; cover: number; left: number }
+  /** Un riparo si e' rotto: non ferma piu' corpi e colpi. */
+  | { type: 'cover_broken'; position: Vec2; cover: number }
   /** Un giocatore ha preso un premio della stanza (`reward`: tipo del premio). */
   | { type: 'reward_taken'; position: Vec2; reward: string; amount?: number }
   /** Un giocatore ha scelto una tempra. */

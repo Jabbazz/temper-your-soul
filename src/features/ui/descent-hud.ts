@@ -2,10 +2,11 @@ import { dungeonById } from '../dungeons/dungeons';
 import type { RunView } from '../run/descent';
 import type { RoomView } from '../run/encounter';
 import { ROOM_LABELS, TRIAL_LABELS, type RoomKind } from '../run/rooms';
+import { showsVeins, veinName } from '../run/veins';
 import { el, formatSeconds, requireElement } from './dom';
 
-/** Lettera della tappa nella mappa della discesa. */
-const STAGE_MARKS: Readonly<Record<RoomKind, string>> = {
+/** Lettera della tappa nella mappa della discesa (anche nella mappa intera). */
+export const STAGE_MARKS: Readonly<Record<RoomKind, string>> = {
   threshold: 'S',
   combat: '⚔',
   trial: '!',
@@ -47,15 +48,17 @@ export class DescentHud {
           : room.kind === 'boss' || room.kind === 'lieutenant'
             ? 'Abbatti il nemico'
             : '';
-    const key = JSON.stringify([run.stage, run.dungeonIndex, run.status, status, room.trialFailed, room.kind]);
+    const key = JSON.stringify([run.stage, run.dungeonIndex, run.status, status, room.trialFailed, room.kind, run.roomVeins]);
     this.root.classList.remove('hidden');
     if (key === this.last) return;
     this.last = key;
     const dungeon = dungeonById(run.dungeonId);
     const head = el('div', 'descent-head');
     const pilgrimage = run.mode === 'pilgrimage' ? ` · Pellegrinaggio ${run.dungeonIndex + 1}/${run.dungeons.length}` : '';
+    // Con piu' vene, anche la vena della stanza (e l'Incursione).
+    const vein = showsVeins(run.veins) && run.roomVeins !== undefined ? ` · ${run.roomVeins.incursion ? 'INCURSIONE: ' : ''}${veinName(run.dungeonId, run.roomVeins.vein).toUpperCase()}` : '';
     head.append(
-      el('span', 'eyebrow', `${(dungeon?.name ?? '').toUpperCase()} · TAPPA ${run.stage + 1}/${run.stages}${pilgrimage}`),
+      el('span', 'eyebrow', `${(dungeon?.name ?? '').toUpperCase()}${vein} · TAPPA ${run.stage + 1}/${run.stages}${pilgrimage}`),
       el('strong', '', this.roomTitle(room)),
     );
     const line = el('span', room.trialFailed ? 'descent-status failed' : 'descent-status', room.trialFailed ? 'Obiettivo della prova non raggiunto' : status);
@@ -80,9 +83,17 @@ export class DescentHud {
 
   /** Stendardo d'ingresso nella stanza: tappa, nome, regola. */
   announce(run: RunView, room: RoomView): void {
-    const eyebrow = `TAPPA ${run.stage + 1} DI ${run.stages}`;
+    const veins = run.roomVeins;
+    const named = showsVeins(run.veins) && veins !== undefined && room.kind !== 'boss';
+    const eyebrow = `TAPPA ${run.stage + 1} DI ${run.stages}${named ? ` · ${veinName(run.dungeonId, veins.vein).toUpperCase()}` : ''}`;
     const title = this.roomTitle(room);
-    const detail = room.kind === 'trial' && room.rule ? TRIAL_LABELS[room.rule].summary : ROOM_LABELS[room.kind].summary;
+    // L'Incursione ha il suo stendardo: una stanza tutta della terza vena.
+    const detail = veins?.incursion
+      ? `Incursione: ${veinName(run.dungeonId, veins.vein)} sale dal profondo. Servitori mai visti in questa discesa.`
+      : room.kind === 'trial' && room.rule
+        ? TRIAL_LABELS[room.rule].summary
+        : ROOM_LABELS[room.kind].summary;
+    this.banner.classList.toggle('incursion', veins?.incursion === true);
     this.banner.replaceChildren(el('span', 'room-banner-eyebrow', eyebrow), el('strong', '', title), el('small', '', detail));
     this.banner.classList.remove('hidden', 'show');
     void this.banner.offsetWidth;

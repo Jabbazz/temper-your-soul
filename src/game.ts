@@ -19,10 +19,15 @@ import { rollLoot } from './features/loot/roll-loot';
 import { Match, type PlayerIntent } from './features/match/match';
 import { BOSS_SHEETS } from './features/presentation/boss-art';
 import { preloadSheets } from './features/presentation/boss-art/sheet-images';
+import { preloadTiles } from './features/presentation/themes/tiles';
+import { preloadFonts } from './features/presentation/fonts';
 import { Effects } from './features/presentation/effects';
 import { ActorPoses } from './features/presentation/poses';
-import { renderScene, type Scene } from './features/presentation/scene-renderer';
-import { drawRoomFloor, drawRoomIndicators, drawRoomLabels, type RoomLook } from './features/presentation/draw-room';
+import { renderScene, type RoomLayer, type Scene } from './features/presentation/scene-renderer';
+import { drawRoomFloor, drawRoomFront, drawRoomIndicators, drawRoomLabels, drawRoomPickups, type RoomLook } from './features/presentation/draw-room';
+import { RoomMinimap } from './features/ui/room-minimap';
+import { RoomMood } from './features/presentation/room-mood';
+import { DescentMapOverlay } from './features/ui/descent-map';
 import { DungeonSelect, pilgrimageGearScore } from './features/ui/dungeon-select';
 import { requireElement } from './features/ui/dom';
 import { FullscreenToggle } from './features/ui/fullscreen';
@@ -42,6 +47,7 @@ import { DUNGEONS, dungeonById } from './features/dungeons/dungeons';
 import type { Item, ItemRoll } from './features/items/item';
 import { showCombatReport } from './features/ui/combat-report';
 import { DescentRun, type RunMode, type RunView } from './features/run/descent';
+import { showsVeins, veinName, veinUnlocks } from './features/run/veins';
 import type { RoomView } from './features/run/encounter';
 import type { DoorOption } from './features/run/rooms';
 import { DescentHud } from './features/ui/descent-hud';
@@ -91,6 +97,10 @@ export class Game {
   private readonly audioPanel: AudioPanel;
   private readonly hud = new Hud();
   private readonly descentHud = new DescentHud();
+  private readonly minimap = new RoomMinimap();
+  private readonly descentMap = new DescentMapOverlay();
+  /** Grate che calano e salgono, luce che si scalda, tappe piu' cupe: solo disegno. */
+  private readonly roomMood = new RoomMood();
   private readonly performancePanel = new PerformancePanel();
   private readonly overlay = new Overlay();
   private readonly tally = new CombatTally();
@@ -109,6 +119,8 @@ export class Game {
   });
   private networkBattleId = '';
   private networkView: NetworkView | null = null;
+  /** Numero della discesa in singolo: una discesa nuova nella stessa stanza modello rifa' calare la grata. */
+  private runSerial = 0;
   private readonly completedBattles = new Set<string>();
   private battleMembers: PartyMember[] = [];
   private readonly allyPoses = new Map<string, ActorPoses>();
@@ -164,6 +176,8 @@ export class Game {
     this.fullscreen = new FullscreenToggle(() => this.resize());
     // I fogli dei boss (circa 110 KB) si caricano subito: il boss entra gia' con la sua grafica.
     preloadSheets(Object.values(BOSS_SHEETS).map((sheet) => sheet.layout.url));
+    preloadTiles();
+    preloadFonts();
 
     const storage = browserStorage();
     this.saveStore = new SaveStore(storage);
@@ -200,6 +214,7 @@ export class Game {
       else if (action === 'restart') this.restartIfInGame();
       else if (action === 'toggle_audio') this.toggleAudio();
       else if (action === 'toggle_performance') this.performancePanel.toggle();
+      else if (action === 'toggle_minimap') this.minimap.toggle();
       else if (action === 'toggle_fullscreen') void this.fullscreen.toggle();
     });
     requireElement('pause-button').addEventListener('click', () => this.togglePause());
@@ -337,12 +352,14 @@ export class Game {
       this.enterMatch(this.createMatch(this.dungeon));
       return;
     }
+    this.runSerial++;
     this.run = new DescentRun({
       mode: this.mode,
       dungeonId: this.mode === 'pilgrimage' ? DUNGEONS[0]!.id : this.dungeon.id,
       members: [{ id: 'local', loadout: this.character.loadout(), characterClass: this.character.characterClass }],
       seed: Math.floor(Math.random() * 0x100000000),
       grade: this.grade,
+      veins: veinUnlocks(this.character, this.mode === 'pilgrimage' ? DUNGEONS.map((dungeon) => dungeon.id) : [this.dungeon.id]),
     });
     this.runSaved = { embers: 0, xp: 0, kills: {} };
     this.runItems = [];
@@ -935,11 +952,34 @@ export class Game {
     this.hud.update(this.match, levelProgress(this.character.totalXp));
     const views = this.descentViews();
     if (views !== null && (this.screen === 'playing' || this.screen === 'paused')) this.descentHud.update(views.run, views.room, views.localId);
+    // Minimappa della stanza (anche nel Duello) e, tenendo premuto Tab, la mappa intera della discesa.
+    const inMatch = this.screen === 'playing' || this.screen === 'paused';
+    this.input.inMatch = this.screen === 'playing';
+    if (inMatch) this.minimap.update(delta, renderedMatch, views?.room ?? null, this.camera, views?.localId ?? (this.networkBattleId ? this.party.client.playerId : 'local'), this.canvas);
+    else this.minimap.hide();
+    if (this.input.inMatch && views !== null && this.input.isActionPressed('show_map')) this.descentMap.show(views.run);
+    else this.descentMap.hide();
     this.audio.setListener(this.match.player.position, this.camera.width / 2);
     const audioScreen: AudioScreen = this.screen === 'bestiary' ? 'menu' : this.screen;
     this.audio.setScene({ screen: audioScreen, theme: this.match.arena.theme, enraged: this.match.boss?.isEnraged ?? false });
     this.audio.update(delta);
-    const look: RoomLook | null = views === null ? null : { view: views.room, arena: this.match.arena, nextOptions: views.next, localId: views.localId };
+    const mood = views === null
+      ? undefined
+      : this.roomMood.frame(
+          this.clock,
+          `${this.networkBattleId || this.runSerial}|${views.run.dungeonIndex}|${views.run.stage}|${this.match.arena.id}`,
+          views.room.doorsOpen,
+          views.run.stage / Math.max(1, views.run.stages - 1),
+        );
+    const nextVein = views !== null && showsVeins(views.run.veins) ? views.run.stageVeins?.[views.run.stage + 1] : undefined;
+    const look: RoomLook | null = views === null ? null : {
+      view: views.room,
+      arena: this.match.arena,
+      nextOptions: views.next,
+      localId: views.localId,
+      ...(mood === undefined ? {} : { mood }),
+      ...(nextVein === undefined ? {} : { nextVein: veinName(views.run.dungeonId, nextVein) }),
+    };
     renderScene(this.ctx, {
       match: renderedMatch,
       effects: this.effects,
@@ -949,9 +989,15 @@ export class Game {
       appearance: this.renderAppearance ??= this.character.appearance(),
       allies: this.allyVisuals,
       ...(look === null ? {} : {
-        drawRoom: (ctx: CanvasRenderingContext2D, layer: 'floor' | 'above') => (layer === 'floor' ? drawRoomFloor(ctx, look, this.clock) : drawRoomLabels(ctx, look)),
+        drawRoom: (ctx: CanvasRenderingContext2D, layer: RoomLayer) => {
+          if (layer === 'floor') drawRoomFloor(ctx, look, this.clock);
+          else if (layer === 'objects') drawRoomPickups(ctx, look, this.clock);
+          else if (layer === 'front') drawRoomFront(ctx, look, this.clock);
+          else drawRoomLabels(ctx, look);
+        },
         drawRoomScreen: (ctx: CanvasRenderingContext2D) => drawRoomIndicators(ctx, this.camera, renderedMatch.player.position, look.view, renderedMatch.minions),
         preyId: look.view.preyId,
+        ...(mood === undefined ? {} : { mood }),
       }),
     });
     this.performancePanel.frame(time, performance.now() - frameStart, this.party.client);

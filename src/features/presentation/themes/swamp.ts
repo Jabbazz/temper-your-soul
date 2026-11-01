@@ -2,7 +2,11 @@ import type { Camera } from '../../../core/camera';
 import { TAU } from '../../../core/vec2';
 import type { ArenaDefinition, Pillar } from '../../arena/arena';
 import { drawLight } from '../lights';
+import { faceSpots } from './decor';
 import type { ArenaTheme } from './theme';
+import { drawBottomWallLip, drawTopWallFace, wallFaceHeight, type WallFaceStyle } from './wall';
+import { FloorCache } from '../floor-cache';
+import { drawTile, pickVariant, tileColors, tileSheet, tileVariants, TILE_SIZE } from './tiles';
 
 /*
  * La palude spenta: acque nere con isolotti di fango, canne, funghi che brillano, nebbia che deriva e alberi morti.
@@ -13,18 +17,27 @@ import type { ArenaTheme } from './theme';
 const SWAMP_DECOR = {
   /** Lato delle celle di acqua e fango. */
   cell: 48,
-  /** Celle raggruppate a blocchi di questo lato: sopra la soglia sono fango, sotto acqua. */
+  /**
+   * Chiazze di fango e acqua: un rumore interpolato su una griglia larga `patchCells` celle, piu' un tremolio per cella
+   * (`edgeJitter`), cosi' i bordi sono irregolari e non quadrati. Sopra la soglia fango, appena sotto la riva bagnata.
+   */
   patchCells: 4,
-  mudThreshold: 0.64,
+  mudThreshold: 0.58,
+  shoreBand: 0.05,
+  edgeJitter: 0.14,
   /** Passo della griglia dei funghi luminosi e della nebbia. */
   mushroomGrid: 170,
   fogGrid: 420,
   water: ['#0b1512', '#0e1a16', '#112019'],
   mud: ['#2a2b1b', '#25261a', '#30301e'],
+  shore: ['#161e16', '#182219', '#1a251b'],
   wall: { base: '#1b2216', roots: '#2d3a20', moss: '#3f5428' },
   /** Funghi luminosi: cappelli e luce (anche il fungo a mensola sugli alberi). */
   mushroom: { cap: '#5fe0c8', glow: '#2fd0b8', paleCap: '#a8f0ff', paleGlow: '#6fd8ff' },
 };
+
+/** Faccia del muro in alto: un argine di terra con radici che pendono. */
+const SWAMP_WALL_FACE: WallFaceStyle = { face: '#232c1a', dark: '#141a0f', light: '#3f5428', pattern: 'earth' };
 
 /** Numero pseudo-casuale in [0, 1) che dipende solo dalla posizione. */
 function hash(x: number, y: number): number {
@@ -32,8 +45,28 @@ function hash(x: number, y: number): number {
   return s - Math.floor(s);
 }
 
-function drawGround(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
-  const { cell, patchCells, mudThreshold, water, mud } = SWAMP_DECOR;
+/** Rumore a valori della cella (`cx`, `cy`) sulla griglia larga delle chiazze, interpolato in modo morbido. */
+function patchNoise(cx: number, cy: number): number {
+  const size = SWAMP_DECOR.patchCells;
+  const gx = cx / size;
+  const gy = cy / size;
+  const ix = Math.floor(gx);
+  const iy = Math.floor(gy);
+  const smooth = (t: number): number => t * t * (3 - 2 * t);
+  const sx = smooth(gx - ix);
+  const sy = smooth(gy - iy);
+  const top = hash(ix, iy) + (hash(ix + 1, iy) - hash(ix, iy)) * sx;
+  const bottom = hash(ix, iy + 1) + (hash(ix + 1, iy + 1) - hash(ix, iy + 1)) * sx;
+  return top + (bottom - top) * sy;
+}
+
+/** Le celle di terreno visibili (dentro la stanza): `visit` riceve la cella, il suo valore e se e' fango. */
+function forGroundCells(
+  arena: ArenaDefinition,
+  camera: Camera,
+  visit: (cx: number, cy: number, n: number, level: number, isMud: boolean) => void,
+): void {
+  const { cell, mudThreshold, edgeJitter } = SWAMP_DECOR;
   const { x: camX, y: camY } = camera.position;
   const x0 = Math.max(0, Math.floor(camX / cell));
   const y0 = Math.max(0, Math.floor(camY / cell));
@@ -42,29 +75,81 @@ function drawGround(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camer
   for (let cy = y0; cy < y1; cy++) {
     for (let cx = x0; cx < x1; cx++) {
       const n = hash(cx, cy);
-      const isMud = hash(Math.floor(cx / patchCells), Math.floor(cy / patchCells)) > mudThreshold;
-      const palette = isMud ? mud : water;
-      ctx.fillStyle = palette[n > 0.75 ? 2 : n > 0.35 ? 1 : 0]!;
-      ctx.fillRect(cx * cell, cy * cell, cell, cell);
-      const px = cx * cell;
-      const py = cy * cell;
-      if (!isMud && n > 0.7) {
-        // Increspatura che oscilla sull'acqua.
-        ctx.fillStyle = '#27493b66';
-        ctx.fillRect(px + 8, py + 20 + Math.sin(clock * 1.4 + cx * 0.7 + cy) * 3, 20, 2);
-      } else if (isMud && n > 0.82) {
-        // Ciuffo di canne che ondeggia piano.
-        ctx.fillStyle = '#566a2e';
-        for (let i = 0; i < 3; i++) {
-          const sway = Math.sin(clock * 0.9 + cx + i) * 1.5;
-          ctx.fillRect(px + 12 + i * 8 + sway, py + 10 - i * 2, 2, 22);
-        }
-      } else if (isMud && n < 0.1) {
-        ctx.fillStyle = '#1c1d12';
-        ctx.fillRect(px + 10, py + 24, 14, 5);
-      }
+      const level = patchNoise(cx, cy) + (n - 0.5) * edgeJitter;
+      visit(cx, cy, n, level, level > mudThreshold);
     }
   }
+}
+
+/**
+ * La parte ferma del terreno, dipinta una volta nei tasselli della cache: acqua, riva e fango (con la grana dei tile
+ * quando il foglio e' caricato) e le macchie scure del fango.
+ */
+function drawStaticGround(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
+  const { cell, mudThreshold, shoreBand, water, mud, shore } = SWAMP_DECOR;
+  const sheet = tileSheet('swamp');
+  const grain = tileVariants('swamp', 'floor');
+  // L'ultima fila e l'ultima colonna di celle sborderebbero oltre la stanza: si ritaglia sul suo rettangolo.
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, arena.width, arena.height);
+  ctx.clip();
+  forGroundCells(arena, camera, (cx, cy, n, level, isMud) => {
+    const palette = isMud ? mud : level > mudThreshold - shoreBand ? shore : water;
+    ctx.fillStyle = palette[n > 0.75 ? 2 : n > 0.35 ? 1 : 0]!;
+    ctx.fillRect(cx * cell, cy * cell, cell, cell);
+    const px = cx * cell;
+    const py = cy * cell;
+    if (isMud && sheet !== null && grain.length > 0) {
+      // Grana del fango: tile allineati al mondo, ritagliati sulla cella.
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(px, py, cell, cell);
+      ctx.clip();
+      for (let ty = Math.floor(py / TILE_SIZE) * TILE_SIZE; ty < py + cell; ty += TILE_SIZE) {
+        for (let tx = Math.floor(px / TILE_SIZE) * TILE_SIZE; tx < px + cell; tx += TILE_SIZE) {
+          const tile = pickVariant(grain, hash(tx + 3, ty + 5));
+          if (tile !== undefined) drawTile(ctx, sheet, tile, tx, ty);
+        }
+      }
+      ctx.restore();
+    }
+    if (isMud && n < 0.1) {
+      ctx.fillStyle = '#1c1d12';
+      ctx.fillRect(px + 10, py + 24, 14, 5);
+    }
+  });
+  ctx.restore();
+}
+
+/** Cio' che si muove sul terreno: increspature sull'acqua e ciuffi di canne che ondeggiano sul fango. */
+function drawGroundMotion(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+  const { cell } = SWAMP_DECOR;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, arena.width, arena.height);
+  ctx.clip();
+  // Il muro e la sua faccia stanno nella cache, sotto: increspature e canne solo nelle celle libere dal muro.
+  const wall = arena.wallThickness;
+  const top = wall + wallFaceHeight(arena);
+  forGroundCells(arena, camera, (cx, cy, n, _level, isMud) => {
+    const px = cx * cell;
+    const py = cy * cell;
+    if (px < wall || py < top || px + cell > arena.width - wall || py + cell > arena.height - wall) return;
+    if (!isMud && n > 0.7) {
+      // Increspatura che oscilla sull'acqua.
+      ctx.fillStyle = '#27493b66';
+      ctx.fillRect(px + 8, py + 20 + Math.sin(clock * 1.4 + cx * 0.7 + cy) * 3, 20, 2);
+    } else if (isMud && n > 0.82) {
+      // Ciuffo di canne che ondeggia piano.
+      ctx.fillStyle = '#566a2e';
+      for (let i = 0; i < 3; i++) {
+        const sway = Math.sin(clock * 0.9 + cx + i) * 1.5;
+        ctx.fillRect(px + 12 + i * 8 + sway, py + 10 - i * 2, 2, 22);
+      }
+    }
+  });
+  ctx.restore();
 }
 
 function drawWall(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
@@ -75,7 +160,9 @@ function drawWall(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera:
   ctx.fillRect(0, arena.height - t, arena.width, t);
   ctx.fillRect(0, 0, t, arena.height);
   ctx.fillRect(arena.width - t, 0, t, arena.height);
-  // Un groviglio di radici e muschio sul lato interno, solo nel tratto visibile.
+  drawTopWallFace(ctx, arena, camera, SWAMP_WALL_FACE);
+  const face = wallFaceHeight(arena);
+  // Un groviglio di radici e muschio sul lato interno, solo nel tratto visibile (in alto, sotto la faccia).
   const { x: camX, y: camY } = camera.position;
   const step = 36;
   const xa = Math.max(0, Math.floor(camX / step));
@@ -84,7 +171,7 @@ function drawWall(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera:
     const h = hash(i, 3);
     ctx.fillStyle = h > 0.5 ? wall.roots : wall.moss;
     const len = 8 + h * 14;
-    if (camY < t + 24) ctx.fillRect(i * step, t, 10 + h * 10, len);
+    if (camY < t + face + 24) ctx.fillRect(i * step, t + face, 10 + h * 10, len * 0.6);
     if (camY + camera.height > arena.height - t - 24) ctx.fillRect(i * step, arena.height - t - len, 10 + h * 10, len);
   }
   const ya = Math.max(0, Math.floor(camY / step));
@@ -95,6 +182,22 @@ function drawWall(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera:
     const len = 8 + h * 14;
     if (camX < t + 24) ctx.fillRect(t, j * step, len, 10 + h * 10);
     if (camX + camera.width > arena.width - t - 24) ctx.fillRect(arena.width - t - len, j * step, len, 10 + h * 10);
+  }
+}
+
+/** Grappoli di funghi luminosi nati sull'argine, sulla faccia del muro in alto. */
+function drawWallMushrooms(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+  const t = arena.wallThickness;
+  const face = wallFaceHeight(arena);
+  for (const spot of faceSpots(arena, t + face * 0.55, 170)) {
+    if (!camera.isVisible(spot, 120)) continue;
+    const pulse = 0.6 + 0.4 * Math.sin(clock * 2 + spot.x * 0.03);
+    drawLight(ctx, spot.x, spot.y, SWAMP_DECOR.mushroom.glow, 110, 0.4 + 0.3 * pulse);
+    ctx.fillStyle = SWAMP_DECOR.mushroom.cap;
+    ctx.fillRect(spot.x - 7, spot.y - 3, 6, 3);
+    ctx.fillRect(spot.x + 1, spot.y - 6, 8, 3);
+    ctx.fillStyle = SWAMP_DECOR.mushroom.paleCap;
+    ctx.fillRect(spot.x - 2, spot.y + 1, 5, 2);
   }
 }
 
@@ -121,7 +224,7 @@ function drawMushrooms(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, ca
       const cap = pale ? SWAMP_DECOR.mushroom.paleCap : SWAMP_DECOR.mushroom.cap;
       const glow = pale ? SWAMP_DECOR.mushroom.paleGlow : SWAMP_DECOR.mushroom.glow;
       const pulse = 0.6 + 0.4 * Math.sin(clock * 2 + h * 20);
-      drawLight(ctx, x, y - 4, glow, 58, 0.5 + 0.4 * pulse);
+      drawLight(ctx, x, y - 4, glow, 96, 0.5 + 0.4 * pulse);
       ctx.fillStyle = '#7a7254';
       ctx.fillRect(x - 2, y - 2, 4, 9);
       ctx.fillStyle = cap;
@@ -162,13 +265,22 @@ function drawFog(ctx: CanvasRenderingContext2D, camera: Camera, clock: number): 
   ctx.restore();
 }
 
-function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+/** La parte ferma della palude: fondo, terreno e muro, dipinti una volta nei tasselli della cache. */
+function drawStaticFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
   const { x: camX, y: camY } = camera.position;
   // Il margine copre l'arrotondamento della traslazione e la scossa dello schermo.
   ctx.fillStyle = '#070d0b';
   ctx.fillRect(camX - 4, camY - 4, camera.width + 8, camera.height + 8);
-  drawGround(ctx, arena, camera, clock);
+  drawStaticGround(ctx, arena, camera);
   drawWall(ctx, arena, camera);
+}
+
+const floorCache = new FloorCache(drawStaticFloor);
+
+function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+  floorCache.draw(ctx, arena, camera, tileSheet('swamp') === null ? '' : 'tiles');
+  drawGroundMotion(ctx, arena, camera, clock);
+  drawWallMushrooms(ctx, arena, camera, clock);
   drawMushrooms(ctx, arena, camera, clock);
   drawFog(ctx, camera, clock);
 }
@@ -263,14 +375,19 @@ function drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camer
 export const swampTheme: ArenaTheme = {
   drawFloor,
   drawPillar,
+  drawForeground: (ctx, arena, camera, _clock, ambient) => drawBottomWallLip(ctx, arena, camera, SWAMP_DECOR.wall.base, SWAMP_DECOR.wall.moss, ambient),
+  ambient: '#22302a',
+  block: { cap: '#26301c', edge: SWAMP_DECOR.wall.moss, face: SWAMP_WALL_FACE, tiles: 'swamp' },
   silhouette: '#e6f2cc66',
   vignette: '#020504',
   groundColors: [
     ...SWAMP_DECOR.water,
     ...SWAMP_DECOR.mud,
+    ...SWAMP_DECOR.shore,
     SWAMP_DECOR.mushroom.cap,
     SWAMP_DECOR.mushroom.glow,
     SWAMP_DECOR.mushroom.paleCap,
     SWAMP_DECOR.mushroom.paleGlow,
+    ...tileColors('swamp', 'floor'), ...tileColors('swamp', 'chasm'), ...tileColors('swamp', 'bridgeEW'),
   ],
 };

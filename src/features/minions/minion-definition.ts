@@ -37,8 +37,11 @@ export type MinionTier = 'swarm' | 'base' | 'heavy' | 'nest' | 'support';
 export type ShotPattern =
   /** `count` colpi a ventaglio verso il bersaglio, distanziati di `spread` radianti. */
   | { readonly kind: 'aimed'; readonly count: number; readonly spread: number }
-  /** Anello di `count` colpi; senza i `gap` colpi rivolti verso il bersaglio (il varco), ruotato di `turn` a ogni raffica. */
-  | { readonly kind: 'ring'; readonly count: number; readonly gap?: number; readonly turn?: number }
+  /**
+   * Anello di `count` colpi; senza i `gap` colpi rivolti verso il bersaglio (il varco), ruotato di `turn` a ogni raffica.
+   * Con `mirror` spara anche un secondo anello che ruota nel verso opposto (la spirale doppia).
+   */
+  | { readonly kind: 'ring'; readonly count: number; readonly gap?: number; readonly turn?: number; readonly mirror?: boolean }
   /** Quattro colpi a croce, allineati al bersaglio o in diagonale. */
   | { readonly kind: 'cross'; readonly diagonal?: boolean }
   /** Due colpi perpendicolari alla direzione del bersaglio, in versi opposti. */
@@ -58,6 +61,17 @@ export interface MinionShot {
   readonly windup?: number;
   /** Spara solo se il bersaglio e' entro questa distanza. */
   readonly range?: number;
+  /**
+   * Raffica in serie: dopo la prima, altre `count - 1` raffiche a `gap` secondi una dall'altra, senza nuova posa. Ognuna
+   * mira di nuovo il bersaglio, ruotata di `turn` radianti in piu' rispetto alla precedente.
+   */
+  readonly series?: { readonly count: number; readonly gap: number; readonly turn?: number };
+}
+
+/** Anello di proiettili sparato all'arrivo (fine della carica, atterraggio del salto, emersione dello scavatore). */
+export interface MinionArrivalRing {
+  readonly projectile: ProjectileSpec;
+  readonly count: number;
 }
 
 /** Carica: preparazione con la linea a terra, scatto rettilineo, poi un attimo di respiro in cui e' vulnerabile. */
@@ -72,6 +86,10 @@ export interface MinionCharge {
   /** Zone lasciate lungo il percorso (ogni `trailSpacing` unita'). */
   readonly trail?: DangerZoneSpec;
   readonly trailSpacing?: number;
+  /** Anello di colpi a fine carica. */
+  readonly arrivalRing?: MinionArrivalRing;
+  /** Quante volte rimbalza sui muri della stanza prima di fermarsi (la distanza che resta continua di rimbalzo). */
+  readonly bounces?: number;
 }
 
 /** Salto: il punto d'arrivo e' una zona segnalata che esplode all'atterraggio. */
@@ -81,6 +99,24 @@ export interface MinionLeap {
   readonly flight: number;
   readonly cooldown: number;
   readonly zone: DangerZoneSpec;
+  /** Anello di colpi all'atterraggio. */
+  readonly arrivalRing?: MinionArrivalRing;
+}
+
+/**
+ * Agguato: vicino al bersaglio segna a terra un punto dietro di lui (sulla via di fuga), poi ci ricompare e morde con
+ * un ventaglio di colpi verso il bersaglio. Solo per gli inseguitori senza carica (`chaser`).
+ */
+export interface MinionAmbush {
+  /** Distanza dal bersaglio a cui scatta. */
+  readonly trigger: number;
+  /** Quanto dietro il bersaglio ricompare. */
+  readonly behind: number;
+  readonly windup: number;
+  readonly cooldown: number;
+  readonly projectile: ProjectileSpec;
+  readonly count: number;
+  readonly spread: number;
 }
 
 /** Scavatore: sotto terra non si colpisce; emerge con un segnale, frusta in linea e resta scoperto per un po'. */
@@ -89,6 +125,8 @@ export interface MinionBurrow {
   readonly emergeTime: number;
   readonly exposed: number;
   readonly lash: { readonly zone: DangerZoneSpec; readonly count: number; readonly spacing: number };
+  /** Anello di colpi quando emerge, insieme alla frusta. */
+  readonly arrivalRing?: MinionArrivalRing;
 }
 
 /** Nido: genera servitori di un altro tipo finche' vive. */
@@ -101,12 +139,18 @@ export interface MinionNest {
   readonly maxChildren: number;
 }
 
-/** Sostegno: a intervalli copre i servitori vicini con uno scudo che assorbe i proiettili. */
+/**
+ * Sostegno: a intervalli agisce sui servitori vicini.
+ * - `shield`: uno scudo che assorbe i proiettili (`amount`);
+ * - `haste` (fervore): per `duration` secondi i loro intervalli d'attacco si moltiplicano per `amount` (sotto 1);
+ * - `repair` (riparazione): recuperano `amount` della vita massima.
+ */
 export interface MinionAura {
-  readonly kind: 'shield';
+  readonly kind: 'shield' | 'haste' | 'repair';
   readonly radius: number;
   readonly amount: number;
   readonly interval: number;
+  readonly duration?: number;
 }
 
 /** Zone lanciate sul bersaglio (artiglieria) o una fila di zone di traverso sul suo percorso. */
@@ -115,10 +159,17 @@ export interface MinionLob {
   readonly interval: number;
   readonly firstDelay: number;
   readonly range: number;
-  /** `spots`: `count` zone attorno al bersaglio (entro `scatter`); `wall`: una fila perpendicolare con un varco. */
-  readonly shape: 'spots' | 'wall';
+  /**
+   * - `spots`: `count` zone attorno al bersaglio (entro `scatter`);
+   * - `wall`: una fila perpendicolare con un varco;
+   * - `ring`: `count` zone su un cerchio di raggio `scatter` attorno al bersaglio, il centro resta libero;
+   * - `cross`: una zona sul bersaglio e quattro bracci di `count` zone, che scoppiano dal centro verso fuori;
+   * - `cone`: `count` ondate di `rows` zone (predefinito 3) dal servitore verso il bersaglio, una dopo l'altra.
+   */
+  readonly shape: 'spots' | 'wall' | 'ring' | 'cross' | 'cone';
   readonly count: number;
   readonly scatter: number;
+  readonly rows?: number;
 }
 
 /** Teletrasporto difensivo: se un giocatore si avvicina troppo, sparisce e ricompare lontano dopo un segnale. */
@@ -169,6 +220,7 @@ export interface MinionDefinition {
   readonly aura?: MinionAura;
   readonly lob?: MinionLob;
   readonly blink?: MinionBlink;
+  readonly ambush?: MinionAmbush;
   readonly onDeath?: MinionDeath;
   /** Zone lasciate camminando, una ogni `interval` secondi. */
   readonly trail?: { readonly zone: DangerZoneSpec; readonly interval: number };

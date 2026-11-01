@@ -185,3 +185,24 @@ describe('combattimento cooperativo', () => {
     expect(clean.move.length()).toBeCloseTo(1); expect(clean.aimOffset.x).toBe(6000);
   });
 });
+
+describe('luogotenenti in cooperativa', () => {
+  it('ogni luogotenente (anche quelli delle vene) si ritrova per id: il client lo disegna con la sua vita', async () => {
+    const { LIEUTENANTS } = await import('../run/lieutenants');
+    const { VEIN_LIEUTENANTS } = await import('../run/vein-lieutenants');
+    const { replicaMatch, setupOf, bossById } = await import('./protocol');
+    const { dungeonById } = await import('../dungeons/dungeons');
+    const { roomArena, ROOM_TEMPLATES } = await import('../run/room-templates');
+    const all = [...Object.entries(LIEUTENANTS).map(([dungeonId, l]) => [dungeonId, l] as const), ...Object.entries(VEIN_LIEUTENANTS).flatMap(([dungeonId, veins]) => Object.values(veins).map((l) => [dungeonId, l] as const))];
+    expect(all.length).toBe(12);
+    for (const [dungeonId, lieutenant] of all) {
+      expect(bossById(lieutenant.id), lieutenant.id).toBe(lieutenant);
+      const dungeon = dungeonById(dungeonId)!;
+      const template = ROOM_TEMPLATES[dungeonId]!.find((room) => room.use === 'calm')!;
+      const server = new Match({ rng: new SeededRng(3), dungeon, loadout: MAGE_SKILLS, arena: roomArena(template, dungeon.arena.theme), boss: lieutenant });
+      const client = replicaMatch(dungeon, setupOf(server), [{ id: 'local', loadout: MAGE_SKILLS }]);
+      expect(client.boss?.definition.id, lieutenant.id).toBe(lieutenant.id);
+      expect(client.boss?.health.max).toBe(server.boss!.health.max);
+    }
+  });
+});

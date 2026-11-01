@@ -1,7 +1,7 @@
 import type { PetSpec } from '../classes/skill-mechanics';
 import { manaCost } from './mana';
 import { Vec2 } from '../../core/vec2';
-import { clampToArena, pushOutOfPillars } from '../arena/arena';
+import { clampToArena, pushOutOfPillars, sweepSolids } from '../arena/arena';
 import { BODY_RADIUS } from '../combat/collision';
 import type { DangerZoneSpec } from '../combat/danger-zone';
 import type { GameEvent } from '../combat/events';
@@ -80,7 +80,9 @@ function executeSkill(skill: SkillDefinition, ctx: SkillContext): void {
       break;
     }
     case 'dash': {
-      const raw = clampToArena(arena, origin.add(Vec2.fromAngle(angle, effect.distance)), arena.playerMargin);
+      // Lo scatto supera i pilastri come sempre, ma si ferma contro i massicci delle stanze che li hanno. Il balzo
+      // istantaneo supera anche i pozzi; la corsa (con `travelSeconds`) e' a terra e si ferma sul bordo.
+      const raw = sweepSolids(arena, origin, clampToArena(arena, origin.add(Vec2.fromAngle(angle, effect.distance)), arena.playerMargin), BODY_RADIUS.player, !effect.travelSeconds);
       const destination = pushOutOfPillars(arena, raw, BODY_RADIUS.player);
       if (effect.travelSeconds) {
         player.rush = { remaining: effect.travelSeconds, speed: effect.distance / effect.travelSeconds,

@@ -12,9 +12,11 @@ import { resolveCombatStats } from '../classes/class-stats';
 import type { Loadout } from '../skills/skill-definition';
 import type { BlessingLevels } from './blessings';
 import { RoomEncounter, type RoomMember, type RoomView } from './encounter';
-import { LIEUTENANTS, scaledLieutenant } from './lieutenants';
+import { scaledLieutenant } from './lieutenants';
 import { planDescent, type DescentPlan } from './plan';
 import { roomArena, ROOM_TEMPLATES, type RoomTemplate } from './room-templates';
+import type { VeinId } from '../minions/minion-catalog';
+import { planVeins, roomVeins, stageVein, veinBestiary, veinLieutenant, type RoomVeins, type VeinPlan } from './veins';
 import { DESCENT, ROOM_COMBAT, type DoorOption, type RoomKind } from './rooms';
 import type { TemperPick } from './tempers';
 
@@ -72,6 +74,8 @@ export interface RunOptions {
   readonly seed: number;
   /** Campo storico ignorato: la difficoltà non usa più gradi di tempra. */
   readonly grade?: number;
+  /** Vene di servitori sbloccate per dungeon (vedi `unlockedVeins`); un dungeon assente usa solo la vena A. */
+  readonly veins?: Readonly<Record<string, readonly VeinId[]>>;
 }
 
 /** La discesa vista dai client: interfaccia, rete. Dati semplici. */
@@ -85,6 +89,11 @@ export interface RunView {
   readonly grade: number;
   /** Le scelte di ogni tappa e quella fatta (per la mappa della discesa). */
   readonly plan: readonly { readonly options: readonly DoorOption[]; readonly chosen: number | null }[];
+  /** Le vene della discesa nel dungeon attuale e quella di ogni tappa (senza Incursioni). */
+  readonly veins: VeinPlan;
+  readonly stageVeins: readonly VeinId[];
+  /** La vena della stanza attuale (con ospite o Incursione). */
+  readonly roomVeins: RoomVeins;
   readonly seals: number;
   readonly players: Readonly<Record<string, {
     readonly tempers: readonly TemperPick[];
@@ -128,6 +137,10 @@ export class DescentRun {
   private readonly seen = new Set<string>();
   private readonly seed: number;
   private roomIndex = 0;
+  private readonly unlockedVeins: Readonly<Record<string, readonly VeinId[]>>;
+  /** Le vene della discesa nel dungeon attuale e la vena della stanza attuale. */
+  veins: VeinPlan = { entrance: 'a', deep: 'a', third: null };
+  roomVein: RoomVeins = { vein: 'a' };
 
   constructor(options: RunOptions) {
     this.mode = options.mode;
@@ -157,6 +170,7 @@ export class DescentRun {
       });
     }
     this.seals = 0;
+    this.unlockedVeins = options.veins ?? {};
     this.plan = this.planFor(0);
     this.chosen = this.plan.stages.map(() => null);
     this.chosen[0] = 0;
@@ -187,7 +201,10 @@ export class DescentRun {
   }
 
   private planFor(index: number): DescentPlan {
-    return planDescent(this.dungeons[index]!.id, (this.seed + index * 7919) >>> 0, { short: this.mode === 'pilgrimage' });
+    const dungeonId = this.dungeons[index]!.id;
+    const seed = (this.seed + index * 7919) >>> 0;
+    this.veins = planVeins(seed, this.unlockedVeins[dungeonId] ?? ['a'], this.mode === 'pilgrimage');
+    return planDescent(dungeonId, seed, { short: this.mode === 'pilgrimage' });
   }
 
   /** Costruisce la partita della stanza dietro la porta scelta. */
@@ -207,6 +224,9 @@ export class DescentRun {
       });
       matchMembers.push({ id, characterClass: state.characterClass, loadout: state.baseLoadout, health: state.health, maxHealth: state.maxHealth, mana: state.mana });
     }
+    // La vena della stanza (e l'eventuale ospite o Incursione) dal seme della discesa e dal numero della stanza.
+    const roomSeed = (this.seed + Math.imul(this.roomIndex, 7907)) >>> 0;
+    this.roomVein = roomVeins(this.veins, this.plan.stages, this.stage, option.kind, roomSeed);
     const encounter = new RoomEncounter({
       dungeonId: dungeon.id,
       option,
@@ -216,11 +236,12 @@ export class DescentRun {
       members,
       grade: this.grade,
       seen: this.seen,
+      bestiary: veinBestiary(dungeon.id, this.roomVein, roomSeed),
     });
     const boss = option.kind === 'boss'
       ? dungeon.boss
       : option.kind === 'lieutenant'
-        ? scaledLieutenant(LIEUTENANTS[dungeon.id]!, this.players.size)
+        ? scaledLieutenant(veinLieutenant(dungeon.id, this.veins.deep), this.players.size)
         : null;
     const rng = new SeededRng((this.seed ^ Math.imul(this.roomIndex, 0x9e3779b1)) >>> 0);
     this.encounter = encounter;
@@ -326,6 +347,9 @@ export class DescentRun {
       stages: this.plan.stages.length,
       grade: this.grade,
       plan: this.plan.stages.map((stage, index) => ({ options: stage.options, chosen: this.chosen[index] ?? null })),
+      veins: this.veins,
+      stageVeins: this.plan.stages.map((_, index) => stageVein(this.veins, this.plan.stages, index)),
+      roomVeins: this.roomVein,
       seals: this.seals,
       players: Object.fromEntries(
         [...this.players].map(([id, state]) => [

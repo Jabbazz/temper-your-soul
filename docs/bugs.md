@@ -103,8 +103,49 @@ Risolti con la fase 0 dello studio sulla grafica (rilevati leggendo il codice e 
 Aperti dopo la fase 0:
 
 - **La zona libera davanti alle porte vale anche nell'arena del boss**, che porte non ne ha: lì il muro in alto ha meno torce. È solo aspetto.
-- **Il contorno scuro dei proiettili è uguale in tutti i temi**: lo studio propone di farlo più spesso nel ghiacciaio.
-- **Boss e luogotenenti senza bordo chiaro**: per i fogli PNG serve una variante in più, rinviata.
+- ~~**Il contorno scuro dei proiettili è uguale in tutti i temi**~~: risolto sul ramo `feature/grafica-fasi`. Nel ghiacciaio è spesso 4,5 invece di 3 (`ArenaTheme.projectileRim`, test).
+- ~~**Boss e luogotenenti senza bordo chiaro**~~: risolto sul ramo `feature/grafica-fasi`. I fogli PNG hanno una sagoma tinta in cache (`sheetSilhouette`), i luogotenenti a matrici una tavolozza tinta. Il bordo sparisce durante la morte (test).
+
+Risolti con le fasi 1–4 della grafica (ramo `feature/grafica-fasi`, visti nel browser):
+
+- **Luci sotto i massicci**: le crepe di lava coperte dal Magazzino illuminavano la cima del blocco. Ora le luci nate dentro un massiccio vengono scartate prima delle figure.
+- **Cima del muro in basso troppo chiara**: disegnata dopo la mappa di luce, restava al colore pieno mentre tutto il resto era scurito. Ora si scurisce con il buio della scena (`litColor`, test).
+- **Tab bloccato nei menu**: legato alla mappa della discesa, impediva di spostare il focus tra i pulsanti. Ora la mappa vale solo in partita (test).
+- **Servitori incastrati dietro i massicci** e tiratori che sparavano contro la pietra: trovati dai test delle stanze nuove, risolti con la deviazione da un angolo all'altro (test che falliscono senza).
+
+Aperti dopo le fasi 1–4:
+
+- ~~**Chiazze del pavimento della palude a bordi netti**~~: risolto. Il fango e l'acqua seguono un rumore interpolato con un tremolio per cella e una fascia di riva bagnata. Inoltre l'ultima fila di celle non sborda più oltre il fondo della stanza.
+- **Tracce sopra i massicci**: una zona del giocatore mirata sopra un blocco lascia la bruciatura sulla cima. È solo aspetto.
+- **Deviazione semplice**: funziona da un blocco all'altro nelle stanze di oggi. Con disposizioni più intricate servirebbe una ricerca di percorso vera.
+- **Torrette dietro un massiccio**: se compaiono dove non vedono nessuno aspettano senza sparare. È voluto, ma va confermato giocando.
+
+Fase 7 (vene B e C):
+
+- **Valori mai provati a mano.** I 55 servitori nuovi passano i test automatici:
+    - 20 secondi di vita ciascuno, senza stati invalidi;
+    - un test per ognuno dei comportamenti nuovi.
+
+  Difficoltà e leggibilità in partita restano da provare.
+- **Le lanterne cimiteriali e gli altri dormienti** si disegnano in pietra grigia finché dormono, come i doccioni. Va visto se si confondono con l'arredo più del voluto.
+- **Il Lettore di stelle era blu notte come le lastre del ghiacciaio:** schiarito dopo la prova a vista.
+- **Il filo del ragno era troppo vicino ai funghi chiari della palude:** ricolorato (test sul contrasto).
+
+Revisione indipendente del lavoro grafico (1° novembre 2026): nove problemi trovati, tutti corretti e coperti da test.
+
+- **Luogotenenti delle vene invisibili in cooperativa:** il client cercava i boss solo fra i luogotenenti di sempre, quindi non li disegnava, ma il loro contatto feriva lo stesso. Ora la rete li trova tutti (test di replica sui 12 luogotenenti).
+- **Corpi spinti nel muro o incastrati in un massiccio addossato alla parete:** da dentro un blocco si usciva dal lato più vicino anche se cadeva oltre il margine, e il margine riportava il corpo nel blocco.
+    - Lo subivano verme delle radici, volpe artica, teletrasporti, figli dei nidi e comparse.
+    - Ora si esce solo dai lati che restano nella stanza.
+- **Inseguimento incastrato fra due nicchie:** la deviazione prendeva il primo blocco dell'elenco, non il più vicino sulla strada. Ora va in ordine di distanza e, se un blocco non ha angoli utili, prova il successivo.
+- **Scatto fermo contro una faccia:** uno scatto di traverso contro un blocco non si muoveva affatto, ma consumava comunque mana e ricarica. Ora scivola lungo la faccia; solo uno scatto dritto contro il blocco si ferma.
+- **Agguato fragile:** il tempo era condiviso con le altre abilità e la posa si chiudeva solo per gli inseguitori. Ora ha un tempo suo e un test sul catalogo ammette l'agguato solo sugli inseguitori.
+- **Spirale doppia con colpi doppi alla prima raffica:** i due anelli coincidevano e consumavano il limite dei proiettili. Ora alla prima raffica parte un anello solo.
+- **Mappa della discesa (Tab) di una discesa vecchia:** la chiave della mappa non distingueva due discese alla stessa tappa. Ora comprende porte e vene.
+- **Grata dell'ingresso ferma dopo un nuovo inizio** nella stessa stanza modello: la chiave dell'atmosfera ora comprende il numero della discesa.
+- **Levigatore della cooperativa:** le posizioni del server tornano al loro posto anche se il disegno si interrompe (`finally`).
+
+Da sapere: con le stanze con i massicci nell'elenco, lo stesso seme dà stanze diverse da prima anche con la sola vena A. Le stanze di sempre non cambiano.
 
 Risolti durante le prove nel browser:
 
@@ -186,3 +227,37 @@ Segnalazione dell’utente: un Guerriero appena creato continuava a ricevere ski
 ## Troppi decimali nel danno (1 novembre 2026)
 
 Segnalazione dell’utente: danno inflitto e subito con numerose cifre decimali. Il risultato dopo bonus e difesa era applicato direttamente agli HP ed emesso negli eventi; la rarità aveva inoltre un arrotondamento anticipato. Corretto il calcolo con un solo difetto finale, condiviso da HP, eventi, numeri e report; conservata la precisione intermedia. Cure continue accumulate internamente per mantenere HP interi senza azzerare la rigenerazione a ogni passo. Prove automatiche della pipeline superate; conferma giocata dell’utente ancora da ricevere.
+
+## Fasi 5 e 6 della grafica (ramo `feature/grafica-fasi-2`, 1 novembre 2026)
+
+Trovati e corretti durante il lavoro:
+
+- **Il bordo dei crepacci si confondeva con un colpo nemico** (`glacier_nova_late`, distanza di colore 55 contro le 70 richieste). L'ha fermato il test sul contrasto, che ora conta anche i colori dei tile; il bordo è più scuro.
+- **Il centro della stanza dei Crepacci cadeva dentro un crepaccio.** Oggi nelle stanze di scontro non serve, ma i crepacci sono stati spostati e un test controlla che il centro resti pavimento.
+- **Le abilità di classe di Jabbaz ignoravano i massicci.** La corsa del Guerriero colpiva oltre un blocco, e il lupo dell'Arciere ci saltava attraverso e ci restava incastrato. Ora usano la stessa linea di vista (`sightBlocked`) e il lupo aggira i blocchi. Due test, verificati con una mutazione.
+- **I temi in cache non si disegnavano nei test senza browser:** la cache ora dipinge direttamente la vista quando non c'è `document`.
+
+Aperti, da decidere con Jabbaz (vedi `docs/game-design.md`):
+
+- i ripari non si rompono con i colpi ravvicinati, le zone o il lupo, solo con i proiettili;
+- nelle stanze con i pozzi il regista manda gli stessi nemici delle altre, anche se c'è meno pavimento;
+- le crepe di lava del pavimento della fucina sono decorative e si calpestano, accanto alla lava vera dei pozzi. Sono sottili e si distinguono, ma restano un'ambiguità;
+- la palude ha ancora chiazze d'acqua bassa solo disegnate accanto all'acqua profonda vera. Si distinguono per colore e bordo, ma lo studio proponeva di renderle una regola (rallentano) o di toglierle.
+
+### Seconda revisione indipendente (fasi 5 e 6)
+
+Corretti, ognuno con un test in `run/room-hazards.test.ts` verificato con una mutazione:
+
+- **Servitori incastrati all'angolo di un riparo** (la deviazione da un angolo all'altro oscillava fra due angoli): il campo di flusso vale in tutte le stanze con massicci, ripari o pozzi.
+- **Servitori provocati che andavano dal giocatore sbagliato:** un campo di flusso per giocatore, scelto in base alla meta del servitore.
+- **Il lupo dell'Arciere dentro un pozzo o un riparo** (alla comparsa, in attesa, nel salto dopo un'uccisione): ora sta sempre sul pavimento.
+- **Ripari condivisi riconosciuti solo se ne restava uno in piedi:** registro esplicito delle mappe con i ripari.
+- **La meta delle corse oltre il pozzo:** ora si ferma al bordo come la corsa.
+- **Costi nei passi caldi:** niente copie e allocazioni nei controlli di percorso e nel ricalcolo del campo; dei pozzi lunghi si disegna solo la parte inquadrata.
+
+### Stile unico dell'interfaccia (1° novembre 2026)
+
+- **Pixelify Sans scartato:** la B maiuscola si legge come una G a ogni misura provata (10–48 pixel), quindi «Bestiario» diventava «Gestiario» e «Bach» «Gach». I testi restano nel carattere di sistema.
+- **Silkscreen sfocato fuori dalla sua griglia:** a 10–12 pixel la C si chiudeva in una O («ESC» → «ESO», «Ricomincia» → «Rioominoia»). Corretto portando tutte le misure a 8 o 16, anche dove una regola successiva o una per gli schermi piccoli cambiava la misura. Il test `ui/fonts.test.ts` lo controlla.
+- **I pulsanti non ereditavano il carattere:** il browser usa il proprio per pulsanti e campi. Ora `font-family: inherit`.
+- **Numeri della vita e del mana troppo piccoli a 8 pixel** su uno schermo grande: su richiesta dell'utente vita, mana ed esperienza sono a 16 pixel. Il pannello della vita è spostato di 2 pixel perché le due barre restino allineate al pixel. Sotto i 600 pixel di larghezza i numeri tornano a 8, perché «200 / 200 MANA» a 16 andava a capo.

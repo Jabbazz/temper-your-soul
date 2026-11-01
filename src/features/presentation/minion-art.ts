@@ -1,12 +1,16 @@
 import { CRYPT_MINION_ART } from './minion-art/crypt';
+import { CRYPT_VEIN_ART } from './minion-art/crypt-veins';
 import { FORGE_MINION_ART } from './minion-art/forge';
+import { FORGE_VEIN_ART } from './minion-art/forge-veins';
 import { GLACIER_MINION_ART } from './minion-art/glacier';
+import { GLACIER_VEIN_ART } from './minion-art/glacier-veins';
 import type { MinionArt } from './minion-art/minion-art';
 import { SWAMP_MINION_ART } from './minion-art/swamp';
+import { SWAMP_VEIN_ART } from './minion-art/swamp-veins';
 
 /*
  * Grafica dei servitori: pixel art come matrici di caratteri (vedi `sprites.ts`), due fotogrammi ciascuno, disegnati
- * nel codice (nessun asset esterno), un file per dungeon in `minion-art/`. Solo aspetto: il raggio di colpo sta in
+ * nel codice (nessun asset esterno), un file per dungeon in `minion-art/` e uno per le sue vene B e C. Solo aspetto: il raggio di colpo sta in
  * `MinionDefinition`.
  */
 
@@ -17,6 +21,10 @@ export const MINION_ART: Readonly<Record<string, MinionArt>> = {
   ...SWAMP_MINION_ART,
   ...FORGE_MINION_ART,
   ...GLACIER_MINION_ART,
+  ...CRYPT_VEIN_ART,
+  ...SWAMP_VEIN_ART,
+  ...FORGE_VEIN_ART,
+  ...GLACIER_VEIN_ART,
 };
 
 /** La grafica di un servitore per id d'aspetto; uno sconosciuto usa il fuoco fatuo (un test controlla i dati). */
