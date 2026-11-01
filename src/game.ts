@@ -3,6 +3,7 @@ import { PROGRESSION, levelProgress } from './features/character/progression';
 import { Camera, ZOOM } from './core/camera';
 import { Input, SKILL_ACTIONS } from './core/input';
 import { PerformancePanel } from './features/ui/performance-panel';
+import { NetworkView } from './features/presentation/network-view';
 import { SeededRng } from './core/rng';
 import { Vec2 } from './core/vec2';
 import { AudioPlayer } from './features/audio/audio-player';
@@ -90,6 +91,7 @@ export class Game {
     if (this.networkBattleId) { this.networkBattleId = ''; this.showToast('Hai lasciato il combattimento cooperativo.'); this.showMenu(); }
   });
   private networkBattleId = '';
+  private networkView: NetworkView | null = null;
   private readonly completedBattles = new Set<string>();
   private battleMembers: PartyMember[] = [];
   private readonly allyPoses = new Map<string, ActorPoses>();
@@ -237,6 +239,7 @@ export class Game {
 
   /** Sfondo delle schermate fuori dalla partita: la mappa e il boss del dungeon indicato, fermi. */
   private preview(dungeon: DungeonDefinition): void {
+    this.networkView = null;
     this.renderAppearance = undefined; this.allyVisuals = [];
     this.dungeon = dungeon;
     this.match = this.createMatch(dungeon);
@@ -399,9 +402,10 @@ export class Game {
       const members = state.members.map(m => ({ id: m.id, loadout: deserializeCharacter(m.character)!.loadout() }));
       this.match = new Match({ rng: new SeededRng(1), dungeon, loadout: members[0].loadout, members });
       this.match.viewPlayerId = this.party.client.playerId;
+      const view = new NetworkView(this.match); this.networkView = view;
       this.allyPoses.clear(); for (const member of members) this.allyPoses.set(member.id, new ActorPoses());
       this.allyVisuals = this.battleMembers.filter(m => m.id !== this.party.client.playerId).map(member => ({
-        player: this.match.players.get(member.id)!, poses: this.allyPoses.get(member.id)!, name: member.name, appearance: member.appearance,
+        player: view.match.players.get(member.id)!, poses: this.allyPoses.get(member.id)!, name: member.name, appearance: member.appearance,
       }));
       this.renderAppearance = this.character.appearance();
       this.effects.clear(); this.poses.reset(); this.input.releaseAll();
@@ -410,6 +414,7 @@ export class Game {
       this.hud.buildSkills(this.match.player.skillBar.skills); this.hud.setBossName(this.match.boss.definition.name); this.canvas.focus();
     }
     applySnapshot(this.match, snapshot);
+    this.networkView!.accept(snapshot, performance.now());
     for (const event of snapshot.events) {
       this.effects.handle(event, this.party.client.playerId); this.audio.handle(event, this.party.client.playerId);
       this.hud.onEvent(event, this.party.client.playerId); this.tally.handle(event);
@@ -523,7 +528,7 @@ export class Game {
     if (this.screen === 'playing' || this.screen === 'ended') {
       this.poses.update(STEP, match.player.moving);
       for (const [id, poses] of this.allyPoses) poses.update(STEP, match.players.get(id)?.moving ?? false);
-      this.effects.update(STEP, match, this.camera);
+      this.effects.update(STEP, this.networkBattleId && this.networkView ? this.networkView.match : match, this.camera);
     }
     if (this.screen === 'playing') {
       if (this.networkBattleId) {
@@ -548,6 +553,8 @@ export class Game {
     this.lastTime = time;
     this.clock += delta;
     this.accumulator += delta;
+    const view = this.networkBattleId && this.networkView ? this.networkView : null;
+    view?.sample(performance.now());
     while (this.accumulator >= STEP) {
       this.step();
       this.accumulator -= STEP;
@@ -562,12 +569,15 @@ export class Game {
     }
     this.camera.shakeOffset =
       this.screen === 'playing' || this.screen === 'ended' ? this.effects.shakeOffset() : Vec2.ZERO;
+    const renderedMatch = view?.match ?? this.match;
+    this.camera.follow(renderedMatch.player.position);
+    if (view) renderedMatch.player.aim = renderedMatch.player.position.add(this.camera.pointerOffset(this.input.pointer));
     this.hud.update(this.match, levelProgress(this.character.totalXp));
     this.audio.setListener(this.match.player.position, this.camera.width / 2);
     this.audio.setScene({ screen: this.screen, theme: this.dungeon.arena.theme, enraged: this.match.boss.isEnraged });
     this.audio.update(delta);
     renderScene(this.ctx, {
-      match: this.match,
+      match: renderedMatch,
       effects: this.effects,
       poses: this.poses,
       camera: this.camera,

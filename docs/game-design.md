@@ -282,3 +282,23 @@ Regole comuni:
 - in cooperativa viaggiano nelle istantanee (protocollo **3**: lista `m` con id, tipo, posizione e vita).
 
 Grafica nel codice in `presentation/minion-art.ts`. Punti aperti: numeri e frequenze, esperienza o bottino per i servitori (oggi nessuno), servitori anche in fase I.
+
+### Diagnostica FPS e completamento dell’ottimizzazione (1 novembre 2026)
+
+Il tasto **F2**, o il pulsante **FPS · F2**, apre un pannello facoltativo con FPS, tempo dei fotogrammi al 95° percentile, lavoro per frame, aggiornamenti di rete al secondo, traffico approssimato, RTT e costi del server. I dati server arrivano da `/health` soltanto quando il pannello è visibile e il client è in party. CPU server è una percentuale di **un core**, non il consumo totale del PC; il tempo del frame non misura direttamente il carico della GPU. Nessuna telemetria inviata a terzi.
+
+La Cripta memorizza il pavimento in tasselli con cache limitata a 8 MiB per arena; torce animate e rune sono disegnate a parte. Completata la verifica di sei viste, inclusi bordi e coordinate frazionarie: **zero differenze di pixel** rispetto alla versione senza cache. Due test controllano riutilizzo, separazione fra arene e rimozione dei tasselli vecchi. Il caricamento audio limita a due le operazioni contemporanee; selezione delle piste e scritture di volume evitano lavoro ripetuto quando lo stato non cambia. Queste ottimizzazioni erano già integrate nel main; la ripresa ne completa verifica e documentazione.
+
+Corretto un problema rilevato nelle prove Windows: il watcher di Vite includeva `.tools/` e poteva arrestarsi con `EBUSY` su file bloccati dei profili browser. Ora ignora `.tools/` e `dist/`. È un problema dell’ambiente di sviluppo/test, non una causa dimostrata del calo durante una partita sulla build pubblica.
+
+Profilo della versione attuale: un browser con accelerazione grafica e un alleato simulato tramite socket, senza un secondo renderer sul PC. Circa **159 FPS in singolo e 165 in party**, frame p95 circa 6,2 ms; server circa **1,5–3,1% di un core**, passo p95 0,11–0,13 ms, invio p95 0,34–0,35 ms, rete 30 aggiornamenti/s e circa 6,3 KB/s nella finestra misurata. In questa prova il server non è risultato saturo e il calo segnalato non è stato riprodotto: non è una garanzia per altre reti, dungeon o carichi. La misura con F2 durante il problema reale resta necessaria; aggiornamenti del mondo a 30 Hz e FPS del canvas sono grandezze distinte. Questo profilo precede l’interpolazione implementata nel successivo incremento descritto sotto.
+
+Verifica aggiornata: **478 test**, tipi client/server e build superati. Controllati il pannello desktop/mobile e la lettura dei dati server. Conferma giocata dell’utente ancora da ricevere. La prossima parte della progressione resta da concordare, senza modifiche implicite a XP, drop o permadeath.
+
+### Interpolazione del multiplayer (1 novembre 2026)
+
+Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, giocatore, alleati, boss, proiettili e servitori interpolano le posizioni a ogni fotogramma fra gli stati ricevuti. Input, HUD, danni, collisioni, ricariche e premi continuano a usare lo stato autorevole. Le scie seguono le posizioni visuali; la mira locale resta agganciata al puntatore. Server a 60 Hz e trasporto a 30 Hz invariati.
+
+Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
+
+Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.

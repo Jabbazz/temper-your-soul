@@ -19,7 +19,7 @@
 - [x] Interfaccia party in alto a destra: quattro posti, sprite del personaggio attivo, lobby locale con stato pronto e boss comune; stile Reliquiario e layout mobile.
 - [x] Server cooperativo autorevole Node/WebSocket: link, leader/destinazione/avvio, pronto, controllo GS di tutti, alleati/boss condivisi, no fuoco amico, ping, KO/disconnessioni, premi personali e combat report.
 - [x] Ottimizzazione rete/rendering: protocollo compatto v2, entità riutilizzate, raster cache, badge ping senza ricostruzione DOM, snapshot serializzato una volta per stanza e stop dopo la fine.
-- [ ] Prova giocata con amici su reti differenti; interpolazione/predizione, riconnessione e server persistente in incrementi successivi. Profilare i picchi RTT osservati nel browser in sviluppo Vite (fino a 922 ms nella prova localhost→tunnel), distinti dalle misure dirette e dalla build pubblica.
+- [ ] Prova giocata con amici su reti differenti; predizione locale, riconnessione e server persistente in incrementi successivi. Profilare i picchi RTT osservati nel browser in sviluppo Vite (fino a 922 ms nella prova localhost→tunnel), distinti dalle misure dirette e dalla build pubblica.
 - [ ] Provare manualmente creazione, persistenza, sensazione dei tre set iniziali, grind e premi dei quattro boss.
 - [ ] Tarare GS, livelli oggetto, probabilità e futuro effetto del livello oggetto sulle statistiche.
 - [ ] Prova manuale del grind per classe, della chiarezza delle probabilità condizionate e dei blocchi GS.
@@ -229,3 +229,17 @@ Checklist manuale:
 - [ ] Attacchi, trasformazione in fase II e morte arrivano al momento giusto.
 - [ ] La differenza di finezza dei pixel fra i boss non disturba.
 - [ ] Le vignette della scelta del dungeon sono piu' belle di prima.
+
+### Ripresa e completamento della diagnostica (1 novembre 2026)
+
+478 test, tipi e build superati. Cache della Cripta confrontata con la versione precedente su sei viste: zero differenze di pixel; aggiunti test di riutilizzo e memoria limitata. Watcher Vite corretto per non monitorare log, build e profili browser bloccati. F2 verificato su desktop/mobile; dati server letti durante il party. Un solo browser e alleato simulato via socket: circa 165 FPS in party e server 1,5–3,1% di un core nella finestra misurata. Il calo segnalato non è stato riprodotto in quella prova: conferma manuale e misura F2 nel caso reale ancora da ricevere. Dettagli e limiti nel README.
+
+Prova finale sul nuovo tunnel con due browser isolati: movimento e skill condivisi, vittoria, report identico e 100 XP salvati una sola volta per entrambi; verificato il salvataggio mentre il rendering del membro era sospeso e la comparsa del report alla ripresa, dopo l’animazione finale. Nessuna eccezione JavaScript.
+
+### Interpolazione del multiplayer (1 novembre 2026)
+
+Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, giocatore, alleati, boss, proiettili e servitori interpolano le posizioni a ogni fotogramma fra gli stati ricevuti. Input, HUD, danni, collisioni, ricariche e premi continuano a usare lo stato autorevole. Le scie seguono le posizioni visuali; la mira locale resta agganciata al puntatore. Server a 60 Hz e trasporto a 30 Hz invariati.
+
+Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
+
+Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.

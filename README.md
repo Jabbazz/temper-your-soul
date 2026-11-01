@@ -2,7 +2,7 @@
 
 Gioco d’azione 2D per browser in **TypeScript strict**, Canvas 2D e DOM, senza motore di gioco né dipendenze runtime nel browser (server cooperativo Node con WebSocket). I principi sono ispirati ad Ashen Realm: le abilità dipendono dall’equipaggiamento. Il prototipo originale si chiamava Emberfall; il nome del gioco attuale è **Temper your soul**.
 
-**Stato al 31 ottobre 2026:** prototipo giocabile con quattro dungeon, tre classi, personaggi multipli locali, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, gear score e bottino specifico per boss. Implementata la **cooperativa sincronizzata fino a quattro giocatori tramite link**, con server autorevole, leader, ping e combat report. Audio a canali con registrazioni vere a licenza libera (musica per menu, dungeon e furia, ambienti, effetti) e pannello dei volumi. Risposta ai colpi, fase II con stendardo e servitori dei boss, schermate di vittoria e sconfitta con statistiche. Boss in pixel art di terzi a licenza libera, con animazioni di attacco, trasformazione e morte (proposta in revisione). Ultima verifica automatica: **476 test, controllo dei tipi client/server e build superati**. Rete e rendering ottimizzati con protocollo v2; benchmark ripetibile incluso. Bilanciamento e qualità visiva non sono definitivi; il permadeath non è ancora implementato.
+**Stato al 1 novembre 2026:** prototipo giocabile con quattro dungeon, tre classi, personaggi multipli locali, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, gear score e bottino specifico per boss. Implementata la **cooperativa sincronizzata fino a quattro giocatori tramite link**, con server autorevole, leader, ping e combat report. Audio a canali con registrazioni vere a licenza libera (musica per menu, dungeon e furia, ambienti, effetti) e pannello dei volumi. Risposta ai colpi, fase II con stendardo e servitori dei boss, schermate di vittoria e sconfitta con statistiche. Boss in pixel art di terzi a licenza libera, con animazioni di attacco, trasformazione e morte (proposta in revisione). Ultima verifica automatica: **484 test, controllo dei tipi client/server e build superati**. Rete e rendering ottimizzati con protocollo v2; benchmark ripetibile incluso. Bilanciamento e qualità visiva non sono definitivi; il permadeath non è ancora implementato.
 
 ## Prima di lavorare: istruzioni per collaboratori e agenti AI
 
@@ -145,6 +145,18 @@ Benchmark ripetibile: `npm run benchmark:network`. Fixture sintetica di 40 secon
 
 Confronto browser tramite tunnel, due Edge headless isolati a 1440×1000, finestra di 8 secondi: traffico ricevuto **889.719 → 51.553 byte (−94,2%)**, tempo CPU del thread principale **4.099 → 3.469 ms (−15,4%)**, tempo script **1.229 → 944 ms (−23,2%)**. Entrambe le versioni erano già a circa 60 FPS, senza frame oltre 25 ms nella finestra: non è una promessa di aumento FPS universale. Ulteriore prova con quattro browser/classi miste: circa **59,8 FPS**, due frame oltre 25 ms su 478. Le finestre reali non sono replay perfettamente identici; conferma della fluidità sul PC del giocatore ancora necessaria. Vittoria, report identico e premi personali verificati anche dopo il cambio di protocollo.
 
+### Diagnostica FPS e completamento dell’ottimizzazione (1 novembre 2026)
+
+Il tasto **F2**, o il pulsante **FPS · F2**, apre un pannello facoltativo con FPS, tempo dei fotogrammi al 95° percentile, lavoro per frame, aggiornamenti di rete al secondo, traffico approssimato, RTT e costi del server. I dati server arrivano da `/health` soltanto quando il pannello è visibile e il client è in party. CPU server è una percentuale di **un core**, non il consumo totale del PC; il tempo del frame non misura direttamente il carico della GPU. Nessuna telemetria inviata a terzi.
+
+La Cripta memorizza il pavimento in tasselli con cache limitata a 8 MiB per arena; torce animate e rune sono disegnate a parte. Completata la verifica di sei viste, inclusi bordi e coordinate frazionarie: **zero differenze di pixel** rispetto alla versione senza cache. Due test controllano riutilizzo, separazione fra arene e rimozione dei tasselli vecchi. Il caricamento audio limita a due le operazioni contemporanee; selezione delle piste e scritture di volume evitano lavoro ripetuto quando lo stato non cambia. Queste ottimizzazioni erano già integrate nel main; la ripresa ne completa verifica e documentazione.
+
+Corretto un problema rilevato nelle prove Windows: il watcher di Vite includeva `.tools/` e poteva arrestarsi con `EBUSY` su file bloccati dei profili browser. Ora ignora `.tools/` e `dist/`. È un problema dell’ambiente di sviluppo/test, non una causa dimostrata del calo durante una partita sulla build pubblica.
+
+Profilo della versione attuale: un browser con accelerazione grafica e un alleato simulato tramite socket, senza un secondo renderer sul PC. Circa **159 FPS in singolo e 165 in party**, frame p95 circa 6,2 ms; server circa **1,5–3,1% di un core**, passo p95 0,11–0,13 ms, invio p95 0,34–0,35 ms, rete 30 aggiornamenti/s e circa 6,3 KB/s nella finestra misurata. In questa prova il server non è risultato saturo e il calo segnalato non è stato riprodotto: non è una garanzia per altre reti, dungeon o carichi. La misura con F2 durante il problema reale resta necessaria; aggiornamenti del mondo a 30 Hz e FPS del canvas sono grandezze distinte. Questo profilo precede l’interpolazione implementata nel successivo incremento descritto sotto.
+
+Verifica aggiornata: **484 test**, tipi client/server e build superati. Controllati il pannello desktop/mobile e la lettura dei dati server. Conferma giocata dell’utente ancora da ricevere. La prossima parte della progressione resta da concordare, senza modifiche implicite a XP, drop o permadeath.
+
 ### Salvataggi locali
 
 - Chiave: `temper-your-soul:save`; formato **v6**, raccolta `character-roster` con profili, id attivo e contatore degli id.
@@ -208,18 +220,18 @@ Per un nuovo oggetto servono: id stabile, famiglia e classe, skill/statistiche/c
 
 ## Verifiche e prossimi passi
 
-`npm run verify` deve uscire con codice 0. I **476 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
+`npm run verify` deve uscire con codice 0. I **484 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
 
 Priorità per chi riprende il lavoro:
 
 Il prossimo incremento richiesto riguarda un’altra parte della progressione del personaggio, **ancora da definire con il proprietario**. Non dedurre nuove regole di livelli, talenti, permadeath o ricompense da questa intenzione. La cooperativa è stata dichiarata funzionante dall’utente; la resa della versione ottimizzata sul suo PC resta da confermare.
 
-1. **Conferma giocata della cooperativa:** provare con amici su reti diverse, classi miste e tutti i boss. Già verificati due browser isolati via tunnel: lobby, leader, movimento, skill, vittoria, report identico e salvataggio XP senza duplicazioni. Misura RTT su 40 campioni da questa macchina: locale mediana 0,34 ms / p95 1,20 ms; tunnel mediana 13,85 ms / p95 17,05 ms. La prova automatizzata con input validi non certifica bilanciamento o qualità della connessione da altre reti. Prossimi miglioramenti: interpolazione/predizione, rientro dopo disconnessione, server persistente e identità affidabili.
+1. **Conferma giocata della cooperativa:** provare con amici su reti diverse, classi miste e tutti i boss. Già verificati due browser isolati via tunnel: lobby, leader, movimento, skill, vittoria, report identico e salvataggio XP senza duplicazioni. Misura RTT su 40 campioni da questa macchina: locale mediana 0,34 ms / p95 1,20 ms; tunnel mediana 13,85 ms / p95 17,05 ms. La prova automatizzata con input validi non certifica bilanciamento o qualità della connessione da altre reti. Prossimi miglioramenti: predizione locale, rientro dopo disconnessione, server persistente e identità affidabili.
 2. **Prova giocata dei tre personaggi sui quattro boss.** Verificare leggibilità, mana, collisioni, ritmo e progressione del grind. Riprodurre e registrare i problemi effettivi; distinguere verifica automatica, fotogramma e conferma manuale dell’utente.
 3. **Bilanciamento di oggetti e progressione.** Tarare danni, cooldown, costi, livelli oggetto e difficoltà; mantenere la struttura di drop richiesta e le soglie GS salvo nuova decisione dell’utente. I test verificano che ogni classe possa raggiungere 100 GS prima di T3 e 200 prima di T4, non quanto sia divertente o lungo farlo.
 4. **Progettare e implementare il permadeath nel prossimo incremento concordato.** Prima definire cosa viene perso, cosa succede al profilo morto e come si ricrea un personaggio. Non assumere inventario condiviso, eredità o nuove penalità non decise.
 5. **Robustezza dei salvataggi:** esportazione/importazione e migrazioni future (le due schede si allineano già con l’evento `storage`). Il server cooperativo è già implementato, ma non conserva i progressi: un eventuale salvataggio cloud richiede un incremento dedicato.
-6. **Debito noto:** raggi di collisione non uniformi, camera senza limiti/interpolazione, limiti documentati dei backup. Valutare gli aggiornamenti delle dipendenze in un intervento dedicato; gli avvisi storici in `bugs.md` non sono una nuova scansione aggiornata.
+6. **Debito noto:** raggi di collisione non uniformi, limiti della camera e interpolazione del singolo, limiti documentati dei backup. Valutare gli aggiornamenti delle dipendenze in un intervento dedicato; gli avvisi storici in `bugs.md` non sono una nuova scansione aggiornata.
 7. **Grafica:** resta nella TODO, sospesa; non è il lavoro da riprendere automaticamente.
 
 Leggere sempre [docs/game-design.md](docs/game-design.md) per decisioni e valori, [docs/roadmap.md](docs/roadmap.md) per priorità e prove, [docs/bugs.md](docs/bugs.md) per difetti e limiti. Aggiornare questi file con i risultati del prossimo incremento.
@@ -229,3 +241,11 @@ Leggere sempre [docs/game-design.md](docs/game-design.md) per decisioni e valori
 `node_modules/`, `dist/`, `.tools/`, profili browser e screenshot temporanei locali non vanno pubblicati. Non committare credenziali, file `.env` o dati personali di test.
 
 `legacy/emberfall-prototype/` conserva la bozza JavaScript originale, solo come riferimento storico: non fa parte della build né dei test. Il codice corrente si scrive in TypeScript dentro `src/` e `server/`.
+
+### Interpolazione del multiplayer (1 novembre 2026)
+
+Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, giocatore, alleati, boss, proiettili e servitori interpolano le posizioni a ogni fotogramma fra gli stati ricevuti. Input, HUD, danni, collisioni, ricariche e premi continuano a usare lo stato autorevole. Le scie seguono le posizioni visuali; la mira locale resta agganciata al puntatore. Server a 60 Hz e trasporto a 30 Hz invariati.
+
+Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
+
+Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.

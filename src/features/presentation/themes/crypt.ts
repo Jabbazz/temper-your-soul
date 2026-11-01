@@ -55,6 +55,10 @@ function drawStaticFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, 
   ctx.fillRect(0, 0, wall, arena.height);
   ctx.fillRect(arena.width - wall, 0, wall, arena.height);
 
+}
+
+/** Le linee antialias restano nel contesto finale, evitando differenze ai bordi dei tasselli. */
+function drawRunes(ctx: CanvasRenderingContext2D, camera: Camera): void {
   for (const circle of CRYPT_DECOR.runeCircles) {
     if (!camera.isVisible(circle, 140)) continue;
     ctx.strokeStyle = '#575064';
@@ -81,6 +85,7 @@ const floorCache = new FloorCache(drawStaticFloor);
 
 function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
   floorCache.draw(ctx, arena, camera);
+  drawRunes(ctx, camera);
   const { x: camX, y: camY } = camera.position;
   const { start, spacing } = CRYPT_DECOR.torches;
   for (let x = start; x < arena.width; x += spacing) {
