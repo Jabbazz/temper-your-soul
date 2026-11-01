@@ -413,3 +413,13 @@ Verifica: tipi client/server, suite e build; controlli browser con nuovi persona
 - Taratura giocata di durate, danni, costi e recuperi; bilanciamento completo dei quattro boss.
 - Aumento HP base dei boss e danno/velocità dei proiettili ordinari. +50% HP per membro aggiuntivo per boss e servitori: oggi questa crescita è già presente per i luogotenenti, il budget delle ondate cresce col party; resta da uniformare.
 - Salvataggio del pet fra stanze e profili di resistenza dei nemici: non aggiunti in questo incremento.
+
+## Danno finale intero per difetto · v0.03.01
+
+Richiesta dell’utente: arrotondare il risultato del calcolo, non correggere soltanto i numeri mostrati. Il danno conserva i decimali di rarità e modificatori intermedi; `Health.takeDamage` applica `floor(max(0, danno))` una sola volta, dopo bonus offensivi, esposizione, scudi/penetrazione o difesa. Poi limita la perdita agli HP interi rimasti. Lo stesso intero viene sottratto alla vita, emesso in `damage_dealt` e sommato nel report, senza overkill. Vale anche per danni periodici, contatto e urti. Non esiste un minimo artificiale di 1: sotto 1 il danno finale è 0.
+
+Rimosso `Math.round` dal danno della rarità. Esempio: Dardo con set Raro, livello 1: `19 × 1,5 × 1,105 = 31,4925 → 31`; prima era `round(19 × 1,5) × 1,105 = 32,045`. Se il bersaglio è esposto, il +20% si applica prima del difetto (`37,791 → 37`). Colpo rosso contro 40 difesa: `100 × 100/140 → 71`. Blink con set Comune: `65 × 1,07 → 69`. I coefficienti non cambiano; cambia il punto e il verso dell’arrotondamento.
+
+Vita corrente e massima intere (il massimo viene arrotondato per difetto dopo la somma dei bonus). Per preservare rigenerazione e furto vita, `Health.heal` accumula internamente le frazioni fino a maturare HP interi: 5 HP/s recuperano ancora 5 HP in un secondo a 60 Hz. Le frazioni non vengono accumulate a vita piena. Anche la guarigione effettiva del report è intera. Nessun nuovo formato di salvataggio o rete.
+
+Verifica: 605 test, tipi e build; regressioni su difesa, rarità/potenza/vulnerabilità, scudo e penetrazione, DoT, overkill e cure a piccoli passi. La rimozione temporanea del difetto fa fallire il test della pipeline, poi viene ripristinata. Taratura di piccoli DoT che diventano 0 e conferma giocata restano aperte.

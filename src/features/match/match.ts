@@ -651,8 +651,7 @@ export class Match {
   heal(playerId: string, amount: number): number {
     const player = this.players.get(playerId);
     if (player === undefined || player.health.isDead) return 0;
-    const healed = Math.min(amount, player.health.max - player.health.current);
-    player.health.current += healed;
+    const healed = player.health.heal(amount);
     const stats = this.report.get(playerId);
     if (stats) stats.healing += healed;
     return healed;
@@ -666,7 +665,7 @@ export class Match {
     if (actual > 0) { this.classCombat.onDamage(owner, actual); this.classCombat.applyHit('boss', owner, hit); }
     const stats = this.report.get(owner);
     if (stats) stats.damageDealt += actual;
-    this.events.emit({ type: 'damage_dealt', target: 'boss', amount: resolved, position: boss.position, playerId: owner });
+    this.events.emit({ type: 'damage_dealt', target: 'boss', amount: actual, position: boss.position, playerId: owner });
     if (boss.health.isDead) {
       this.events.emit({ type: 'boss_defeated', position: boss.position });
       // Con il boss cadono anche i suoi servitori.
@@ -695,7 +694,7 @@ export class Match {
     if (actual > 0) { this.classCombat.onDamage(owner, actual); this.classCombat.applyHit(`minion:${minion.id}`, owner, hit); }
     const stats = this.report.get(owner);
     if (stats) stats.damageDealt += actual;
-    this.events.emit({ type: 'damage_dealt', target: 'minion', amount: damage, position: minion.position, minionId: minion.id, playerId: owner });
+    this.events.emit({ type: 'damage_dealt', target: 'minion', amount: actual, position: minion.position, minionId: minion.id, playerId: owner });
     if (minion.health.isDead) this.killMinion(minion, false, via);
   }
 

@@ -9,7 +9,7 @@ import { renderLoot } from './loot-view';
  * prestazione, poi ricompense, poi azioni. Solo rappresentazione: riceve numeri gia' calcolati.
  */
 
-const number = (value: number): string => Math.round(value).toLocaleString('it-IT');
+const number = (value: number): string => value.toLocaleString('it-IT');
 
 /** Una tessera di statistica: valore grande, etichetta piccola, eventuale distintivo ("Record!"). */
 function tile(label: string, value: string, badge?: string, delay = 0): HTMLElement {

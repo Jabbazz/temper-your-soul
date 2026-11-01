@@ -296,3 +296,17 @@ La taratura generale degli HP e dei colpi ordinari dei boss resta un incremento 
 ### Pubblicazione su main · v0.03.00
 
 Pubblicazione autorizzata dall’utente; restano aperte le checklist manuali e la taratura generale dei boss/HP del party. Nessuna conferma giocata aggiunta. La cronologia conserva anche la versione di sviluppo v0.02.03.
+
+### Danno finale intero · v0.03.01
+
+- [x] Danno arrotondato per difetto nella simulazione dopo tutti i modificatori, senza arrotondamenti anticipati da rarità.
+- [x] HP, eventi e report coerenti e interi; overkill escluso dai numeri del danno.
+- [x] Cure frazionarie accumulate internamente senza perdere rigenerazione a 60 Hz.
+- [x] Test su tutta la pipeline e mutazione del difetto finale.
+- [ ] Prova giocata di danni inflitti/subiti e report, inclusi sanguinamento/bruciatura piccoli che possono ora infliggere 0.
+
+Gli altri punti aperti di bilanciamento restano invariati.
+
+### Pubblicazione su main · v0.04.00
+
+Correzione del danno intero pubblicata su richiesta dell’utente. Restano aperte tutte le checklist manuali e la taratura del bilanciamento; nessuna nuova conferma giocata registrata.

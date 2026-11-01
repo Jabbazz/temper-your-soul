@@ -81,7 +81,7 @@ describe('Guerriero: gli oggetti concedono il kit difensivo', () => {
     expect(match.player.health.current).toBe(health); expect(blocks).toBe(1); expect(match.player.guarding).toBe(false);
     match.player.invulnerableFor = 1;
     match.projectiles.push(enemyShot(match, true)); match.stepParty(0, new Map());
-    expect(match.player.health.current).toBeCloseTo(health - 100 / 1.4);
+    expect(match.player.health.current).toBe(health - 71);
   });
 
   it('il buff rigenera HP contabilizzati nel report e la difesa temporanea scade', () => {
@@ -145,7 +145,7 @@ describe('Mago: stati e canalizzazione', () => {
     const match = fixture('mage'); match.boss!.position = new Vec2(650, 500);
     cast(match, 'mage', 3);
     expect(match.player.position.x).toBe(625); expect(match.player.rush).toBeNull();
-    expect(match.boss!.health.current).toBeCloseTo(10000 - 65 * 1.07);
+    expect(match.boss!.health.current).toBe(9931);
     expect(match.classCombat.statuses.has('boss', 'exposed')).toBe(true);
   });
 });

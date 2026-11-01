@@ -10,10 +10,10 @@ export function showCombatReport(report: Record<string, CombatStats>, members: r
   const thead = el('thead'); thead.append(head); table.append(thead); const body = el('tbody');
   for (const [id, stats] of Object.entries(report)) {
     const row = el('tr'); row.append(el('td', '', members.find(m => m.id === id)?.name ?? 'Alleato disconnesso'));
-    for (const value of [stats.damageDealt, stats.damageReceived, stats.healing]) row.append(el('td', '', Math.round(value).toLocaleString('it-IT')));
+    for (const value of [stats.damageDealt, stats.damageReceived, stats.healing]) row.append(el('td', '', value.toLocaleString('it-IT')));
     body.append(row);
   }
-  table.append(body); wrap.append(table); dialog.append(wrap, el('p', 'party-preview-note', 'Guarigione: 0 finché non saranno introdotte le cure e la classe Chierico.'));
+  table.append(body); wrap.append(table); dialog.append(wrap, el('p', 'party-preview-note', 'Guarigione effettiva da rigenerazione e furto vita.'));
   const close = el('button', 'primary', 'Continua →'); close.addEventListener('click', () => dialog.close()); dialog.append(close);
   dialog.addEventListener('keydown', e => { if (e.code === 'Escape') e.stopPropagation(); });
   dialog.addEventListener('close', () => dialog.remove()); document.body.append(dialog); dialog.showModal();

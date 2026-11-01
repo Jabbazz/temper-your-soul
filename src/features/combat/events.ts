@@ -37,7 +37,7 @@ export type GameEvent = (
       travelSeconds?: number;
     }
   /**
-   * Danno inflitto (`amount` e' il danno del colpo, anche se supera gli HP rimasti). Ai giocatori porta la fonte; ai
+   * Danno inflitto (`amount` è la perdita intera effettiva, dopo modificatori, difetto e limite agli HP rimasti). Ai giocatori porta la fonte; ai
    * servitori l'id del servitore. `playerId` (in fondo) e' chi ha colpito o, per il bersaglio `player`, chi e' stato colpito.
    */
   | { type: 'damage_dealt'; target: 'player' | 'boss' | 'minion'; amount: number; position: Vec2; source?: DamageSource; minionId?: number }

@@ -140,7 +140,26 @@ const CLASS_ROLES_PREVIEW: ReleaseNotes = {
     ],
   };
 
+const INTEGER_DAMAGE_PREVIEW: ReleaseNotes = {
+    version: '0.3.1', date: '2026-11-01',
+    changes: [
+      'Danni interi nella simulazione: un solo arrotondamento per difetto dopo rarità, potenza, vulnerabilità, scudi e difesa; nessun ritocco ai soli numeri a schermo.',
+      'HP sottratti, eventi e report condividono la perdita intera effettiva, limitata agli HP rimasti. Anche danni periodici e danni subiti seguono la stessa regola; sotto 1 il danno è 0.',
+      'Rimosso l’arrotondamento anticipato del danno da rarità: i decimali intermedi vengono conservati fino all’applicazione.',
+      'HP e massimi interi; rigenerazione e furto vita accumulano le frazioni internamente, recuperando HP interi senza perdere le piccole cure a 60 Hz. Nessuna riserva accumulata a vita piena.',
+      'Report e schermata finale non arrotondano più i totali di danno ricevuti. Corretta anche la nota sulla guarigione, ora effettivamente disponibile.',
+    ],
+    balanceChanges: [
+      { label: 'Dardo di fuoco · set Comune livello 1 · danno effettivo', before: 20.33, after: 20, unit: 'HP' },
+      { label: 'Blink esplosivo · set Comune livello 1 · danno effettivo', before: 69.55, after: 69, unit: 'HP' },
+      { label: 'Colpo rosso 100 danni · Guerriero con set Comune e difesa 40', before: 100 / 1.4, after: 71, unit: 'HP subiti' },
+      { label: 'Dardo di fuoco · set Raro livello 1 · danno finale', before: 29 * 1.105, after: 31, unit: 'HP' },
+    ],
+  };
+
 export const RELEASES: readonly ReleaseNotes[] = [
+  { ...INTEGER_DAMAGE_PREVIEW, version: '0.4.0', date: '2026-11-01' },
+  INTEGER_DAMAGE_PREVIEW,
   { ...CLASS_ROLES_PREVIEW, version: '0.3.0', date: '2026-11-01' },
   CLASS_ROLES_PREVIEW,
   {

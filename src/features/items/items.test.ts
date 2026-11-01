@@ -66,11 +66,11 @@ describe('scaleSkill', () => {
     }
   });
 
-  it('arrotonda il danno all\'intero e scala ricarica, distanza e invulnerabilita\' con le regole provvisorie', () => {
+  it('conserva la precisione del danno e scala ricarica, distanza e invulnerabilita\' con le regole provvisorie', () => {
     const damages = RARITIES.map((rarity) => damageOf(scaleSkill(ARCANE_BOLT, rarity)));
-    expect(damages).toEqual([19, 23, 29, 38, 57]); // 19 x 1, 1.12, 1.25, 1.4, 1.6 arrotondati
+    expect(damages).toEqual([19, 22.8, 28.5, 38, 57]); // Nessun arrotondamento prima degli altri modificatori.
     for (const family of ITEM_FAMILIES) {
-      for (const rarity of RARITIES) expect(Number.isInteger(damageOf(scaleSkill(family.skill, rarity)))).toBe(true);
+      for (const rarity of RARITIES) expect(Number.isFinite(damageOf(scaleSkill(family.skill, rarity)))).toBe(true);
     }
     expect(damageOf(scaleSkill(METEOR, 'legendary'))).toBe(630);
     expect(scaleSkill(ARCANE_BOLT, 'legendary').cooldown).toBeCloseTo(0.16, 10);

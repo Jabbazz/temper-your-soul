@@ -182,3 +182,7 @@ Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono 
 ## Skill del Guerriero ancora magiche (1 novembre 2026)
 
 Segnalazione dell’utente: un Guerriero appena creato continuava a ricevere skill simili a quelle del Mago. Il primo incremento aveva cambiato soltanto le statistiche. Corretto il catalogo degli oggetti per tutte le classi, mantenendo gli id salvati: il Guerriero riceve fendente, parata, buff difensivo e corsa fisica; Mago e Arciere hanno i propri kit. Aggiornate icone della barra, effetti e replica cooperativa. Controllati creazione, barra e buff nel browser; un test rilegge il Guerriero salvato senza perdere equipaggiamento. Conferma giocata dell’utente ancora da ricevere.
+
+## Troppi decimali nel danno (1 novembre 2026)
+
+Segnalazione dell’utente: danno inflitto e subito con numerose cifre decimali. Il risultato dopo bonus e difesa era applicato direttamente agli HP ed emesso negli eventi; la rarità aveva inoltre un arrotondamento anticipato. Corretto il calcolo con un solo difetto finale, condiviso da HP, eventi, numeri e report; conservata la precisione intermedia. Cure continue accumulate internamente per mantenere HP interi senza azzerare la rigenerazione a ogni passo. Prove automatiche della pipeline superate; conferma giocata dell’utente ancora da ricevere.

@@ -246,7 +246,7 @@ Per un nuovo oggetto servono: id stabile, famiglia e classe, skill/statistiche/c
 
 ## Verifiche e prossimi passi
 
-`npm run verify` deve uscire con codice 0. I **599 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
+`npm run verify` deve uscire con codice 0. I **605 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
 
 Priorità per chi riprende il lavoro:
 
@@ -295,3 +295,9 @@ Oggetti esistenti aggiornati senza reset o migrazione: basta ricaricare e avviar
 Verifica aggiornata: 599 test, tipi e build; controlli browser su barra e Q delle tre classi. Conferma giocata ancora necessaria. Restano fuori da questo incremento l’aumento generale degli HP dei boss, la velocità/danno dei loro colpi ordinari e la scalatura HP uniforme del party.
 
 Versione main di questo incremento: **v0.03.00** (package `0.3.0`). Punti aperti e prove ancora necessarie restano nella roadmap; la pubblicazione non costituisce approvazione del bilanciamento o conferma giocata.
+
+### Correzione in sviluppo · v0.03.01
+
+Danni interi per difetto dopo tutti i modificatori: niente arrotondamento soltanto grafico. HP, eventi, numeri e report usano lo stesso intero effettivo; rimosso l’arrotondamento anticipato dalla rarità. Rigenerazione e furto vita conservano le frazioni internamente e recuperano HP interi. Verifica: 605 test, tipi e build; conferma giocata ancora necessaria. Nessun cambiamento a drop, XP o salvataggi; gli altri punti aperti restano nella roadmap.
+
+Versione main della correzione dei danni: **v0.04.00** (package `0.4.0`), con cronologia precedente conservata. Restano aperte le prove giocate e la taratura dei boss e dei piccoli danni periodici.

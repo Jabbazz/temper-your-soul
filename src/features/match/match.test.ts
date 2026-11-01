@@ -159,13 +159,13 @@ describe('proiettili del giocatore', () => {
     expect(match.projectiles).toHaveLength(0);
   });
 
-  it('il danno al boss e\' riportato per intero anche oltre gli HP rimasti', () => {
+  it('il danno al boss riportato coincide con la perdita effettiva senza overkill', () => {
     const match = createQuietMatch();
     match.boss!.health.current = 10;
     const events = recordEvents(match);
     match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss!.position, 0));
     match.step(STEP, intent(match));
-    expect(eventsOfType(events, 'damage_dealt')[0]).toMatchObject({ target: 'boss', amount: 19 });
+    expect(eventsOfType(events, 'damage_dealt')[0]).toMatchObject({ target: 'boss', amount: 10 });
     expect(match.boss!.health.current).toBe(0);
   });
 });

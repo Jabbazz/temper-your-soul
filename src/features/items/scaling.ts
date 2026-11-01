@@ -4,7 +4,7 @@ import { RARITY_STATS, type Rarity } from './rarity';
 
 /*
  * Regola provvisoria di come la rarita' migliora una skill (vedi docs/game-design.md):
- *  - il danno (di proiettile, zona o colpo ravvicinato) cresce di `powerMultiplier` e si arrotonda all'intero;
+ *  - il danno (di proiettile, zona o colpo ravvicinato) cresce di `powerMultiplier` e conserva i decimali fino all’applicazione del danno;
  *  - distanza dello scatto e invulnerabilita' crescono della meta' dell'aumento: x (1 + (powerMultiplier - 1) * DASH_SHARE);
  *  - la ricarica si moltiplica per `cooldownMultiplier`;
  *  - tutto il resto (id, nome, descrizione, aspetto, forma, raggio, ritardo, rallentamento, numero di colpi) resta uguale:
@@ -18,7 +18,7 @@ export const DASH_POWER_SHARE = 0.5;
 export function scaleSkill(skill: SkillDefinition, rarity: Rarity): SkillDefinition {
   if (rarity === 'common') return skill;
   const { powerMultiplier, cooldownMultiplier } = RARITY_STATS[rarity];
-  const damage = (value: number): number => Math.round(value * powerMultiplier);
+  const damage = (value: number): number => value * powerMultiplier;
   const dashFactor = 1 + (powerMultiplier - 1) * DASH_POWER_SHARE;
   return { ...skill, manaCost: manaCost(skill) * cooldownMultiplier, manaRegeneration: (1 / cooldownMultiplier - 1) * 8 + manaBonus(skill), cooldown: skill.cooldown * cooldownMultiplier, onHit: skill.onHit ? { ...skill.onHit, ...(skill.onHit.damagePerSecond ? { damagePerSecond: damage(skill.onHit.damagePerSecond) } : {}) } : undefined, effect: scaleEffect(skill.effect, damage, dashFactor) };
 }
@@ -27,8 +27,8 @@ function scaleEffect(effect: SkillEffect, damage: (value: number) => number, das
   switch (effect.kind) {
     case 'buff':
       return { ...effect, buff: { ...effect.buff,
-        ...(effect.buff.armor ? { armor: damage(effect.buff.armor) } : {}),
-        ...(effect.buff.regeneration ? { regeneration: damage(effect.buff.regeneration) } : {}),
+        ...(effect.buff.armor ? { armor: Math.round(damage(effect.buff.armor)) } : {}),
+        ...(effect.buff.regeneration ? { regeneration: Math.round(damage(effect.buff.regeneration)) } : {}),
       } };
     case 'summon':
       return { ...effect, pet: { ...effect.pet, damage: damage(effect.pet.damage) } };
