@@ -1,4 +1,5 @@
 import type { Vec2 } from '../../core/vec2';
+import { SeededRng } from '../../core/rng';
 import { Match } from '../match/match';
 import { applySnapshot, type BattleSnapshot } from '../network/protocol';
 
@@ -17,8 +18,8 @@ export class NetworkView {
   private snapshotTime = 0;
 
   constructor(authoritative: Match) {
-    this.match = new Match({ dungeon: authoritative.dungeon, rng: authoritative.rng, loadout: authoritative.player.skillBar.skills,
-      members: [...authoritative.players].map(([id, player]) => ({ id, loadout: player.skillBar.skills })) });
+    this.match = new Match({ dungeon: authoritative.dungeon, arena: authoritative.arena, boss: authoritative.boss?.definition ?? null, rng: new SeededRng(1), loadout: authoritative.player.skillBar.skills,
+      members: [...authoritative.players].map(([id, player]) => ({ id, loadout: player.skillBar.skills, maxHealth: player.health.max })) });
     this.match.viewPlayerId = authoritative.viewPlayerId;
   }
 
@@ -43,7 +44,7 @@ export class NetworkView {
     for (const id of this.players.keys()) if (!livePlayers.has(id)) this.players.delete(id);
     for (const id of this.shots.keys()) if (!liveShots.has(id)) this.shots.delete(id);
     for (const id of this.minions.keys()) if (!liveMinions.has(id)) this.minions.delete(id);
-    this.boss = track(snapshot.events.some(event => event.type === 'boss_teleported') ? undefined : this.match.boss.position, snapshot.boss.position);
+    this.boss = snapshot.boss === null ? null : track(snapshot.events.some(event => event.type === 'boss_teleported') ? undefined : this.match.boss?.position, snapshot.boss.position);
     applySnapshot(this.match, snapshot);
     this.receivedAt = now; this.snapshotTime = snapshot.time;
     this.sample(now);
@@ -55,7 +56,7 @@ export class NetworkView {
     const elapsed = Math.max(0, now - this.receivedAt), fraction = Math.min(1, elapsed / NETWORK_VIEW.blendMs);
     const position = (t: Track): Vec2 => t.current = fraction === 1 ? t.to : t.from.lerp(t.to, fraction);
     for (const [id, t] of this.players) { const p = this.match.players.get(id); if (p) p.position = position(t); }
-    if (this.boss) this.match.boss.position = position(this.boss);
+    if (this.boss && this.match.boss) this.match.boss.position = position(this.boss);
     for (const p of this.match.projectiles) { const t = this.shots.get(p.id); if (t) p.position = position(t); }
     for (const m of this.match.minions) { const t = this.minions.get(m.id); if (t) m.position = position(t); }
     this.match.time = this.snapshotTime + (this.match.status === 'playing' ? Math.min(elapsed, NETWORK_VIEW.blendMs) / 1000 : 0);

@@ -13,6 +13,8 @@ export const PLAYER_STATS = {
   moveSpeed: 177,
   /** Secondi di invulnerabilita' dopo aver subito un colpo. */
   hitInvulnerability: 0.65,
+  /** Frazione della velocita' da rallentato (melma, gelo dei servitori). */
+  slowFactor: 0.6,
 } as const;
 
 export class Player {
@@ -22,19 +24,23 @@ export class Player {
   position: Vec2;
   /** Punto del mondo verso cui si mira (sempre l'ultimo ricevuto). */
   aim: Vec2;
-  readonly health = new Health(PLAYER_STATS.maxHealth);
+  readonly health: Health;
   readonly skillBar: SkillBar;
   /** Secondi di invulnerabilita' rimasti. */
   invulnerableFor = 0;
+  /** Secondi di rallentamento rimasti (melma, gelo dei servitori). */
+  slowFor = 0;
   /** Vero se nell'ultimo passo il giocatore ha cercato di muoversi. */
   moving = false;
 
   constructor(
     readonly arena: ArenaDefinition,
     loadout: Loadout,
+    maxHealth: number = PLAYER_STATS.maxHealth,
   ) {
     this.position = arena.playerSpawn;
     this.aim = arena.playerSpawn;
+    this.health = new Health(maxHealth);
     this.skillBar = new SkillBar(loadout);
     this.manaRegeneration += loadout.reduce((sum, skill) => sum + (skill ? manaBonus(skill) : 0), 0);
   }
@@ -43,9 +49,10 @@ export class Player {
     return this.invulnerableFor > 0;
   }
 
-  /** Avanza i tempi del giocatore: invulnerabilita' e ricariche. */
+  /** Avanza i tempi del giocatore: invulnerabilita', rallentamento e ricariche. */
   tick(dt: number): void {
     this.invulnerableFor = Math.max(0, this.invulnerableFor - dt);
+    this.slowFor = Math.max(0, this.slowFor - dt);
     this.skillBar.tick(dt);
     this.mana = Math.min(this.maxMana, this.mana + this.manaRegeneration * dt);
   }
@@ -53,7 +60,8 @@ export class Player {
   /** Si muove con la direzione `move` (lunghezza al massimo 1) restando nell'arena e fuori dai pilastri. */
   moveBy(dt: number, move: Vec2): void {
     this.moving = move.x !== 0 || move.y !== 0;
-    const moved = clampToArena(this.arena, this.position.add(move.mul(PLAYER_STATS.moveSpeed * dt)), this.arena.playerMargin);
+    const speed = PLAYER_STATS.moveSpeed * (this.slowFor > 0 ? PLAYER_STATS.slowFactor : 1);
+    const moved = clampToArena(this.arena, this.position.add(move.mul(speed * dt)), this.arena.playerMargin);
     this.position = pushOutOfPillars(this.arena, moved, BODY_RADIUS.player);
   }
 

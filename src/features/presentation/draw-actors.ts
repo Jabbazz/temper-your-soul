@@ -10,7 +10,7 @@ import { bossArt, bossSheet, sheetFrame, type BossSheet } from './boss-art';
 import { sheetImage, sheetVariant } from './boss-art/sheet-images';
 import type { ActorPoses } from './poses';
 import { PLAYER_CAST_POSE } from './poses';
-import { drawSprite, type Palette } from './sprites';
+import { drawSprite, type Palette, type SpriteFrame } from './sprites';
 
 /** Un raster per fotogramma/equipaggiamento, liberato insieme all'art dalla cache.
  * Evita migliaia di cambi di colore/fillRect per ogni giocatore e fotogramma. */
@@ -191,37 +191,200 @@ export function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, player: Play
   ctx.restore();
 }
 
-/** Disegna un servitore: ombra, alone se ne ha uno, sprite a due fotogrammi, lampo se colpito e vita se ferito. */
-export function drawMinion(ctx: CanvasRenderingContext2D, minion: Minion, time: number, flash: number): void {
+/** La stessa tavolozza in pietra grigia: un servitore addormentato sembra arredo. */
+const stoneCache = new WeakMap<Palette, Palette>();
+function stonePalette(palette: Palette): Palette {
+  let stone = stoneCache.get(palette);
+  if (!stone) {
+    const greys = ['#2a2a30', '#5a5a64', '#7a7a84', '#8a8a94'];
+    stone = Object.fromEntries(Object.keys(palette).map((key, i) => [key, greys[Math.min(i, greys.length - 1)]!]));
+    stoneCache.set(palette, stone);
+  }
+  return stone;
+}
+
+/** La stessa tavolozza velata di brina: un servitore rallentato dal gelo. */
+const frostCache = new WeakMap<Palette, Palette>();
+function frostPalette(palette: Palette): Palette {
+  let frost = frostCache.get(palette);
+  if (!frost) {
+    frost = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, mixHex(color, '#9fe4ff', 0.45)]));
+    frostCache.set(palette, frost);
+  }
+  return frost;
+}
+
+/** Mescola due colori esadecimali (#rrggbb) nella proporzione `amount` del secondo. */
+function mixHex(from: string, to: string, amount: number): string {
+  const parse = (hex: string): number[] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
+  const a = parse(from), b = parse(to);
+  return `#${a.map((value, i) => Math.round(value + (b[i]! - value) * amount).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Un raster per fotogramma, tavolozza e bordo: un servitore si disegna con un'immagine invece che pixel per pixel. Con
+ * `rim` (#rrggbbaa) la sagoma ha un bordo di un'unita' di quel colore, che la stacca dal pavimento; '' = senza bordo.
+ */
+const minionRasters = new WeakMap<SpriteFrame, WeakMap<Palette, Map<string, HTMLCanvasElement>>>();
+function minionRaster(frame: SpriteFrame, palette: Palette, scale: number, rim = ''): HTMLCanvasElement {
+  let byPalette = minionRasters.get(frame);
+  if (!byPalette) {
+    byPalette = new WeakMap();
+    minionRasters.set(frame, byPalette);
+  }
+  let byRim = byPalette.get(palette);
+  if (!byRim) {
+    byRim = new Map();
+    byPalette.set(palette, byRim);
+  }
+  let raster = byRim.get(rim);
+  if (raster) return raster;
+  const width = Math.max(...frame.map((row) => row.length));
+  const pad = rim === '' ? 0 : 1;
+  raster = document.createElement('canvas');
+  raster.width = width * scale + pad * 2;
+  raster.height = frame.length * scale + pad * 2;
+  const painter = raster.getContext('2d')!;
+  drawSprite(painter, frame, raster.width / 2, raster.height / 2, scale, palette);
+  if (pad > 0) {
+    // La sagoma spostata di un'unita' nelle quattro direzioni, tinta del colore del bordo, poi il corpo sopra.
+    const body = document.createElement('canvas');
+    body.width = raster.width;
+    body.height = raster.height;
+    body.getContext('2d')!.drawImage(raster, 0, 0);
+    painter.clearRect(0, 0, raster.width, raster.height);
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) painter.drawImage(body, dx, dy);
+    painter.globalCompositeOperation = 'source-in';
+    painter.fillStyle = rim;
+    painter.fillRect(0, 0, raster.width, raster.height);
+    painter.globalCompositeOperation = 'source-over';
+    painter.drawImage(body, 0, 0);
+  }
+  byRim.set(rim, raster);
+  return raster;
+}
+
+/** Alone dei servitori: un raster per colore e raggio. */
+const glowRasters = new Map<string, HTMLCanvasElement>();
+function glowRaster(color: string, radius: number): HTMLCanvasElement {
+  const key = `${color}|${Math.round(radius)}`;
+  let raster = glowRasters.get(key);
+  if (raster) return raster;
+  const size = Math.ceil(radius * 2);
+  raster = document.createElement('canvas');
+  raster.width = size;
+  raster.height = size;
+  const painter = raster.getContext('2d')!;
+  const gradient = painter.createRadialGradient(size / 2, size / 2, 2, size / 2, size / 2, radius);
+  gradient.addColorStop(0, `${color}55`);
+  gradient.addColorStop(1, `${color}00`);
+  painter.fillStyle = gradient;
+  painter.fillRect(0, 0, size, size);
+  glowRasters.set(key, raster);
+  return raster;
+}
+
+/** Colori degli anelli delle elite, per modificatore. */
+export const ELITE_COLORS: Readonly<Record<string, string>> = {
+  robust: '#e8b06a',
+  swift: '#7fd8ff',
+  twin: '#d6a0ff',
+  shielded: '#ffe9a0',
+  ardent: '#ff8a3c',
+  rotten: '#b8d060',
+  incandescent: '#ffd04a',
+  frozen: '#aef0ff',
+};
+
+/**
+ * Disegna un servitore: ombra, alone, sprite a due fotogrammi (da un raster in cache), lampo se colpito, vita se ferito.
+ * Gli stati si vedono: addormentato in pietra, sotto terra come un cumulo, in volo durante il salto, a terra mentre
+ * si rialza; le elite hanno un anello del colore del modificatore e la barra sempre visibile; gli scudi un velo.
+ * `rim` e' il bordo chiaro della sagoma (dal tema della mappa); chi dorme non ce l'ha, perche' deve sembrare pietra.
+ */
+export function drawMinion(ctx: CanvasRenderingContext2D, minion: Minion, time: number, flash: number, prey = false, rim = ''): void {
   const art = minionArt(minion.definition.visual);
   const { x, y } = minion.position;
   const half = (art.frames[0].length * art.scale) / 2;
-  drawShadow(ctx, x, y + half - 2, minion.hitRadius, 3, '#070c1670');
-  if (art.glow !== '') {
-    const gradient = ctx.createRadialGradient(x, y, 2, x, y, minion.hitRadius * 2.2);
-    gradient.addColorStop(0, `${art.glow}55`);
-    gradient.addColorStop(1, `${art.glow}00`);
+  if (minion.state === 'burrowed' || minion.state === 'emerging') {
+    // Un cumulo di terra che si muove; quando sta per uscire trema.
+    const shake = minion.state === 'emerging' ? Math.sin(time * 60) * 2 : 0;
+    ctx.fillStyle = '#2a201890';
+    ctx.beginPath();
+    ctx.ellipse(x + shake, y + 4, minion.hitRadius * 1.2, minion.hitRadius * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5a4a3a';
+    ctx.fillRect(Math.round(x - 6 + shake), Math.round(y), 4, 3);
+    ctx.fillRect(Math.round(x + 3 + shake), Math.round(y + 2), 3, 2);
+    return;
+  }
+  const lift = minion.state === 'airborne' ? Math.sin(Math.max(0, Math.min(1, 1 - minion.stateTimer / Math.max(0.01, minion.definition.leap?.flight ?? 0.5))) * Math.PI) * 60 : 0;
+  drawShadow(ctx, x, y + half - 2, minion.hitRadius * (lift > 0 ? 0.7 : 1), 3, '#070c1670');
+  if (minion.elite !== null || prey) {
+    const color = prey ? '#ffd889' : ELITE_COLORS[minion.elite!.id] ?? '#ffd889';
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = gradient;
-    ctx.fillRect(x - minion.hitRadius * 2.2, y - minion.hitRadius * 2.2, minion.hitRadius * 4.4, minion.hitRadius * 4.4);
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.55 + 0.25 * Math.sin(time * 5 + minion.id);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(x, y + half - 2, minion.hitRadius + 6, (minion.hitRadius + 6) * 0.45, 0, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
   }
-  const sprite = art.frames[Math.floor(time * 6 + minion.id) % 2]!;
-  const bob = Math.sin(time * 8 + minion.id) * 1.5;
+  const dormant = minion.state === 'dormant';
+  if (art.glow !== '' && !dormant) {
+    const radius = minion.hitRadius * 2.2;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(glowRaster(art.glow, radius), Math.round(x - radius), Math.round(y - radius - lift));
+    ctx.restore();
+  }
+  const frameIndex = dormant ? 0 : Math.floor(time * (art.fps ?? 6) + minion.id) % 2;
+  const sprite = art.frames[frameIndex]!;
+  const bob = dormant || art.bob === false ? 0 : Math.sin(time * 8 + minion.id) * 1.5;
+  const palette = dormant ? stonePalette(art.palette) : art.palette;
+  const outline = dormant ? '' : rim;
+  const raster = minionRaster(sprite, palette, art.scale, outline);
+  const left = Math.round(x - raster.width / 2);
+  const top = Math.round(y - raster.height / 2 + bob - lift);
   ctx.save();
-  ctx.translate(Math.round(x), Math.round(y));
-  drawSprite(ctx, sprite, 0, bob, art.scale, art.palette);
+  if (minion.state === 'reviving') {
+    // Le ossa a terra, schiacciate: tra poco si rialzano.
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(raster, left, Math.round(y + half - raster.height * 0.35), raster.width, Math.round(raster.height * 0.35));
+    ctx.restore();
+    return;
+  }
+  ctx.drawImage(minion.slowFor > 0 ? minionRaster(sprite, frostPalette(palette), art.scale, outline) : raster, left, top);
   if (flash > 0) {
     ctx.globalAlpha = 0.85;
-    drawSprite(ctx, sprite, 0, bob, art.scale, whitePalette(art.palette));
+    ctx.drawImage(minionRaster(sprite, whitePalette(art.palette), art.scale, outline), left, top);
   }
   ctx.restore();
+  if (minion.shield > 0 || minion.warded) {
+    ctx.save();
+    ctx.strokeStyle = minion.warded ? '#ffe9a0' : '#bfefff';
+    ctx.globalAlpha = minion.warded ? 0.8 : 0.35 + Math.min(0.4, minion.shield / 60);
+    ctx.lineWidth = minion.warded ? 2 : 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y - lift, minion.hitRadius + 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   const fraction = minion.health.fraction;
-  if (fraction < 1) {
+  if (fraction < 1 || minion.elite !== null || prey) {
+    const width = minion.elite !== null || prey ? 30 : 22;
     ctx.fillStyle = '#1a1220d0';
-    ctx.fillRect(Math.round(x - 11), Math.round(y - half - 7), 22, 4);
-    ctx.fillStyle = '#e8b06a';
-    ctx.fillRect(Math.round(x - 10), Math.round(y - half - 6), Math.max(1, Math.round(20 * fraction)), 2);
+    ctx.fillRect(Math.round(x - width / 2), Math.round(y - half - 7 - lift), width, 4);
+    ctx.fillStyle = minion.elite !== null || prey ? '#ffd889' : '#e8b06a';
+    ctx.fillRect(Math.round(x - width / 2 + 1), Math.round(y - half - 6 - lift), Math.max(1, Math.round((width - 2) * fraction)), 2);
+  }
+  if (minion.elite !== null || prey) {
+    ctx.save();
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = prey ? '#ffd889' : ELITE_COLORS[minion.elite!.id] ?? '#ffd889';
+    ctx.fillText(prey ? 'PREDA' : minion.elite!.name.toUpperCase(), Math.round(x), Math.round(y - half - 10 - lift));
+    ctx.restore();
   }
 }

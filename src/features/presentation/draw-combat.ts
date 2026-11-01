@@ -141,7 +141,60 @@ export function drawFallingSpell(ctx: CanvasRenderingContext2D, zone: DangerZone
   }
 }
 
-/** Proiettile con la sua scia e la sua forma. `time` fa ruotare il rombo del gelo. */
+/**
+ * Come si distinguono i proiettili per squadra. Quelli nemici hanno alone, contorno scuro e nucleo chiaro: si leggono
+ * su qualunque pavimento. Quelli dei giocatori sono piu' trasparenti, con scia leggera e senza alone, cosi' non si
+ * confondono con le minacce. Valori provvisori.
+ */
+export const PROJECTILE_STYLE = {
+  enemyRim: '#120c18',
+  enemyRimWidth: 3,
+  enemyHalo: 0.13,
+  enemyTrail: 0.55,
+  playerAlpha: 0.7,
+  playerTrail: 0.3,
+} as const;
+
+type ProjectileShape = ReturnType<typeof projectileLook>['shape'];
+
+/** Il profilo della forma lungo l'asse x (la direzione del volo): un solo percorso da riempire o ripassare. */
+function traceShape(ctx: CanvasRenderingContext2D, shape: ProjectileShape, r: number): void {
+  ctx.beginPath();
+  switch (shape) {
+    case 'wisp':
+      ctx.moveTo(10, 0); ctx.quadraticCurveTo(1, -12, -10, -3); ctx.lineTo(-4, 0); ctx.lineTo(-12, 5); ctx.quadraticCurveTo(2, 11, 10, 0);
+      break;
+    case 'thorn':
+      ctx.moveTo(15, 0); ctx.lineTo(-8, -5); ctx.lineTo(-3, 0); ctx.lineTo(-8, 5); ctx.closePath();
+      break;
+    case 'ember':
+      ctx.moveTo(9, 0); ctx.lineTo(2, -6); ctx.lineTo(-12, -3); ctx.lineTo(-7, 1); ctx.lineTo(-14, 5); ctx.lineTo(2, 5); ctx.closePath();
+      break;
+    case 'mirror':
+      ctx.moveTo(12, 0); ctx.lineTo(3, -7); ctx.lineTo(-9, -3); ctx.lineTo(-5, 7); ctx.closePath();
+      break;
+    case 'diamond':
+      ctx.moveTo(11, 0); ctx.lineTo(0, 8); ctx.lineTo(-11, 0); ctx.lineTo(0, -8); ctx.closePath();
+      break;
+    case 'dart':
+      ctx.moveTo(8, 0); ctx.lineTo(-7, -4); ctx.lineTo(-4, 0); ctx.lineTo(-7, 4); ctx.closePath();
+      break;
+    case 'arrow': {
+      // Asta sottile e punta: la larghezza dell'asta segue il raggio del proiettile.
+      const half = Math.max(1, r * 0.4);
+      ctx.rect(-14, -half, 20, half * 2);
+      ctx.moveTo(13, 0); ctx.lineTo(6, -3.5); ctx.lineTo(6, 3.5); ctx.closePath();
+      break;
+    }
+    case 'shard':
+      ctx.moveTo(14, 0); ctx.lineTo(0, -4.5); ctx.lineTo(-10, 0); ctx.lineTo(0, 4.5); ctx.closePath();
+      break;
+    default:
+      ctx.arc(0, 0, r, 0, TAU);
+  }
+}
+
+/** Proiettile con la sua scia e la sua forma. `time` fa ruotare il rombo e oscillare lo specchio. */
 export function drawProjectile(
   ctx: CanvasRenderingContext2D,
   projectile: Projectile,
@@ -152,11 +205,15 @@ export function drawProjectile(
   if (!camera.isVisible(projectile.position, 80)) return;
   const look = projectileLook(projectile.spec.visual);
   const r = projectile.radius;
+  const enemy = projectile.team === 'enemy';
+  const style = PROJECTILE_STYLE;
   ctx.save();
   ctx.strokeStyle = look.color;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const trailAlpha = enemy ? style.enemyTrail : style.playerTrail;
   for (let i = 1; i < trail.length; i++) {
-    ctx.globalAlpha = (i / trail.length) * 0.55;
+    ctx.globalAlpha = (i / trail.length) * trailAlpha;
     ctx.lineWidth = Math.max(1, (r * i) / trail.length);
     ctx.beginPath();
     ctx.moveTo(trail[i - 1]!.x, trail[i - 1]!.y);
@@ -165,88 +222,37 @@ export function drawProjectile(
   }
   ctx.translate(projectile.position.x, projectile.position.y);
   ctx.rotate(projectile.velocity.angle());
-  ctx.globalAlpha = 0.13;
+  if (look.shape === 'diamond') ctx.rotate(time * 3);
+  else if (look.shape === 'mirror') ctx.rotate(Math.sin(time * 7) * 0.4);
+  if (enemy) {
+    ctx.globalAlpha = style.enemyHalo;
+    ctx.fillStyle = look.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 2.5, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 0.9;
+    traceShape(ctx, look.shape, r);
+    ctx.strokeStyle = style.enemyRim;
+    ctx.lineWidth = style.enemyRimWidth;
+    ctx.stroke();
+  }
+  const body = enemy ? 1 : style.playerAlpha;
+  ctx.globalAlpha = body;
+  traceShape(ctx, look.shape, r);
   ctx.fillStyle = look.color;
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 2.5, 0, TAU);
   ctx.fill();
-  ctx.globalAlpha = 1;
-  if(['wisp','thorn','ember','mirror'].includes(look.shape)){
-    ctx.fillStyle=look.color;ctx.strokeStyle='#f4f4d8';ctx.lineWidth=1;
-    ctx.beginPath();
-    if(look.shape==='wisp'){
-      ctx.moveTo(10,0);ctx.quadraticCurveTo(1,-12,-10,-3);ctx.lineTo(-4,0);ctx.lineTo(-12,5);ctx.quadraticCurveTo(2,11,10,0);
-    }else if(look.shape==='thorn'){
-      ctx.moveTo(15,0);ctx.lineTo(-8,-5);ctx.lineTo(-3,0);ctx.lineTo(-8,5);ctx.closePath();
-    }else if(look.shape==='ember'){
-      ctx.moveTo(9,0);ctx.lineTo(2,-6);ctx.lineTo(-12,-3);ctx.lineTo(-7,1);ctx.lineTo(-14,5);ctx.lineTo(2,5);ctx.closePath();
-    }else{
-      ctx.rotate(Math.sin(time*7)*.4);ctx.moveTo(12,0);ctx.lineTo(3,-7);ctx.lineTo(-9,-3);ctx.lineTo(-5,7);ctx.closePath();
-    }
-    ctx.fill();ctx.stroke();ctx.fillStyle='#fff6dc';ctx.fillRect(0,-1,4,2);
-  } else if (look.shape === 'diamond') {
-    ctx.rotate(time * 3);
-    ctx.fillStyle = '#417eac';
-    ctx.beginPath();
-    ctx.moveTo(11, 0);
-    ctx.lineTo(0, 8);
-    ctx.lineTo(-11, 0);
-    ctx.lineTo(0, -8);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#a1f0ff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = '#e6ffff';
-    ctx.fillRect(-3, -3, 6, 6);
-  } else if (look.shape === 'dart') {
-    ctx.fillStyle = '#9261db';
-    ctx.beginPath();
-    ctx.moveTo(8, 0);
-    ctx.lineTo(-7, -4);
-    ctx.lineTo(-4, 0);
-    ctx.lineTo(-7, 4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#e7d6ff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-4, 0);
-    ctx.lineTo(6, 0);
-    ctx.stroke();
-  } else if (look.shape === 'arrow') {
-    ctx.strokeStyle = look.color;
-    ctx.lineWidth = Math.max(2, r * 0.8);
-    ctx.beginPath();
-    ctx.moveTo(-14, 0);
-    ctx.lineTo(9, 0);
-    ctx.stroke();
-    ctx.fillStyle = '#fff6dc';
-    ctx.beginPath();
-    ctx.moveTo(13, 0);
-    ctx.lineTo(6, -3.5);
-    ctx.lineTo(6, 3.5);
-    ctx.closePath();
-    ctx.fill();
-  } else if (look.shape === 'shard') {
-    ctx.fillStyle = look.color;
-    ctx.beginPath();
-    ctx.moveTo(14, 0);
-    ctx.lineTo(0, -4.5);
-    ctx.lineTo(-10, 0);
-    ctx.lineTo(0, 4.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+  ctx.globalAlpha = body * 0.55;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Nucleo chiaro: un quadrato al centro dei corpi tondi, un tratto lungo l'asse per quelli allungati.
+  ctx.globalAlpha = body;
+  ctx.fillStyle = '#fffaf0';
+  if (look.shape === 'orb' || look.shape === 'diamond') {
+    const core = Math.max(2, Math.round(r * 0.8));
+    ctx.fillRect(-core / 2, -core / 2, core, core);
   } else {
-    ctx.fillStyle = look.color;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = '#fff2d2';
-    ctx.fillRect(-2, -2, 3, 3);
+    ctx.fillRect(-2, -1, 6, 2);
   }
   ctx.restore();
 }

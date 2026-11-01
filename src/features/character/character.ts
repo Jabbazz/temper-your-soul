@@ -6,6 +6,7 @@ import { resolveItem, type Item, type ItemRoll } from '../items/item';
 import type { Loadout } from '../skills/skill-definition';
 import { cleanCharacterName, STARTER_SETS } from './creation';
 import { cleanItemLevel, gearScore } from '../items/gear-score';
+import type { BlessingId } from '../run/blessings';
 
 /** Progressi in un dungeon: vittorie e miglior tempo (null finche' non si vince). */
 export interface DungeonRecord {
@@ -18,6 +19,19 @@ export interface VictoryResult {
   firstClear: boolean;
   newBest: boolean;
 }
+
+/** Progressi nelle discese di un dungeon: vittorie, miglior tempo, grado di tempra piu' alto superato, tappa migliore. */
+export interface DescentRecord {
+  clears: number;
+  bestTimeSeconds: number | null;
+  /** Grado di tempra piu' alto con cui la discesa e' stata vinta (-1 se mai vinta). */
+  bestGrade: number;
+  /** Tappa piu' lontana raggiunta (anche perdendo), da 1. */
+  furthestStage: number;
+}
+
+/** Il grado di tempra massimo sbloccabile. */
+export const MAX_DESCENT_GRADE = 5;
 
 /**
  * Il personaggio del giocatore: inventario, equipaggiamento e progressi. Stato puro, senza DOM ne' casualita'.
@@ -64,6 +78,16 @@ export class Character {
   records: Record<string, DungeonRecord> = {};
   /** Il numero del prossimo `uid` da coniare. */
   nextItemNumber = 1;
+  /** Braci dell'anima: valuta permanente della discesa, si spende all'Altare. */
+  embers = 0;
+  /** Benedizioni dell'Altare (livello per id). */
+  blessings: Partial<Record<BlessingId, number>> = {};
+  /** Servitori abbattuti per tipo: il bestiario si sblocca con la prima uccisione. */
+  bestiary: Record<string, number> = {};
+  /** Progressi delle discese, per dungeon. */
+  descents: Record<string, DescentRecord> = {};
+  /** Pellegrinaggi vinti e miglior tempo. */
+  pilgrimage: { clears: number; bestTimeSeconds: number | null } = { clears: 0, bestTimeSeconds: null };
 
   /** Il personaggio di partenza: 4 oggetti Comuni, uno per slot, gia' equipaggiati (le 4 skill base del mago). */
   static createStarter(kind:CharacterClass='mage'): Character {
@@ -160,4 +184,54 @@ export class Character {
     const record = Object.hasOwn(this.records, dungeonId) ? this.records[dungeonId]! : undefined;
     return record === undefined ? { clears: 0, bestTimeSeconds: null } : { ...record };
   }
+
+  /** Una copia dei progressi nelle discese del dungeon. */
+  descentFor(dungeonId: string): DescentRecord {
+    const record = Object.hasOwn(this.descents, dungeonId) ? this.descents[dungeonId]! : undefined;
+    return record === undefined ? { clears: 0, bestTimeSeconds: null, bestGrade: -1, furthestStage: 0 } : { ...record };
+  }
+
+  /** Il Duello (il boss da solo) si apre dopo aver battuto il boss almeno una volta, in una discesa o prima. */
+  canDuel(dungeonId: string): boolean {
+    return this.recordFor(dungeonId).clears > 0;
+  }
+
+  /** Il grado di tempra piu' alto scelto per una discesa: uno oltre il migliore vinto. */
+  maxGrade(dungeonId: string): number {
+    return Math.min(MAX_DESCENT_GRADE, this.descentFor(dungeonId).bestGrade + 1);
+  }
+
+  /** Il Pellegrinaggio si apre dopo aver vinto una discesa in ogni dungeon. */
+  canPilgrimage(dungeonIds: readonly string[]): boolean {
+    return dungeonIds.every((id) => this.descentFor(id).clears > 0);
+  }
+
+  /**
+   * Registra una discesa finita (vinta o persa): tappa piu' lontana, e per le vittorie tempo e grado. Restituisce se
+   * il tempo e' un nuovo record.
+   */
+  recordDescent(dungeonId: string, outcome: { won: boolean; seconds: number; grade: number; stage: number }): VictoryResult {
+    const record = this.descentFor(dungeonId);
+    const firstClear = outcome.won && record.clears === 0;
+    const validTime = outcome.won && Number.isFinite(outcome.seconds) && outcome.seconds > 0;
+    const newBest = validTime && (record.bestTimeSeconds === null || outcome.seconds < record.bestTimeSeconds);
+    this.descents[dungeonId] = {
+      clears: record.clears + (outcome.won ? 1 : 0),
+      bestTimeSeconds: newBest ? outcome.seconds : record.bestTimeSeconds,
+      bestGrade: outcome.won ? Math.max(record.bestGrade, Math.min(MAX_DESCENT_GRADE, outcome.grade)) : record.bestGrade,
+      furthestStage: Math.max(record.furthestStage, outcome.stage),
+    };
+    return { firstClear, newBest };
+  }
+
+  /** Aggiunge le uccisioni al bestiario. */
+  addKills(kills: Readonly<Record<string, number>>): void {
+    for (const [id, count] of Object.entries(kills)) {
+      if (count > 0) this.bestiary[id] = Math.min(1_000_000_000, (this.bestiary[id] ?? 0) + Math.floor(count));
+    }
+  }
+
+  /** Compatibilità v7: i vecchi dati restano salvati, ma l'altare non è più utilizzabile. */
+  buyBlessing(_id: BlessingId): boolean { return false; }
+
 }

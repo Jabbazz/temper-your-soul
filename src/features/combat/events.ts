@@ -57,8 +57,38 @@ export type GameEvent = (
   /** Il boss si sposta di colpo (teletrasporto): la rappresentazione puo' mostrare un'esplosione nei due punti. */
   | { type: 'boss_teleported'; from: Vec2; to: Vec2 }
   | { type: 'boss_defeated'; position: Vec2 }
-  /** Un servitore e' comparso (`visual` sceglie aspetto e suono). */
-  | { type: 'minion_spawned'; position: Vec2; minionId: number; visual: string }
-  /** Un servitore e' morto: colpito, esploso a contatto (`exploded`) o sparito con il boss. */
-  | { type: 'minion_defeated'; position: Vec2; minionId: number; visual: string; exploded?: boolean }
+  /** Un servitore e' comparso (`visual` sceglie aspetto e suono; `elite` il modificatore, se c'e'). */
+  | { type: 'minion_spawned'; position: Vec2; minionId: number; visual: string; elite?: string }
+  /**
+   * Un servitore e' morto: colpito, esploso a contatto (`exploded`) o sparito con il boss. `revives`: e' crollato ma
+   * si rialzera' (scheletri): non conta come abbattuto.
+   */
+  | { type: 'minion_defeated'; position: Vec2; minionId: number; visual: string; exploded?: boolean; revives?: boolean }
+  /** Segnale a terra: fra `delay` secondi qui comparira' un servitore. */
+  | { type: 'minion_incoming'; position: Vec2; visual: string; delay: number; elite?: string }
+  /** Un servitore addormentato (arredo) si e' svegliato. */
+  | { type: 'minion_woke'; position: Vec2; minionId: number; visual: string }
+  /** Uno scheletro si e' rialzato. */
+  | { type: 'minion_revived'; position: Vec2; minionId: number; visual: string }
+  /** Un servitore si e' teletrasportato da `from` a `position`. */
+  | { type: 'minion_blinked'; position: Vec2; from: Vec2; minionId: number; visual: string }
+  /** Un sostegno ha coperto di scudi i servitori entro `radius`. */
+  | { type: 'minion_aura'; position: Vec2; radius: number; minionId: number }
+  /**
+   * Un servitore annuncia un'azione per `seconds` secondi: una raffica, una carica (fino a `to`), l'uscita da sotto
+   * terra o un teletrasporto (verso `to`).
+   */
+  | { type: 'minion_telegraph'; action: 'shot' | 'charge' | 'emerge' | 'blink'; minionId: number; position: Vec2; to?: Vec2; seconds: number }
+  /** Parte l'ondata `wave` di `waves` della stanza. */
+  | { type: 'wave_started'; wave: number; waves: number }
+  /** Resta un solo nemico nella stanza. */
+  | { type: 'last_enemy'; position: Vec2 }
+  /** La stanza e' libera: le porte si aprono e compare il premio. */
+  | { type: 'room_cleared'; position: Vec2 }
+  /** Un giocatore ha preso un premio della stanza (`reward`: tipo del premio). */
+  | { type: 'reward_taken'; position: Vec2; reward: string; amount?: number }
+  /** Un giocatore ha scelto una tempra. */
+  | { type: 'temper_chosen'; temperId: string; slot: number; grade: number }
+  /** Il gruppo ha attraversato la porta `door` (indice fra quelle d'uscita). */
+  | { type: 'room_exited'; door: number }
   | { type: 'match_ended'; won: boolean }) & { readonly playerId?: string };

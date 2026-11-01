@@ -1,5 +1,24 @@
 # Bug e problemi rilevati
 
+## Equipaggiamento dell'arciere: parti che dovevano restare nascoste
+
+Segnalazione dell'utente (1 novembre 2026): stivali e armatura non si adattavano al corpo e mostravano le parti posteriori. Rilevati nell'anteprima, su entrambi i corpi:
+
+- **Mantello delle canne:** un unico livello sopra il corpo copriva busto e braccia. Ora è diviso in cappa dietro il corpo e due lembi sul petto. Negli sprite di combattimento i lembi sono ridotti a due.
+- **Stivali del vento:** interno e bordo posteriore erano sopra i pantaloni. Sulle pose dell'arciere la base è ora tagliata lungo gli orli (`cuff`, `cuffClipPath`) e lo stivale passa sotto la gamba.
+- **Scheggia bianca accanto allo stivale sinistro:** il ritaglio includeva la piuma dello stivale vicino. Ritagli corretti, con gli stessi punti di aggancio.
+- **Parte bassa del mantello rimpicciolita:** l'SVG conservava le proporzioni anche quando veniva stirato. Aggiunto `preserveAspectRatio="none"`; gli altri oggetti SVG mantengono già le proporzioni e non cambiano.
+- **Corda dell'arco del cacciatore sopra il busto:** davanti al corpo resta solo il legno (`WEAPON_FRONT_OUTLINES`), la corda passa dietro. Arco anche inclinato attorno alla presa (`WEAPON_ROTATIONS`, valore provvisorio).
+- **Mano sull'arco:** sopra l'arma tornava un'ellisse di dita che non chiudeva la presa. Sulle pose dell'arciere restano davanti solo le dita, ritagliate lungo il contorno (`primaryFingers`). Provato anche un indice disegnato nel codice davanti al legno: scartato dall'utente, resta quello del disegno originale. Il palmo sta dietro l'impugnatura, assottigliata fra i due anelli (`WEAPON_GRIP_SLICES`, scala provvisoria).
+- **Gambale dello stivale frontale:** era spostato rispetto alla gamba, con l'orlo sporgente da un lato. Caviglia registrata sull'asse del polpaccio; la punta ruota di conseguenza.
+- **Piume e fronte degli stivali del vento:** con lo stivale sotto la gamba restavano nascosti. Ora sono livelli a parte sopra i pantaloni (`overPants` in `BOOT_PARTS`); interno e bordo posteriore restano sotto.
+
+Stessa gestione estesa a Guerriero e Mago, su richiesta dell'utente: orli (`cuff`) e dita (`primaryFingers`) misurati su tutte le pose; stivali illustrati e disegnati nel codice sotto i pantaloni, con il fronte sopra (`overPants`); armi davanti al palmo fin poco sotto la presa (`weaponRearCut`, valore provvisorio); parte bassa di manto della meteora, egida di brace e corazza della fornace divisa fra davanti e dietro le gambe (`ARMOR_LOWER_FRONT`). Sudario e velo restano interi davanti, perché sono vesti continue. Da rivedere: gli stivali disegnati nel codice (tombali, di brace, di brina) restano chiari e squadrati rispetto agli altri.
+
+Sprite di combattimento femminili ridisegnati su richiesta dell'utente (`drawHeroine`): prima erano la base maschile ristretta. Ora hanno sagoma propria, coda alta che segue il passo, fascia sul braccio e contorni doppi che reggono il passaggio a 48×48; l'equipaggiamento mantiene agganci e adattamento (`bodyWidth`). Controllati nell'anteprima, non ancora in partita.
+
+Da fare: la corda dell'arco di spine passa ancora vicino al busto e la parte superiore del corpo degli sprite resta affollata a 48×48. Controllati test e fotogrammi dell'anteprima; **conferma manuale dell'utente ancora da ricevere**.
+
 Posa e profondità: il martello copriva parte del viso, soprattutto a riposo. Riorientate le armi lunghe verso l'esterno e separate le estremità inferiori dietro il corpo. La versione femminile risultava sostanzialmente uguale salvo i capelli: ora ha fisionomia e corporatura proprie, con adattamenti di tutti gli strati. Controlli automatici e fotogrammi eseguiti; conferma manuale da ricevere.
 
 Ritratti illustrati A: asset separati per basi, cinque armature maschili/femminili, armi e stivali; ritagli registrati e controllati su entrambe le figure. Il montaggio resta da provare a mano su tutte le combinazioni, in particolare prese delle armi e giunzioni degli stivali. Gli asset generati non costituiscono un atlante anatomico perfetto: eventuali piccoli disallineamenti richiedono correzioni della registrazione, non delle regole di gioco.
@@ -10,9 +29,9 @@ Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti p
 
 ## Aperti
 
-- **Lieve calo FPS multiplayer segnalato dall’utente.** Rilevati invio ripetuto di dati statici, ricreazione delle entità a ogni snapshot, ricostruzione della lobby a ogni ping e disegno pixel per pixel per tutti gli alleati. Ottimizzati nel protocollo v2 e nel rendering con cache; controlli comparativi in README. Da confermare sul PC dell’utente. L’aggiornamento del mondo a 30 Hz resta distinto dagli FPS del canvas; interpolazione multiplayer ora implementata (vedi sotto); predizione locale ancora assente.
+- **Lieve calo FPS multiplayer segnalato dall’utente.** Rilevati invio ripetuto di dati statici, ricreazione delle entità a ogni snapshot, ricostruzione della lobby a ogni ping e disegno pixel per pixel per tutti gli alleati. Ottimizzati nel protocollo v2 e nel rendering con cache; controlli comparativi in README. Da confermare sul PC dell’utente. L’aggiornamento del mondo a 30 Hz resta distinto dagli FPS del canvas; Interpolazione visuale multiplayer integrata; predizione locale ancora assente. L’utente ha segnalato un miglioramento lasciando una sola scheda di gioco per finestra; la versione combinata con le stanze richiede una nuova prova giocata.
 
-- **Limiti cooperativa iniziale:** stanze in RAM, nessun rientro durante l’incontro dopo refresh/disconnessione; il membro uscente viene messo KO. Input/snapshot a 30 Hz con interpolazione client; ping e buffer visivo incidono ancora sul ritardo percepito. Gli oggetti restano locali validati ma modificabili manualmente; non è ancora un’economia autorevole persistente. HP del boss invariati per numero di membri: bilanciamento cooperativo da provare. Il report misura danno effettivo e riserva guarigione a 0 fino alle cure.
+- **Limiti cooperativa iniziale:** stanze in RAM, nessun rientro durante l’incontro dopo refresh/disconnessione; il membro uscente viene messo KO. Client con interpolazione visuale, senza predizione locale: input/snapshot 30 Hz, quindi ping e intervallo dei messaggi incidono sulla risposta visiva. Gli oggetti restano locali validati ma modificabili manualmente; non è ancora un’economia autorevole persistente. HP del boss invariati per numero di membri: bilanciamento cooperativo da provare. Il report misura danno effettivo e riserva guarigione a 0 fino alle cure.
 
 - **Sprite e ritratti: difetti residui confermati dall’utente.** Offset e vestibilità delle armature, proporzioni e prese delle armi richiedono ancora revisione. Lavoro sospeso su richiesta esplicita per contenere le rigenerazioni; TODO nel codice (`portrait-rig.ts`) e nella roadmap. Nessuna nuova revisione grafica inclusa nell’incremento creazione/bottino.
 
@@ -23,7 +42,7 @@ Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti p
 - **Raggi di collisione incoerenti (ereditati).** I proiettili usano raggio + 9 sul giocatore e + 26 sul boss; le zone raggio + 8 e + 25 (`features/combat/collision.ts`). Da unificare con la prova manuale.
 - **Valori provvisori.** Tutti i valori di gioco sono quelli del prototipo e non sono tarati (vedi `docs/game-design.md`).
 - **Camera senza limiti.** Vicino ai bordi dell'arena la camera mostra il vuoto scuro oltre il muro (come nel prototipo).
-- **Disegno del singolo senza interpolazione.** In singolo la simulazione gira a 60 Hz e il disegno usa l’ultimo stato; il multiplayer ora dispone della propria interpolazione visuale.
+- **Disegno del singolo senza interpolazione.** In singolo la simulazione gira a 60 Hz e il disegno usa l'ultimo stato: su schermi a frequenza maggiore il movimento puo' risultare lievemente a scatti.
 - **Differenze volute rispetto al prototipo da confermare a mano**: elenco in `docs/game-design.md` (passo fisso, tasti per posizione fisica, scossa dello schermo applicata, effetti che proseguono dopo la fine, traslazione di camera arrotondata, tocchi brevissimi non persi).
 - **`npm audit` segnala avvisi sulle dipendenze di sviluppo** (osservato). Le versioni sono fissate uguali a quelle di Ashen Realm (vite 5.4.11, vitest 2.1.8): esbuild (<= 0.24.2, il server di sviluppo risponde a richieste di qualunque sito), `@vitest/mocker` (moderata) e `tinypool` (segnalata critica, ma riguarda le opzioni dei worker dei test). npm indica come correzione disponibile vite 5.4.21 e vitest 2.1.9 (aggiornamenti di patch, fuori dall'intervallo fissato). Sono solo dipendenze di sviluppo e non finiscono nel gioco pubblicato; non e' stato aggiornato nulla. Da decidere se allineare le versioni anche in Ashen Realm.
 
@@ -62,6 +81,39 @@ Quattro revisori dovevano guardare salvataggio e bottino, flusso delle schermate
 - **Salvataggio riparato in parte senza copia di sicurezza**: oggetti con famiglia o rarita' sconosciute, equipaggiamento verso uid scartati e record di dungeon sconosciuti vengono scartati e al primo salvataggio la perdita diventa definitiva, senza avviso. Succede solo con dati manomessi o dopo aver rinominato una famiglia senza alzare `SAVE_VERSION`. Proposta: far restituire a `deserializeCharacter` un flag "riparato" e copiare il testo originale in un backup.
 - **La copia `...:corrupt` puo' essere sovrascritta** da un nuovo salvataggio illeggibile (perdendo un backup valido, per esempio di una versione futura); una versione piu' recente del formato verrebbe sovrascritta alla prima vittoria. Da gestire quando si introduce la versione 2.
 Nessuna di queste e' stata riprodotta a mano. Le altre segnalazioni di questa revisione sono state corrette: vedi "Correzioni rapide" in "Risolti".
+
+## Discesa (ramo `feature/discesa`)
+
+Aperti:
+
+- **Banda nelle stanze affollate** (misurata con il benchmark, non un difetto osservato in partita). Una stanza del ghiacciaio con quattro giocatori e 35 servitori invia circa 26 KB/s per client, il doppio del duello. Da tenere d'occhio sui tunnel lenti.
+- **«Contatto con il boss» anche per il luogotenente** (osservato nel resoconto della sconfitta). La fonte del contatto ha un nome fisso in `match.ts`.
+- **Stendardo della fase II sopra la schermata di vittoria** (osservato solo facendo avanzare la simulazione a scatti da script). Il boss era morto prima della fine dello stendardo. In partita normale servirebbe un danno enorme in meno di 1,6 s: non riprodotto giocando.
+- **Nessuna prova giocata a mano**: stanze liberate da script e bot. Sensazione, difficoltà e leggibilità delle ondate restano da confermare.
+
+Risolti con la fase 0 dello studio sulla grafica (rilevati leggendo il codice e confermati nel browser):
+
+- **Colpi dei giocatori confondibili con quelli nemici**: rombo e dardo avevano un colore fisso, quindi il globo di gelo era identico alla nova del Custode e il dardo arcano al dardo a croce. Ora ogni forma usa il suo colore e le squadre hanno un trattamento diverso (test sul contrasto).
+- **Proiettili mimetizzati**: il mantice del Colosso aveva esattamente il colore della lava; le spore della Madre il colore dei funghi del pavimento. Ricolorati mantice, braci e scossa; i funghi ora sono ciano.
+- **Particelle sopra i proiettili**: le scie additive, disegnate dopo, sbiadivano i proiettili nemici. Ora stanno sotto.
+- **Figure non ordinate**: chi stava dietro un nemico veniva disegnato sopra. Ora le figure si ordinano per profondità.
+- **Strisce nel pavimento della cripta**: il "rumore" era una sinusoide regolare. Ora è un hash.
+- **Decori fuori posto nelle stanze**: bracieri sulla porta centrale e sull'ingresso, torce in mezzo al campo. Ora stanno lungo i muri e lasciano liberi porte, ingresso e pilastri (test su tutte le stanze).
+
+Aperti dopo la fase 0:
+
+- **La zona libera davanti alle porte vale anche nell'arena del boss**, che porte non ne ha: lì il muro in alto ha meno torce. È solo aspetto.
+- **Il contorno scuro dei proiettili è uguale in tutti i temi**: lo studio propone di farlo più spesso nel ghiacciaio.
+- **Boss e luogotenenti senza bordo chiaro**: per i fogli PNG serve una variante in più, rinviata.
+
+Risolti durante le prove nel browser:
+
+- **Bestiario vuoto a schermo**: le miniature dei servitori ereditavano la regola `canvas` dell'arena (assolute, a tutto schermo) e coprivano le schede. Ora restano nel flusso.
+- **Pulsanti Discesa/Duello fuori dalle schede dei dungeon**: l'altezza fissa di 480 px non bastava per la riga in più della discesa. Ora la scheda cresce e i pulsanti restano allineati in fondo.
+- **Quinta statistica della vittoria della discesa da sola su una riga**: colonne più strette, ora stanno tutte e cinque su una riga.
+- **Luogotenenti assenti dal Bestiario**: le uccisioni non venivano contate e il salvataggio le scartava. Ora contano, si salvano (test) e hanno la loro pagina.
+- **Record del boss nella scheda**: diceva «1 vittorie · duello» anche per il boss battuto in discesa; ora «1 vittoria · in m:ss».
+- **Accenti scritti con l'apostrofo** in alcuni testi a schermo nuovi («piu'», «li'», «priorita'»): corretti.
 
 ## Risolti
 
@@ -107,6 +159,11 @@ Rilevati: spada deformata durante l’attacco (si inclinava solo la lama); dita 
 Segnalazione dell’utente: stivali sospesi sotto le gambe e armi sovrapposte alle mani senza essere impugnate. Correzione: basi maschili/femminili specifiche per le tre classi, prive di stivali incorporati; presa registrata per ogni arma, dita in primo piano e due punti di aggancio per ciascuno stivale (caviglia e suola). Corretto anche il verso degli stivali sulla posa specchiata del mago e mantenuta la testa davanti ai colletti delle armature. Controlli automatici: geometria di tutte le prese e dei tre paia di stivali sulle sei pose, persistenza della classe e migrazione v3; prova browser di scelta corpo/classe, ricaricamento, inventario e zoom senza eccezioni JavaScript. Fotogrammi delle pose maschili e femminili ispezionati; **approvazione visiva manuale ancora da ricevere**.
 
 Seconda segnalazione dell’utente: miglioramento parziale, ma offset delle armature, proporzioni di alcune armi e stivali davanti alla tunica ancora errati; posa dell’arciere troppo tesa. Corretti i riferimenti delle armature con collo/cintura/spalle propri per ogni indumento e corpo, invertita la profondità tunica/stivali, ridimensionate le armi e riposizionata la presa dell’arco sul legno anziché sulla corda. Sostituite le due basi dell’arciere con pose rilassate. Corretto anche il rapporto del ritratto sotto 400 px, che era deformato da 164×250 a fronte del formato 4:5. Test di continuità busto/gonna e agganci sulle sei pose, fotogrammi maschile/femminile controllati; resta da ricevere la conferma visiva dell’utente.
+
+
+## Storico delle migliorie multiplayer integrate dalla copia locale
+
+Le misure seguenti precedono l’integrazione con le stanze della PR #4; non sono benchmark della versione combinata.
 
 ## Completamento diagnostica e cache (1 novembre 2026)
 

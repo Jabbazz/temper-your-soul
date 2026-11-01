@@ -15,6 +15,21 @@ describe('corpi e strati equipaggiamento', () => {
       expect(male.height).toBe(resolution==='game'?48:128);
     }
   });
+  it('la base femminile ha una sagoma propria: coda alta, vita stretta e fianchi', () => {
+    const rowWidth=(row:readonly string[])=>{const filled=row.flatMap((color,x)=>color?[x]:[]);return filled.length?filled[filled.length-1]!-filled[0]!+1:0;};
+    const female=characterPixels({body:'female',equipment:{}},'portrait').pixels;
+    const male=characterPixels({body:'male',equipment:{}},'portrait').pixels;
+    const hairColors=new Set(['#a8492c','#d87a3f','#6e2f22']);
+    expect(female.flat().filter(color=>hairColors.has(color)).length).toBeGreaterThan(60);
+    expect(male.flat().some(color=>hairColors.has(color))).toBe(false);
+    // Coda a sinistra del viso, oltre la sagoma della testa maschile.
+    const left=(rows:readonly (readonly string[])[])=>Math.min(...rows.slice(10,50).map(row=>{const x=row.findIndex(Boolean);return x<0?Infinity:x;}));
+    expect(left(female)).toBeLessThan(left(male));
+    // Differenze misurate sulle righe delle gambe, senza braccia.
+    const legRows=female.slice(100,112),maleLegRows=male.slice(100,112);
+    const avg=(rows:readonly (readonly string[])[])=>rows.reduce((sum,row)=>sum+rowWidth(row),0)/rows.length;
+    expect(avg(legRows)).toBeLessThan(avg(maleLegRows));
+  });
   it('tutte le famiglie hanno uno strato proprio, visibile per entrambi i corpi e nelle due versioni', () => {
     expect(Object.keys(WEARABLES)).toHaveLength(ITEM_FAMILIES.length);
     for(const body of ['male','female'] as const) for(const resolution of ['game','portrait'] as const) {

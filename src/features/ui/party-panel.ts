@@ -100,9 +100,9 @@ export class PartyPanel {
     const dialog = this.dialog; if (!dialog) return; dialog.replaceChildren();
     const state = this.client.state, leader = state?.leaderId === this.client.playerId;
     const head = el('div', 'party-dialog-heading'), titles = el('div'), title = el('h2', '', 'Party cooperativo'); title.id = 'party-title';
-    titles.append(el('span', 'eyebrow', 'UN DUNGEON · UN BOSS COMUNE'), title);
+    titles.append(el('span', 'eyebrow', 'UNA DISCESA · UN BOSS COMUNE'), title);
     const close = el('button', 'secondary party-close', 'Chiudi'); close.addEventListener('click', () => dialog.close()); head.append(titles, close); dialog.append(head);
-    dialog.append(el('p', 'party-intro', 'Fino a 4 alleati. Nessun fuoco amico. Il leader sceglie la destinazione e avvia il combattimento.'));
+    dialog.append(el('p', 'party-intro', 'Fino a 4 alleati. Nessun fuoco amico. Il leader sceglie destinazione e modalità e avvia; nella discesa la porta si attraversa insieme.'));
     const slots = el('div', 'party-lobby-slots'); for (let i = 0; i < PARTY_CAPACITY; i++) slots.append(this.slot(i, true)); dialog.append(slots);
     const dungeon = (state && dungeonById(state.dungeonId)) || this.dungeon;
     if (dungeon) {
@@ -110,10 +110,22 @@ export class PartyPanel {
       text.append(el('small', '', 'Obiettivo comune'), el('strong', '', dungeon.boss.name), el('span', '', dungeon.name)); objective.append(text); dialog.append(objective);
     }
     if (state) {
-      const label = el('label', 'party-destination', 'Destinazione · '), select = el('select', ''); select.setAttribute('aria-label', 'Destinazione party');
-      for (const d of DUNGEONS) { const option = el('option', '', `${d.name} · minimo ${minimumDungeonGearScore(d)} GS`); option.value = d.id; select.append(option); }
-      select.value = state.dungeonId; select.disabled = !leader || state.playing;
-      select.addEventListener('change', () => this.client.send({ type: 'choose', dungeonId: select.value })); label.append(select); dialog.append(label);
+      const destinations = el('div', 'party-destination-buttons');
+      destinations.setAttribute('role', 'group'); destinations.setAttribute('aria-label', 'Destinazione party');
+      for (const d of DUNGEONS) {
+        const button = el('button', 'secondary', d.name);
+        button.disabled = !leader || state.playing; button.setAttribute('aria-pressed', String(d.id === state.dungeonId));
+        button.title = 'Requisito: ' + minimumDungeonGearScore(d) + ' GS';
+        button.addEventListener('click', () => this.client.send({ type: 'choose', dungeonId: d.id })); destinations.append(button);
+      }
+      dialog.append(destinations);
+      const modes = el('div', 'party-lobby-actions');
+      for (const [id, text] of [['descent', 'Stanze e boss'], ['duel', 'Solo boss']] as const) {
+        const button = el('button', 'secondary', text); button.disabled = !leader || state.playing;
+        button.setAttribute('aria-pressed', String(state.mode === id));
+        button.addEventListener('click', () => this.client.send({ type: 'mode', mode: id, grade: 0 })); modes.append(button);
+      }
+      dialog.append(modes);
       const link = el('input', 'party-link'); link.readOnly = true; link.value = this.inviteUrl(); link.setAttribute('aria-label', 'Link invito al party'); link.addEventListener('click', () => link.select()); dialog.append(link);
     }
     dialog.append(el('p', 'party-preview-note', this.note || (state ? 'Il mondo continua anche se apri il menu o cambi scheda. Uscire dal party abbandona il combattimento. I progressi restano in questo browser.' : 'Crea un party e condividi il link con i tuoi amici.')));
@@ -129,7 +141,8 @@ export class PartyPanel {
         void navigator.clipboard.writeText(this.inviteUrl()).then(() => { this.note = 'Link copiato.'; this.renderDialog(); }).catch(() => { this.note = 'Seleziona e copia il link qui sopra.'; this.renderDialog(); });
       }); actions.append(invite);
       if (leader) {
-        const start = el('button', 'primary party-start', 'Avvia dungeon →'); start.disabled = state.playing || state.members.some(m => !m.ready);
+        const startLabel = state.mode === 'duel' ? 'Avvia il duello →' : state.mode === 'pilgrimage' ? 'Avvia il Pellegrinaggio →' : 'Avvia la discesa →';
+        const start = el('button', 'primary party-start', startLabel); start.disabled = state.playing || state.members.some(m => !m.ready);
         start.addEventListener('click', () => this.client.send({ type: 'start' })); actions.append(start);
       }
     }

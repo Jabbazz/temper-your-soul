@@ -1,16 +1,17 @@
 import type { PresentationLooks } from '../visuals';
 
 /**
- * Aspetti dei proiettili e delle zone del Custode del ghiaccio (vedi PresentationLooks). Tavolozza fredda: ciano e
- * bianchi per cio' che e' ordinario, viola pallido per cio' che richiede attenzione (anello sfasato, salto, carica).
+ * Aspetti dei proiettili e delle zone del Custode del ghiaccio (vedi PresentationLooks). Tavolozza fredda: bianchi per
+ * cio' che e' ordinario, viola e magenta per cio' che richiede attenzione (anello sfasato, salto, carica). Niente
+ * azzurro nei proiettili: e' il colore dei colpi di gelo dei giocatori.
  */
 export const GLACIER_LOOKS: PresentationLooks = {
   projectiles: {
-    glacier_nova: { color: '#7fe0ff', shape: 'diamond' },
+    glacier_nova: { color: '#f4fdff', shape: 'diamond' },
     glacier_nova_late: { color: '#c7b2ff', shape: 'diamond' },
     glacier_flurry_cw: { color: '#eaf8ff', shape: 'orb' },
-    glacier_flurry_ccw: { color: '#b8a4f0', shape: 'orb' },
-    glacier_shard: { color: '#aef0ff', shape: 'shard' },
+    glacier_flurry_ccw: { color: '#e090ff', shape: 'orb' },
+    glacier_shard: { color: '#f0a8ff', shape: 'shard' },
     glacier_blink_shot: { color: '#d6c4ff', shape: 'arrow' },
   },
   zones: {

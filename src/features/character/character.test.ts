@@ -199,7 +199,59 @@ describe('formato di salvataggio', () => {
     expect(serializeCharacter(loaded!)).toBe(text);
     expect(loaded!.loadout()).toEqual(character.loadout());
     expect(JSON.parse(text)).toMatchObject({ version: SAVE_VERSION, nextItemNumber: character.nextItemNumber });
-    expect(Object.keys(JSON.parse(text)).sort()).toEqual(['bodyType', 'characterClass', 'equipped', 'items', 'name', 'nextItemNumber', 'records', 'starterPending', 'totalXp', 'version']);
+    expect(Object.keys(JSON.parse(text)).sort()).toEqual([
+      'bestiary', 'blessings', 'bodyType', 'characterClass', 'descents', 'embers', 'equipped', 'items', 'name', 'nextItemNumber',
+      'pilgrimage', 'records', 'starterPending', 'totalXp', 'version',
+    ]);
+  });
+
+  it('v7: braci, benedizioni, bestiario e discese vanno e tornano; i dati non validi si puliscono', () => {
+    const character = sampleCharacter();
+    character.embers = 340;
+    character.blessings = { vigor: 2, first_spark: 1 };
+    character.addKills({ wax_candle: 12, gargoyle: 2, belfry_gargoyle: 1 });
+    character.recordDescent('crypt', { won: true, seconds: 612.5, grade: 1, stage: 8 });
+    character.recordDescent('swamp', { won: false, seconds: 200, grade: 0, stage: 4 });
+    character.pilgrimage = { clears: 1, bestTimeSeconds: 1800 };
+    const loaded = deserializeCharacter(serializeCharacter(character))!;
+    expect(loaded.embers).toBe(340);
+    expect(loaded.blessings).toEqual({ vigor: 2, first_spark: 1 });
+    expect(loaded.bestiary).toEqual({ wax_candle: 12, gargoyle: 2, belfry_gargoyle: 1 });
+    expect(loaded.descentFor('crypt')).toEqual({ clears: 1, bestTimeSeconds: 612.5, bestGrade: 1, furthestStage: 8 });
+    expect(loaded.descentFor('swamp')).toEqual({ clears: 0, bestTimeSeconds: null, bestGrade: -1, furthestStage: 4 });
+    expect(loaded.maxGrade('crypt')).toBe(2);
+    expect(loaded.maxGrade('swamp')).toBe(0);
+    expect(loaded.pilgrimage).toEqual({ clears: 1, bestTimeSeconds: 1800 });
+
+    const dirty = deserializeCharacter(saveText({
+      embers: -5, blessings: { vigor: 99, nope: 1 }, bestiary: { nope: 3, wax_candle: 2.7, gargoyle: -1 },
+      descents: { crypt: { clears: 2, bestTimeSeconds: -1, bestGrade: 42, furthestStage: 1e9 }, atlantide: { clears: 1 } },
+      pilgrimage: 'x',
+    }))!;
+    expect(dirty.embers).toBe(0);
+    expect(dirty.blessings).toEqual({ vigor: 3 });
+    expect(dirty.bestiary).toEqual({ wax_candle: 2 });
+    expect(dirty.descents).toEqual({ crypt: { clears: 2, bestTimeSeconds: null, bestGrade: 5, furthestStage: 64 } });
+    expect(dirty.pilgrimage).toEqual({ clears: 0, bestTimeSeconds: null });
+  });
+
+  it('v6 si legge in v7 senza perdere nulla: braci e discese partono da zero, il duello resta aperto a chi aveva vinto', () => {
+    const old = JSON.parse(serializeCharacter(sampleCharacter()));
+    for (const key of ['embers', 'blessings', 'bestiary', 'descents', 'pilgrimage']) delete old[key];
+    old.version = 6;
+    old.records = { crypt: { clears: 3, bestTimeSeconds: 90 } };
+    const loaded = deserializeCharacter(JSON.stringify(old))!;
+    expect(loaded.embers).toBe(0);
+    expect(loaded.descents).toEqual({});
+    expect(loaded.canDuel('crypt')).toBe(true);
+    expect(loaded.canDuel('swamp')).toBe(false);
+    expect(loaded.inventory).toEqual(sampleCharacter().inventory);
+  });
+
+  it('le braci e benedizioni storiche non possono più essere spese', () => {
+    const character = sampleCharacter(); character.embers = 1000; character.blessings = { vigor: 1 };
+    expect(character.buyBlessing('vigor')).toBe(false);
+    expect(character.embers).toBe(1000); expect(character.blessings).toEqual({ vigor: 1 });
   });
 
   it('JSON non valido, valori non oggetto, versione mancante o futura => null', () => {

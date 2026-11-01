@@ -1,6 +1,7 @@
 import type { Camera } from '../../../core/camera';
 import { TAU } from '../../../core/vec2';
 import type { ArenaDefinition, Pillar } from '../../arena/arena';
+import { drawLight } from '../lights';
 import type { ArenaTheme } from './theme';
 
 /*
@@ -21,6 +22,8 @@ const SWAMP_DECOR = {
   water: ['#0b1512', '#0e1a16', '#112019'],
   mud: ['#2a2b1b', '#25261a', '#30301e'],
   wall: { base: '#1b2216', roots: '#2d3a20', moss: '#3f5428' },
+  /** Funghi luminosi: cappelli e luce (anche il fungo a mensola sugli alberi). */
+  mushroom: { cap: '#5fe0c8', glow: '#2fd0b8', paleCap: '#a8f0ff', paleGlow: '#6fd8ff' },
 };
 
 /** Numero pseudo-casuale in [0, 1) che dipende solo dalla posizione. */
@@ -95,7 +98,10 @@ function drawWall(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera:
   }
 }
 
-/** Funghi luminosi sparsi: viola o giallo veleno, con un alone che pulsa. */
+/**
+ * Funghi luminosi sparsi, con un alone che pulsa. Ciano e acquamarina: il giallo e il viola sono dei proiettili e
+ * delle zone della Madre delle spore, e un fungo dello stesso colore li nasconderebbe.
+ */
 function drawMushrooms(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
   const grid = SWAMP_DECOR.mushroomGrid;
   const { x: camX, y: camY } = camera.position;
@@ -111,21 +117,11 @@ function drawMushrooms(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, ca
       const y = gy * grid + hash(gx + 5, gy) * (grid - 40) + 20;
       const margin = arena.wallThickness + 30;
       if (x < margin || x > arena.width - margin || y < margin || y > arena.height - margin) continue;
-      const violet = h > 0.78;
-      const cap = violet ? '#b27cf0' : '#cddc58';
-      const glow = violet ? '#8b5cd6' : '#a9c22e';
+      const pale = h > 0.78;
+      const cap = pale ? SWAMP_DECOR.mushroom.paleCap : SWAMP_DECOR.mushroom.cap;
+      const glow = pale ? SWAMP_DECOR.mushroom.paleGlow : SWAMP_DECOR.mushroom.glow;
       const pulse = 0.6 + 0.4 * Math.sin(clock * 2 + h * 20);
-      ctx.save();
-      ctx.globalAlpha = 0.1 * pulse;
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(x, y - 4, 34, 0, TAU);
-      ctx.fill();
-      ctx.globalAlpha = 0.18 * pulse;
-      ctx.beginPath();
-      ctx.arc(x, y - 4, 20, 0, TAU);
-      ctx.fill();
-      ctx.restore();
+      drawLight(ctx, x, y - 4, glow, 58, 0.5 + 0.4 * pulse);
       ctx.fillStyle = '#7a7254';
       ctx.fillRect(x - 2, y - 2, 4, 9);
       ctx.fillStyle = cap;
@@ -256,18 +252,25 @@ function drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camer
 
   // Fungo a mensola luminoso sul tronco.
   const pulse = 0.6 + 0.4 * Math.sin(clock * 2 + seed * 20);
-  ctx.save();
-  ctx.globalAlpha = 0.25 * pulse;
-  ctx.fillStyle = '#a9c22e';
-  ctx.beginPath();
-  ctx.arc(x - r * 0.62, y + r * 0.1, r * 0.34, 0, TAU);
-  ctx.fill();
-  ctx.restore();
-  ctx.fillStyle = '#cddc58';
+  drawLight(ctx, x - r * 0.62, y + r * 0.1, SWAMP_DECOR.mushroom.glow, r * 0.9, 0.4 + 0.4 * pulse);
+  ctx.fillStyle = SWAMP_DECOR.mushroom.cap;
   ctx.beginPath();
   ctx.ellipse(x - r * 0.62, y + r * 0.1, r * 0.2, r * 0.1, -0.3, 0, TAU);
   ctx.fill();
   ctx.restore();
 }
 
-export const swampTheme: ArenaTheme = { drawFloor, drawPillar };
+export const swampTheme: ArenaTheme = {
+  drawFloor,
+  drawPillar,
+  silhouette: '#e6f2cc66',
+  vignette: '#020504',
+  groundColors: [
+    ...SWAMP_DECOR.water,
+    ...SWAMP_DECOR.mud,
+    SWAMP_DECOR.mushroom.cap,
+    SWAMP_DECOR.mushroom.glow,
+    SWAMP_DECOR.mushroom.paleCap,
+    SWAMP_DECOR.mushroom.paleGlow,
+  ],
+};

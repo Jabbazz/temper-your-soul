@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CHARACTER_CLASSES } from '../character/character-class';
-import { CLASS_POSES, poseAtlas, posePlacement, posePoint, attachAt, fitBoot, WEAPON_GRIPS, WEAPON_HEIGHTS, BOOT_PARTS, PORTRAIT_FRAME } from './portrait-rig';
+import { CLASS_POSES, cropPolygon, cuffClipPath, gripSliceRearPolygon, weaponRearCut, poseAtlas, posePlacement, posePoint, attachAt, fitBoot, WEAPON_GRIPS, WEAPON_HEIGHTS, WEAPON_FRONT_OUTLINES, WEAPON_GRIP_SLICES, BOOT_PARTS, PORTRAIT_FRAME } from './portrait-rig';
+import { dungeonPortraitSvg } from './dungeon-portrait-svg';
 import { PORTRAIT_CROPS } from './portrait-layout';
 import { Character } from '../character/character';
 import { deserializeCharacter, serializeCharacter } from '../character/save-format';
@@ -50,6 +51,82 @@ describe('pose di classe e agganci anatomici',()=>{
         expect(x).toBeCloseTo(b[0]*640,8);expect(y).toBeCloseTo(b[1]*800,8);
       });
     }
+  });
+  it('tutte le pose: la gamba ricade sullo stivale, tagliata lungo gli orli sotto le mani e sopra le suole',()=>{
+    for(const kind of CHARACTER_CLASSES)for(const body of ['male','female'] as const){
+      const pose=CLASS_POSES[kind][body],clip=cuffClipPath(pose)!;
+      expect(clip.startsWith('polygon(0% 0%,100% 0%,')).toBe(true);
+      for(const foot of pose.feet){
+        for(const point of foot.cuff!){
+          expect(point[1],kind+' '+body).toBeGreaterThan(Math.max(pose.primary[1],pose.secondary[1]));
+          expect(point[1],kind+' '+body).toBeLessThan(foot.sole[1]);
+          expect(point[0]>=pose.crop[0]&&point[0]<=pose.crop[0]+pose.crop[2],kind+' '+body).toBe(true);
+        }
+      }
+      const [left,right]=[pose.feet[0].cuff!,pose.feet[1].cuff!];
+      expect(left[0][0]).toBeLessThan(left[1][0]);expect(left[1][0]).toBeLessThan(right[1][0]);expect(right[1][0]).toBeLessThan(right[0][0]);
+    }
+  });
+  it('tutte le pose: le dita stanno vicino alla presa, dentro la posa',()=>{
+    for(const kind of CHARACTER_CLASSES)for(const body of ['male','female'] as const){
+      const pose=CLASS_POSES[kind][body],outline=pose.primaryFingers!,scale=pose.detailScale??1;
+      for(const [x,y] of outline){
+        expect(x>=pose.crop[0]&&x<=pose.crop[0]+pose.crop[2]&&y>=pose.crop[1]&&y<=pose.crop[1]+pose.crop[3],kind+' '+body).toBe(true);
+        expect(Math.hypot(x-pose.primary[0],y-pose.primary[1]),kind+' '+body).toBeLessThan(45*scale);
+      }
+    }
+  });
+  it('l\'arma passa dietro il corpo appena sotto il palmo, senza uscire dal ritaglio',()=>{
+    expect(weaponRearCut(.6,.5)).toBeCloseTo(.67,10);
+    expect(weaponRearCut(.99,.1)).toBe(1);
+  });
+  it('tutti gli stivali illustrati tengono il fronte sopra i pantaloni, dentro il proprio ritaglio',()=>{
+    for(const parts of Object.values(BOOT_PARTS))for(const part of parts){
+      expect(part.overPants!.length).toBeGreaterThan(0);
+      for(const outline of part.overPants!)for(const [x,y] of outline){
+        expect(x>=part.crop[0]&&x<=part.crop[0]+part.crop[2]).toBe(true);
+        expect(y>=part.crop[1]&&y<=part.crop[1]+part.crop[3]).toBe(true);
+      }
+    }
+  });
+  it('l\'impugnatura assottigliata contiene la presa e continua la parte anteriore dell\'arco',()=>{
+    const front=WEAPON_FRONT_OUTLINES.hunter_bow!,grip=WEAPON_GRIPS.hunter_bow!,slice=WEAPON_GRIP_SLICES.hunter_bow!;
+    for(const [x,y] of front)expect(x>=0&&x<=1&&y>=0&&y<=1).toBe(true);
+    expect(Math.max(...front.map(p=>p[1]))).toBe(slice.top);
+    expect(slice.top).toBeLessThan(grip[1]);expect(slice.bottom).toBeGreaterThan(grip[1]);
+    expect(slice.scale).toBeGreaterThan(.7);expect(slice.scale).toBeLessThan(1);
+    expect(slice.axis).toBeGreaterThan(slice.left);
+    expect(gripSliceRearPolygon(slice).startsWith('polygon(0% 0%,100% 0%,')).toBe(true);
+  });
+  it('le parti sopra i pantaloni stanno dentro il ritaglio del proprio stivale',()=>{
+    for(const part of BOOT_PARTS.wind_boots!){
+      expect(part.overPants!.length).toBe(2);
+      for(const outline of part.overPants!)for(const [x,y] of outline){
+        expect(x>=part.crop[0]&&x<=part.crop[0]+part.crop[2]).toBe(true);
+        expect(y>=part.crop[1]&&y<=part.crop[1]+part.crop[3]).toBe(true);
+      }
+    }
+    expect(cropPolygon([[10,20],[30,40]],[10,20,20,40])).toBe('polygon(0% 0%,100% 50%)');
+  });
+  it('arciere: il gambale dello stivale frontale resta sotto l\'orlo dei pantaloni',()=>{
+    for(const body of ['male','female'] as const){
+      const foot=CLASS_POSES.archer[body].feet[0],[outer,inner]=foot.cuff!;
+      expect(foot.ankle[0],body).toBeGreaterThan(outer[0]);
+      expect(foot.ankle[0],body).toBeLessThan(inner[0]);
+    }
+  });
+  it('i due stivali del vento hanno ritagli separati, senza la piuma dello stivale vicino',()=>{
+    const [left,right]=BOOT_PARTS.wind_boots!;
+    expect(left.crop[0]+left.crop[2]).toBeLessThanOrEqual(right.crop[0]);
+  });
+  it('il mantello delle canne separa la parte dietro il corpo dai lembi anteriori',()=>{
+    const reed=dungeonPortraitSvg('reed_mantle',0,0);
+    expect(reed.rearMarkup).toBeTruthy();
+    expect(reed.markup).not.toBe(reed.rearMarkup);
+    // Davanti arriva al massimo alla cintura (y=39 sulla griglia): gambe e bacino restano scoperti.
+    const ys=[...reed.markup.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map(match=>Number(match[2]));
+    expect(Math.max(...ys)).toBeLessThanOrEqual(39);
+    expect(dungeonPortraitSvg('thorn_bow',30,30).rearMarkup).toBeUndefined();
   });
   it('la classe viene scelta una volta e salvata senza modificare equipaggiamento o progressi',()=>{
     const character=Character.createStarter();character.totalXp=270;

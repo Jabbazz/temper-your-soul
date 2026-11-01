@@ -92,6 +92,9 @@ sockets.on('connection', ws => {
           room.characters.set(client.id, character); room.ready.delete(client.id); publish(room); break;
         }
         case 'choose': if (typeof m.dungeonId !== 'string') throw new Error('Dungeon non valido.'); room.choose(client.id, m.dungeonId); publish(room); break;
+        case 'mode': room.chooseMode(client.id, m.mode, m.grade); publish(room); break;
+        case 'temper': room.chooseTemper(client.id, m.index); break;
+        case 'pact': room.answerPact(client.id, m.accept); break;
         case 'ready': if (room.playing || typeof m.ready !== 'boolean') throw new Error('Stato non valido.'); if (m.ready) room.ready.add(client.id); else room.ready.delete(client.id); publish(room); break;
         case 'start': room.start(client.id, randomUUID(), randomBytes(4).readUInt32LE()); publish(room); break;
         case 'input': { const intent = cleanIntent(m.intent); if (!intent) throw new Error('Input non valido.'); room.inputs.set(client.id, { intent, receivedAt: now }); break; }
@@ -120,7 +123,7 @@ setInterval(() => {
       const text = JSON.stringify(encoder.encode(snapshot));
       for (const [ws, client] of clients) if (client.room === room) sendText(ws, text);
       networkTimings.add(performance.now() - networkStart);
-      if (snapshot.status !== 'playing') completed.set(room, snapshot.id);
+      if (snapshot.status !== 'playing') completed.set(room, room.battleId);
     }
   }
 }, 8);

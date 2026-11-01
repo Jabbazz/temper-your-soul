@@ -11,4 +11,10 @@ export interface ArenaTheme {
   drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void;
   /** Un pilastro (se visibile). Disegnato sopra il pavimento e sotto i personaggi. */
   drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camera, clock: number): void;
+  /** Bordo chiaro attorno alle sagome dei servitori (#rrggbbaa): le stacca dal pavimento. */
+  readonly silhouette: string;
+  /** Colore del buio ai bordi dello schermo (vignettatura). */
+  readonly vignette: string;
+  /** Colori del pavimento e dei pericoli a terra: i proiettili nemici di questo dungeon devono restarne lontani. */
+  readonly groundColors: readonly string[];
 }

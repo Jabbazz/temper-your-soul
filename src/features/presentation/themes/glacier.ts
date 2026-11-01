@@ -1,6 +1,7 @@
 import type { Camera } from '../../../core/camera';
 import { TAU } from '../../../core/vec2';
 import type { ArenaDefinition, Pillar } from '../../arena/arena';
+import { drawLight } from '../lights';
 import type { ArenaTheme } from './theme';
 
 /**
@@ -147,7 +148,9 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
     if (h < 0.45) return;
     const x = cx + 40 + cellValue(cx, cy, 22) * (decor.crystalCell - 80);
     const y = cy + 40 + cellValue(cx, cy, 23) * (decor.crystalCell - 80);
-    drawCrystalCluster(ctx, x, y, h, Math.sin(clock * 2.2 + h * 20) * 0.5 + 0.5);
+    const shine = Math.sin(clock * 2.2 + h * 20) * 0.5 + 0.5;
+    drawLight(ctx, x, y - 10, '#7fd8ff', 64, 0.25 + 0.3 * shine);
+    drawCrystalCluster(ctx, x, y, h, shine);
   });
 
   // Pulviscolo di neve: puntini che scivolano e ondeggiano, avvolti attorno alla cella.
@@ -258,4 +261,10 @@ function drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camer
   ctx.fill();
 }
 
-export const glacierTheme: ArenaTheme = { drawFloor, drawPillar };
+export const glacierTheme: ArenaTheme = {
+  drawFloor,
+  drawPillar,
+  silhouette: '#f0fbff66',
+  vignette: '#030a14',
+  groundColors: [...SLAB_COLORS, '#0d2238', '#0a1b2e'],
+};

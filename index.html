@@ -27,6 +27,9 @@
 
       <button id="main-menu-button" type="button" class="global-menu-button hidden">← Menu principale</button>
       <div class="phase-banner hidden" id="phase-banner" role="status"><span class="phase-banner-eyebrow">Fase II</span><strong id="phase-banner-text"></strong></div>
+      <section id="descent-hud" class="descent-hud hidden" aria-label="Discesa"></section>
+      <div id="room-banner" class="room-banner hidden" role="status"></div>
+      <div id="room-fade" class="room-fade hidden" aria-hidden="true"></div>
       <aside id="party-panel" class="party-panel" aria-label="Party cooperativo"></aside>
       <button id="performance-button" type="button" class="performance-toggle" aria-expanded="false" aria-controls="performance-panel">FPS · F2</button>
       <aside id="performance-panel" class="performance-panel hidden" aria-label="Diagnostica prestazioni"></aside>
@@ -48,17 +51,25 @@
       <!-- Schermate fuori dalla partita -->
       <div class="screen" id="screen-menu">
         <div class="screen-card menu-card">
-          <span class="eyebrow">DUNGEON · BOSS · BOTTINO</span>
+          <span class="eyebrow">DISCESA · BOSS · BOTTINO</span>
           <h1 class="brand">Temper your soul</h1>
-          <p class="menu-text">Scegli un dungeon, sconfiggi il suo boss e forgia il tuo equipaggiamento: ogni oggetto cambia le tue abilità.</p>
+          <p class="menu-text">Scendi nei dungeon tra orde di servitori e affronta il boss in fondo: ogni oggetto cambia le tue abilità.</p>
           <div id="menu-profiles"></div>
           <div id="menu-appearance"></div>
           <div class="menu-buttons">
             <button id="menu-dungeons" type="button">Dungeon →</button>
             <button id="menu-inventory" type="button" class="secondary backpack-button" aria-label="Apri lo zaino e l’equipaggiamento">Zaino</button>
+            <button id="menu-bestiary" type="button" class="secondary">Bestiario</button>
           </div>
           <small id="menu-note"></small>
         </div>
+        <footer class="menu-release-footer" aria-label="Versione e aggiornamenti">
+          <details class="menu-changelog" id="menu-changelog">
+            <summary id="menu-changelog-toggle">Changelog</summary>
+            <section id="menu-changelog-content" aria-label="Note dell’ultimo aggiornamento"></section>
+          </details>
+          <small id="menu-version" class="menu-version" aria-label="Versione del gioco"></small>
+        </footer>
       </div>
 
       <div class="screen hidden" id="screen-dungeons">
@@ -66,11 +77,27 @@
           <div class="screen-head">
             <div>
               <span class="eyebrow">SCEGLI IL DUNGEON</span>
-              <h2>Dove vuoi combattere?</h2>
+              <h2>Dove vuoi scendere?</h2>
             </div>
-            <button id="dungeons-back" type="button" class="secondary">← Menu</button>
+            <div class="screen-head-buttons">
+              <button id="dungeons-pilgrimage" type="button" class="secondary">Pellegrinaggio</button>
+              <button id="dungeons-back" type="button" class="secondary">← Menu</button>
+            </div>
           </div>
           <div class="dungeon-list" id="dungeon-list"></div>
+        </div>
+      </div>
+
+      <div class="screen hidden" id="screen-bestiary">
+        <div class="screen-card wide">
+          <div class="screen-head">
+            <div>
+              <span class="eyebrow">BESTIARIO</span>
+              <h2>I servitori dei boss</h2>
+            </div>
+            <button id="bestiary-back" type="button" class="secondary">← Menu</button>
+          </div>
+          <div id="bestiary-list"></div>
         </div>
       </div>
 

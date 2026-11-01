@@ -2,6 +2,9 @@
 
 ## Priorità corrente e TODO
 
+- [x] Versione nel menu e changelog dell’ultimo aggiornamento, con storico nel codice e procedura obbligatoria per gli agenti su PR/commit main. Valori di bilanciamento prima → dopo.
+- [ ] Conferma utente di posizione, leggibilità e apertura del changelog nel menu, anche su finestre strette. Nessuna prova visiva automatizzata eseguita.
+
 - [ ] **Sprite e ritratti: lavoro sospeso su richiesta dell’utente.** Alla ripresa rivedere manualmente vestibilità delle armature, scale delle armi, prese, giunzioni delle gambe e profondità degli strati. Evitare rigenerazioni successive per ogni incremento di gioco; prima fissare basi, misure e criteri di accettazione. Le revisioni precedenti sotto restano storico, non approvazione finale.
 - [x] Creazione con nome, sesso e classe, conferma unica e identità non modificabile dallo zaino.
 - [x] Set bianco novizio per ciascuna classe, escluso dai drop; GS per pezzo e totale equipaggiato.
@@ -23,6 +26,23 @@
 - [ ] Provare manualmente creazione, persistenza, sensazione dei tre set iniziali, grind e premi dei quattro boss.
 - [ ] Tarare GS, livelli oggetto, probabilità e futuro effetto del livello oggetto sulle statistiche.
 - [ ] Prova manuale del grind per classe, della chiarezza delle probabilità condizionate e dei blocchi GS.
+- [x] Revisione PR #4: mantenuti mappe, 32 servitori, luogotenenti/pre-boss, Bestiario e direzioni delle stanze.
+- [x] Rimossi premi intermedi, tempre, sigilli, braci, Altare e selettori a tendina di dungeon/modalità/grado. Skill dell’equipaggiamento e ricompense dei boss invariate.
+- [x] Salvataggio v7 conservato senza perdita dei dati storici; relativi bonus disattivati. Protocollo cooperativo 5.
+- [ ] Prova manuale utente: porte, mappe, Prova/Assedio/Caccia, luogotenenti, Bestiario, ricompense dei soli boss, singolo e cooperativa. Nessuna nuova prova visiva automatizzata richiesta.
+- [ ] Definire con l’utente la progressione tra stanze in un incremento successivo.
+- [ ] Tarare budget e danni dei servitori dopo le prove giocate.
+
+Verifica automatica della revisione: `npm run verify` superato, 555 test in 42 file, tipi e build. Le prove manuali della revisione restano da fare dall’utente. Le correzioni descritte sotto appartengono alla PR originale e non confermano la revisione corrente.
+
+Corretti durante le prove:
+- miniature del Bestiario che coprivano la schermata;
+- pulsanti delle schede dei dungeon fuori dal riquadro;
+- quinta statistica della vittoria a capo;
+- luogotenenti assenti dal Bestiario;
+- testi con accenti scritti come apostrofi.
+
+Non è una prova giocata a mano: le stanze sono state liberate da script e bot.
 
 Incremento vincoli e probabilità: **383 test**, tipi e build superati. Copertura delle tre classi su tutte le famiglie, dei set iniziali compatibili, della lettura di vecchi equipaggiamenti, dei confini GS e della raggiungibilità delle soglie tramite i dungeon precedenti. Browser isolato a 1440 e 390 px: hover scuro, arco non equipaggiabile al Mago da clic destro o pulsante, trascinamento disattivato, blocchi T3/T4 a 80 GS, sblocco esatto a 100/200, tooltip 33,33%/66,67% e quote per pezzo. Nessuna eccezione JavaScript; conferma giocata ancora da ricevere.
 
@@ -229,6 +249,11 @@ Checklist manuale:
 - [ ] Attacchi, trasformazione in fase II e morte arrivano al momento giusto.
 - [ ] La differenza di finezza dei pixel fra i boss non disturba.
 - [ ] Le vignette della scelta del dungeon sono piu' belle di prima.
+
+
+## Storico delle migliorie multiplayer integrate dalla copia locale
+
+Le misure seguenti precedono l’integrazione con le stanze della PR #4; non sono benchmark della versione combinata.
 
 ### Ripresa e completamento della diagnostica (1 novembre 2026)
 
