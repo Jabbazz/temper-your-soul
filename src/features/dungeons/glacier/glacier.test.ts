@@ -115,7 +115,7 @@ describe('ghiacciaio: la mappa', () => {
     // Prova in partita: le schegge (schema d'apertura) mirate al giocatore fermo finiscono contro la colonna.
     const match = createMatch(1, { dungeon: GLACIER });
     const events = recordEvents(match);
-    match.boss.attackTimer = 0;
+    match.boss!.attackTimer = 0;
     run(match, 4);
     const absorbed = eventsOfType(events, 'projectile_hit').filter((hit) => hit.visual === 'glacier_shard');
     expect(absorbed.length).toBeGreaterThanOrEqual(3);
@@ -400,8 +400,8 @@ describe('ghiacciaio: salto gelido (blink_strike)', () => {
   it('in partita il boss emette boss_teleported e atterra entro 0,9 s dall\'inizio dello schema', () => {
     const match = createMatch(1, { dungeon: GLACIER });
     const events = recordEvents(match);
-    match.boss.attackCount = indexOf('blink_strike');
-    match.boss.attackTimer = 0;
+    match.boss!.attackCount = indexOf('blink_strike');
+    match.boss!.attackTimer = 0;
     run(match, 1.2);
     const teleports = eventsOfType(events, 'boss_teleported');
     expect(teleports).toHaveLength(1);
@@ -505,12 +505,12 @@ describe('ghiacciaio: carica glaciale (glacial_charge)', () => {
   it('in partita le zone del percorso scoppiano tutte e la carica finisce', () => {
     const match = createMatch(1, { dungeon: GLACIER });
     const events = recordEvents(match);
-    match.boss.attackCount = indexOf('glacial_charge');
-    match.boss.attackTimer = 0;
+    match.boss!.attackCount = indexOf('glacial_charge');
+    match.boss!.attackTimer = 0;
     run(match, 3);
     expect(eventsOfType(events, 'zone_detonated').filter((zone) => zone.visual === 'glacier_trail')).toHaveLength(6);
     expect(eventsOfType(events, 'boss_charge_finished')).toHaveLength(1);
-    expect(match.boss.charge).toBeNull();
+    expect(match.boss!.charge).toBeNull();
   });
 });
 

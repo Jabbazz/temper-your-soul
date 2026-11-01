@@ -150,22 +150,22 @@ describe.each(DUNGEONS.map((dungeon) => [dungeon.id, dungeon] as const))('dungeo
   it(`${id}: nei primi 120 secondi gli attacchi partono e il giocatore puo' vincere o perdere senza stati invalidi`, () => {
     for (const seed of [1, 2]) {
       const match = createMatch(seed, { dungeon });
-      match.boss.health.current = Math.floor(match.boss.health.max * 0.45);
+      match.boss!.health.current = Math.floor(match.boss!.health.max * 0.45);
       let invalid = 0;
       for (let i = 0; i < 60 * 120 && match.status === 'playing'; i++) {
         const t = match.time;
         match.player.health.current = 100;
-        match.boss.health.current = Math.max(match.boss.health.current, 600);
+        match.boss!.health.current = Math.max(match.boss!.health.current, 600);
         match.step(
           STEP,
           intent(match, {
             move: new Vec2(Math.cos(t * 0.6 + seed), Math.sin(t * 0.9)),
-            aim: match.boss.position,
+            aim: match.boss!.position,
             skills: [true, true, Math.floor(t * 2) % 3 === 0, Math.floor(t * 2) % 5 === 0],
           }),
         );
         const { position } = match.player;
-        if (!Number.isFinite(position.x + position.y) || !Number.isFinite(match.boss.position.x + match.boss.position.y)) invalid++;
+        if (!Number.isFinite(position.x + position.y) || !Number.isFinite(match.boss!.position.x + match.boss!.position.y)) invalid++;
         if (pillarAt(arena, position, BODY_RADIUS.player - 0.5) !== undefined) invalid++;
         if (position.x < arena.playerMargin - 0.01 || position.x > arena.width - arena.playerMargin + 0.01) invalid++;
         if (position.y < arena.playerMargin - 0.01 || position.y > arena.height - arena.playerMargin + 0.01) invalid++;
@@ -176,8 +176,8 @@ describe.each(DUNGEONS.map((dungeon) => [dungeon.id, dungeon] as const))('dungeo
       }
       expect(invalid, `seed ${seed}`).toBe(0);
       expect(match.status).toBe('playing');
-      expect(match.boss.attackCount, `seed ${seed}: attacchi lanciati`).toBeGreaterThan(20);
-      expect(match.boss.phase).toBe(2);
+      expect(match.boss!.attackCount, `seed ${seed}: attacchi lanciati`).toBeGreaterThan(20);
+      expect(match.boss!.phase).toBe(2);
     }
   });
 });

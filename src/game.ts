@@ -2,6 +2,7 @@ import { renderCharacterCreation } from './features/ui/character-creation';
 import { PROGRESSION, levelProgress } from './features/character/progression';
 import { Camera, ZOOM } from './core/camera';
 import { Input, SKILL_ACTIONS } from './core/input';
+import { NetworkView } from './features/presentation/network-view';
 import { PerformancePanel } from './features/ui/performance-panel';
 import { SeededRng } from './core/rng';
 import { Vec2 } from './core/vec2';
@@ -12,7 +13,7 @@ import { renderCharacterProfiles } from './features/ui/character-profiles';
 import { browserStorage, rosterFromExternalSave, SaveStore, type LoadStatus } from './features/character/save-store';
 import { CRYPT } from './features/dungeons/crypt';
 import type { DungeonDefinition } from './features/dungeons/dungeon-definition';
-import { canEnterDungeon,minimumDungeonGearScore } from './features/dungeons/dungeon-access';
+import { canEnterDungeon, minimumDungeonGearScore } from './features/dungeons/dungeon-access';
 import { lootTableFor } from './features/loot/loot-tables';
 import { rollLoot } from './features/loot/roll-loot';
 import { Match, type PlayerIntent } from './features/match/match';
@@ -21,24 +22,31 @@ import { preloadSheets } from './features/presentation/boss-art/sheet-images';
 import { Effects } from './features/presentation/effects';
 import { ActorPoses } from './features/presentation/poses';
 import { renderScene, type Scene } from './features/presentation/scene-renderer';
-import { DungeonSelect } from './features/ui/dungeon-select';
+import { drawRoomFloor, drawRoomIndicators, drawRoomLabels, type RoomLook } from './features/presentation/draw-room';
+import { DungeonSelect, pilgrimageGearScore } from './features/ui/dungeon-select';
 import { requireElement } from './features/ui/dom';
 import { FullscreenToggle } from './features/ui/fullscreen';
 import { Hud } from './features/ui/hud';
 import { AudioPanel } from './features/ui/audio-panel';
 import { InventoryScreen } from './features/ui/inventory-screen';
-import { renderDefeat, renderVictory } from './features/ui/end-screen';
+import { renderDefeat, renderDescentDefeat, renderDescentVictory, renderVictory } from './features/ui/end-screen';
 import { PhaseBanner } from './features/ui/phase-banner';
 import { CombatTally } from './features/match/combat-tally';
 import { MainMenu } from './features/ui/main-menu';
 import { Overlay } from './features/ui/overlay';
 import { Screens } from './features/ui/screens';
 import { PartyPanel } from './features/ui/party-panel';
-import { applySnapshot, type BattleSnapshot, type PartyMember } from './features/network/protocol';
+import { applySnapshot, replicaMatch, type BattleSnapshot, type PartyMember } from './features/network/protocol';
 import { deserializeCharacter } from './features/character/save-format';
-import { dungeonById } from './features/dungeons/dungeons';
-import type { ItemRoll } from './features/items/item';
+import { DUNGEONS, dungeonById } from './features/dungeons/dungeons';
+import type { Item, ItemRoll } from './features/items/item';
 import { showCombatReport } from './features/ui/combat-report';
+import { DescentRun, type RunMode, type RunView } from './features/run/descent';
+import type { RoomView } from './features/run/encounter';
+import type { DoorOption } from './features/run/rooms';
+import { DescentHud } from './features/ui/descent-hud';
+import { BestiaryScreen } from './features/ui/bestiary-screen';
+import type { AudioScreen } from './features/audio/audio-director';
 
 /** Passo fisso della simulazione: la logica gira a 60 Hz qualunque sia la frequenza di disegno. */
 const STEP = 1 / 60;
@@ -48,16 +56,21 @@ const MAX_FRAME_TIME = 0.25;
 const PHASE_INTERLUDE = 1.6;
 /** Secondi fra la fine dell'incontro e la sua schermata: il tempo di vedere il boss frantumarsi o la propria caduta. */
 const END_DELAY = { won: 1.7, lost: 1.3 } as const;
+/** Secondi del passaggio da una stanza all'altra (dissolvenza in nero). */
+const ROOM_FADE = 0.45;
 /** Per quanti millisecondi resta visibile un avviso. */
 const TOAST_MS = 6000;
 
 /**
- * Schermata corrente dell'applicazione. Le prime tre sono fuori dalla partita (mostrano lo sfondo di un dungeon);
+ * Schermata corrente dell'applicazione. Le prime sono fuori dalla partita (mostrano lo sfondo di un dungeon);
  * la partita avanza solo in `playing`.
  */
-type Screen = 'menu' | 'dungeons' | 'inventory' | 'playing' | 'paused' | 'ended';
+type Screen = 'menu' | 'dungeons' | 'inventory' | 'bestiary' | 'playing' | 'paused' | 'ended';
 
-const IDLE_SCREENS: readonly Screen[] = ['menu', 'dungeons', 'inventory'];
+const IDLE_SCREENS: readonly Screen[] = ['menu', 'dungeons', 'inventory', 'bestiary'];
+
+/** Come si entra in un dungeon: il Duello di sempre, la Discesa, il Pellegrinaggio. */
+type Mode = 'duel' | RunMode;
 
 const LOAD_NOTES: Record<LoadStatus, string> = {
   fresh: 'Nuovo personaggio: i progressi si salvano in questo browser.',
@@ -77,19 +90,25 @@ export class Game {
   private readonly audio: AudioPlayer;
   private readonly audioPanel: AudioPanel;
   private readonly hud = new Hud();
+  private readonly descentHud = new DescentHud();
   private readonly performancePanel = new PerformancePanel();
   private readonly overlay = new Overlay();
   private readonly tally = new CombatTally();
+  /** Statistiche di tutta la discesa (la `tally` riparte a ogni stanza). */
+  private readonly runTally = new CombatTally();
   private readonly phaseBanner = new PhaseBanner();
   /** Secondi di pausa drammatica rimasti (fase II in partita singola): intanto la simulazione aspetta. */
   private interlude = 0;
   /** Schermata di fine incontro in attesa: prima si guarda la morte del boss (o la propria), poi il resoconto. */
   private pendingEnd: { remaining: number; show: () => void } | null = null;
+  /** Passaggio alla stanza successiva: dissolvenza, poi `enter`. */
+  private pendingRoom: { remaining: number; enter: () => void } | null = null;
   private readonly screens = new Screens();
   private readonly party = new PartyPanel(() => this.pauseIfPlaying(), snapshot => this.receiveSnapshot(snapshot), () => {
     if (this.networkBattleId) { this.networkBattleId = ''; this.showToast('Hai lasciato il combattimento cooperativo.'); this.showMenu(); }
   });
   private networkBattleId = '';
+  private networkView: NetworkView | null = null;
   private readonly completedBattles = new Set<string>();
   private battleMembers: PartyMember[] = [];
   private readonly allyPoses = new Map<string, ActorPoses>();
@@ -99,6 +118,7 @@ export class Game {
   private readonly menu: MainMenu;
   private readonly dungeonSelect: DungeonSelect;
   private readonly inventoryScreen: InventoryScreen;
+  private readonly bestiaryScreen: BestiaryScreen;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly saveStore: SaveStore;
 
@@ -120,6 +140,23 @@ export class Game {
   private toastTimer: number | undefined;
   private saveWarningShown = false;
 
+  /** Modalità di ingresso; il grado storico resta fisso a zero. */
+  private mode: Mode = 'descent';
+  private grade = 0;
+  /** La discesa in corso (partita singola). */
+  private run: DescentRun | null = null;
+  /** Quanto della discesa e' gia' passato nel personaggio salvato. */
+  private runSaved = { embers: 0, xp: 0, kills: {} as Record<string, number> };
+  /** Oggetti vinti nei boss della discesa (il Pellegrinaggio ne ha piu' d'uno). */
+  private runItems: Item[] = [];
+  /** XP del personaggio all'inizio della discesa (per la barra della schermata finale). */
+  private runXpStart = 0;
+  /** Cooperativa: la discesa e la stanza ricevute dal server, e quanto ne e' gia' stato salvato. */
+  private networkRun: RunView | null = null;
+  private networkRoom: RoomView | null = null;
+  private networkRunId = '';
+  private networkSaved = { embers: 0, xp: 0, kills: {} as Record<string, number>, items: 0 };
+
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
     if (ctx === null) throw new Error('Canvas 2D non disponibile in questo browser');
@@ -136,13 +173,20 @@ export class Game {
     this.roster=loaded.roster;
     this.loadStatus = loaded.status;
 
-    this.menu = new MainMenu({ onDungeons: () => this.openDungeons(), onInventory: () => this.openInventory() });
+    this.menu = new MainMenu({
+      onDungeons: () => this.openDungeons(),
+      onInventory: () => this.openInventory(),
+      onBestiary: () => this.openBestiary(),
+    });
     this.dungeonSelect = new DungeonSelect({
-      onChoose: (dungeon) => this.startDungeon(dungeon),
+      onDescent: (dungeon, grade) => this.startDungeon(dungeon, 'descent', grade),
+      onDuel: (dungeon) => this.startDungeon(dungeon, 'duel', 0),
+      onPilgrimage: () => this.startDungeon(DUNGEONS[0]!, 'pilgrimage', 0),
       onPreview: (dungeon) => this.preview(dungeon),
       onBack: () => this.showMenu(),
     });
     this.inventoryScreen = new InventoryScreen({ onChange: () => this.persist(), onBack: () => this.showMenu() });
+    this.bestiaryScreen = new BestiaryScreen({ onBack: () => this.showMenu() });
     this.match = this.createMatch(this.dungeon);
     this.menu.setNote(
       storage === null ? 'Salvataggio locale non disponibile: i progressi non verranno conservati.' : LOAD_NOTES[this.loadStatus],
@@ -192,6 +236,10 @@ export class Game {
   private showMenu(): void {
     if (this.networkBattleId && this.screen === 'playing') this.party.client.leave();
     this.networkBattleId = '';
+    this.networkRun = null;
+    this.networkRoom = null;
+    this.networkRunId = '';
+    this.abandonRun();
     this.input.releaseAll();
     this.screen = 'menu';
     this.clearBattleFeedback();
@@ -211,8 +259,9 @@ export class Game {
         this.persist();this.showMenu();
       }
     }));
-    (requireElement('menu-dungeons') as HTMLButtonElement).disabled = !this.character.created;
-    (requireElement('menu-inventory') as HTMLButtonElement).disabled = !this.character.created;
+    for (const id of ['menu-dungeons', 'menu-inventory', 'menu-bestiary']) {
+      (requireElement(id) as HTMLButtonElement).disabled = !this.character.created;
+    }
   }
 
   private openDungeons(): void {
@@ -235,8 +284,16 @@ export class Game {
     this.updateParty();
   }
 
+  private openBestiary(): void {
+    if (!this.character.created) return;
+    this.screen = 'bestiary';
+    this.screens.show('bestiary');
+    this.bestiaryScreen.render(this.character);
+  }
+
   /** Sfondo delle schermate fuori dalla partita: la mappa e il boss del dungeon indicato, fermi. */
   private preview(dungeon: DungeonDefinition): void {
+    this.networkView = null;
     this.renderAppearance = undefined; this.allyVisuals = [];
     this.dungeon = dungeon;
     this.match = this.createMatch(dungeon);
@@ -246,24 +303,56 @@ export class Game {
     this.updateParty();
   }
 
-  private startDungeon(dungeon: DungeonDefinition): void {
+  private startDungeon(dungeon: DungeonDefinition, mode: Mode, _grade: number): void {
     if (this.party.client.state) {
-      this.party.client.send({ type: 'choose', dungeonId: dungeon.id }); this.party.openDialog(); return;
+      this.party.client.send({ type: 'choose', dungeonId: dungeon.id });
+      this.party.client.send({ type: 'mode', mode, grade: 0 });
+      this.party.openDialog(); return;
     }
     this.dungeon = dungeon;
+    this.mode = mode;
+    this.grade = 0;
     this.startMatch();
   }
 
-  /** Nuova partita nel dungeon corrente, con le skill dell'equipaggiamento attuale. */
+  /** Nuova partita nel dungeon corrente: il Duello con il boss, oppure una Discesa (o un Pellegrinaggio) da capo. */
   private startMatch(): void {
     if (this.party.client.state) { this.party.openDialog(); return; }
     this.networkBattleId = '';
     this.renderAppearance = undefined; this.allyVisuals = [];
     if(!this.character.created)return;
-    if(!canEnterDungeon(this.dungeon,this.character.gearScore)){
+    if (this.mode === 'pilgrimage') {
+      const minimum = pilgrimageGearScore();
+      if (this.character.gearScore < minimum) { this.showToast(`Servono almeno ${minimum} GS equipaggiati per il Pellegrinaggio.`); return; }
+    } else if(!canEnterDungeon(this.dungeon,this.character.gearScore)){
       this.showToast(`Servono almeno ${minimumDungeonGearScore(this.dungeon)} GS equipaggiati per questo dungeon.`);return;
     }
-    this.match = this.createMatch(this.dungeon);
+    if (this.mode === 'duel' && !this.character.canDuel(this.dungeon.id)) {
+      this.showToast('Il Duello si apre dopo aver sconfitto il boss in una discesa.'); return;
+    }
+    this.abandonRun();
+    this.runTally.reset('local');
+    if (this.mode === 'duel') {
+      this.descentHud.hide();
+      this.enterMatch(this.createMatch(this.dungeon));
+      return;
+    }
+    this.run = new DescentRun({
+      mode: this.mode,
+      dungeonId: this.mode === 'pilgrimage' ? DUNGEONS[0]!.id : this.dungeon.id,
+      members: [{ id: 'local', loadout: this.character.loadout() }],
+      seed: Math.floor(Math.random() * 0x100000000),
+      grade: this.grade,
+    });
+    this.runSaved = { embers: 0, xp: 0, kills: {} };
+    this.runItems = [];
+    this.runXpStart = this.character.totalXp;
+    this.enterRoom();
+  }
+
+  /** Mette in scena una partita (il duello o una stanza della discesa). */
+  private enterMatch(match: Match): void {
+    this.match = match;
     this.effects.clear();
     this.poses.reset();
     this.input.releaseAll();
@@ -274,11 +363,21 @@ export class Game {
     this.screens.show(null);
     this.overlay.hide();
     this.hud.buildSkills(this.match.player.skillBar.skills);
-    this.hud.setBossName(this.match.boss.definition.name);
+    this.hud.setBossName(this.match.boss?.definition.name ?? '');
     this.camera.follow(this.match.player.position);
     this.hud.update(this.match, levelProgress(this.character.totalXp));
     this.canvas.focus();
     this.updateParty();
+  }
+
+  /** Entra nella stanza attuale della discesa. */
+  private enterRoom(): void {
+    const run = this.run;
+    if (run === null) return;
+    this.dungeon = run.dungeon;
+    this.attach(run.match);
+    this.enterMatch(run.match);
+    this.descentHud.announce(run.view(), run.roomView());
   }
 
   private restartIfInGame(): void {
@@ -287,29 +386,170 @@ export class Game {
 
   private onEscape(): void {
     if (this.audioPanel.isOpen) this.audioPanel.close();
-    else if (this.screen === 'dungeons' || this.screen === 'inventory') this.showMenu();
+    else if (IDLE_SCREENS.includes(this.screen) && this.screen !== 'menu') this.showMenu();
     else this.togglePause();
   }
 
+  /** Una partita del duello (o lo sfondo dei menu), con i suoi ascoltatori. */
   private createMatch(dungeon: DungeonDefinition): Match {
     const match = new Match({
       rng: new SeededRng(Math.floor(Math.random() * 0x100000000)),
       dungeon,
       loadout: this.character.loadout(),
     });
+    this.attach(match);
+    return match;
+  }
+
+  /** Effetti, pose, audio, interfaccia e statistiche ascoltano gli eventi della partita. */
+  private attach(match: Match): void {
     match.events.connect((event) => {
       this.effects.handle(event);
       this.poses.handle(event);
       this.audio.handle(event);
       this.hud.onEvent(event);
       this.tally.handle(event);
+      this.runTally.handle(event);
       if (event.type === 'boss_phase_changed') this.onPhaseChanged(event.text, true);
-      if (event.type === 'match_ended') this.onMatchEnded(match, event.won);
+      if (event.type === 'match_ended') {
+        if (this.run !== null && match === this.run.match) this.onRoomEnded(match, event.won);
+        else this.onMatchEnded(match, event.won);
+      }
     });
-    return match;
   }
 
-  // --- Fine partita, bottino e salvataggio -----------------------------------------------------------------------
+  // --- Discesa: stanze, premi, fine ------------------------------------------------------------------------------
+
+  /** Una stanza della discesa e' finita: porta attraversata, boss caduto o tutti a terra. */
+  private onRoomEnded(match: Match, won: boolean): void {
+    const run = this.run;
+    if (run === null) return;
+    const bossRoom = run.atBoss;
+    if (won && bossRoom) this.onDescentBoss(match, run);
+    run.advance();
+    this.saveRunProgress();
+    if (run.status === 'playing') {
+      // Nuova stanza: un attimo di buio (piu' lungo dopo un boss del Pellegrinaggio, per vederlo cadere).
+      this.pendingRoom = { remaining: bossRoom ? END_DELAY.won : ROOM_FADE, enter: () => this.enterRoom() };
+      if (!bossRoom) document.body.classList.add('room-fading');
+      return;
+    }
+    this.finishRun(run);
+  }
+
+  /** Il boss della discesa e' caduto: bottino e record del boss, salvati subito. */
+  private onDescentBoss(match: Match, run: DescentRun): void {
+    const rolls = run.rollBossLoot(new SeededRng(Math.floor(Math.random() * 0x100000000))).get('local') ?? [];
+    this.runItems.push(...this.character.addRolls(rolls));
+    this.character.recordVictory(run.dungeon.id, match.time);
+    this.persist();
+  }
+
+  /** Porta nel personaggio cio' che la discesa ha dato finora (braci, esperienza, bestiario) e salva. */
+  private saveRunProgress(): void {
+    const state = this.run?.players.get('local');
+    if (state === undefined) return;
+    const embers = state.embers - this.runSaved.embers;
+    const xp = state.xp - this.runSaved.xp;
+    const kills: Record<string, number> = {};
+    for (const [id, count] of Object.entries(state.kills)) {
+      const delta = count - (this.runSaved.kills[id] ?? 0);
+      if (delta > 0) kills[id] = delta;
+    }
+    if (embers === 0 && xp === 0 && Object.keys(kills).length === 0) return;
+    this.character.totalXp += Math.max(0, xp);
+    this.character.addKills(kills);
+    this.runSaved = { embers: state.embers, xp: state.xp, kills: { ...state.kills } };
+    this.persist();
+  }
+
+  /** La discesa e' finita: record, salvataggio e schermata. */
+  private finishRun(run: DescentRun): void {
+    const won = run.status === 'won';
+    this.saveRunProgress();
+    let record = { firstClear: false, newBest: false };
+    if (run.mode === 'pilgrimage') {
+      if (won) {
+        const best = this.character.pilgrimage.bestTimeSeconds;
+        record = { firstClear: this.character.pilgrimage.clears === 0, newBest: best === null || run.seconds < best };
+        this.character.pilgrimage = { clears: this.character.pilgrimage.clears + 1, bestTimeSeconds: record.newBest ? run.seconds : best };
+      }
+      for (const victory of run.victories) this.character.recordDescent(victory.dungeonId, { won: true, seconds: victory.seconds, grade: run.grade, stage: run.plan.stages.length });
+    } else {
+      record = this.character.recordDescent(run.dungeon.id, { won, seconds: run.seconds, grade: run.grade, stage: run.stage + 1 });
+    }
+    const saved = this.persist();
+    const state = run.players.get('local')!;
+    const before = levelProgress(this.runXpStart);
+    const after = levelProgress(this.character.totalXp);
+    const view = {
+      title: won
+        ? run.mode === 'pilgrimage' ? 'Pellegrinaggio compiuto · quattro boss' : `Discesa completata · ${titleCase(run.dungeon.boss.name)}`
+        : 'La discesa si è interrotta',
+      seconds: run.seconds,
+      newBest: record.newBest,
+      firstClear: record.firstClear,
+      stage: run.stage + 1,
+      stages: run.plan.stages.length,
+      rooms: run.roomsCleared,
+      embers: state.embers,
+      tempers: state.tempers.length,
+      seals: run.victories.at(-1)?.seals ?? run.seals,
+      summary: this.runTally.summary(),
+      xp: { gained: state.xp, levelBefore: before.level, levelAfter: after.level, before: before.current / before.required, after: after.current / after.required },
+      items: this.runItems,
+      saved,
+      characterClass: this.character.characterClass,
+      dropChance: run.lootTable(run.dungeon.id, run.victories.at(-1)?.seals ?? 0).dropChance,
+    };
+    this.screen = 'ended';
+    this.input.releaseAll();
+    const extra = won ? renderDescentVictory(view) : renderDescentDefeat({ ...view, onInventory: () => this.openInventory() });
+    if (!won) document.body.classList.add('defeated');
+    let sounds: Array<'loot' | 'level_up'> = [];
+    if (this.runItems.length > 0) sounds.push('loot');
+    if (after.level > before.level) sounds.push('level_up');
+    const dungeonName = run.mode === 'pilgrimage' ? 'Pellegrinaggio' : run.dungeon.name;
+    this.run = null;
+    this.pendingEnd = {
+      remaining: won ? END_DELAY.won : END_DELAY.lost,
+      show: () => {
+        this.overlay.showEnded({ won, dungeonName, extra });
+        for (const sound of sounds) this.audio.play(sound);
+        sounds = [];
+        this.descentHud.hide();
+      },
+    };
+    this.updateParty();
+  }
+
+  /** Uscire a meta' discesa: cio' che e' stato guadagnato resta, la tappa raggiunta conta. */
+  private abandonRun(): void {
+    const run = this.run;
+    if (run === null) return;
+    this.run = null;
+    this.pendingRoom = null;
+    document.body.classList.remove('room-fading');
+    this.descentHud.hide();
+    this.descentHud.hideBanner();
+    const state = run.players.get('local');
+    if (state !== undefined) {
+      this.saveRunProgressFrom(run);
+      if (run.status === 'playing') {
+        if (run.mode === 'descent') this.character.recordDescent(run.dungeon.id, { won: false, seconds: run.seconds, grade: run.grade, stage: run.stage + 1 });
+        this.persist();
+      }
+    }
+  }
+
+  private saveRunProgressFrom(run: DescentRun): void {
+    const previous = this.run;
+    this.run = run;
+    this.saveRunProgress();
+    this.run = previous;
+  }
+
+  // --- Fine partita del duello, bottino e salvataggio -------------------------------------------------------------
 
   /**
    * Fine dell'incontro. Bottino, esperienza e record si assegnano e si salvano SUBITO (se la pagina si chiude ora non
@@ -335,7 +575,7 @@ export class Game {
       if (items.length > 0) sounds.push('loot');
       if (afterXp.level > before.level) sounds.push('level_up');
       extra = renderVictory({
-        bossName: match.boss.definition.name,
+        bossName: match.boss?.definition.name ?? match.dungeon.boss.name,
         seconds: match.time,
         firstClear: record.firstClear,
         newBest: record.newBest,
@@ -355,9 +595,9 @@ export class Game {
       });
     } else {
       extra = renderDefeat({
-        bossName: match.boss.definition.name,
+        bossName: match.boss?.definition.name ?? match.dungeon.boss.name,
         seconds: match.time,
-        bossHealth: match.boss.health.fraction,
+        bossHealth: match.boss?.health.fraction ?? 1,
         summary,
         onInventory: () => this.openInventory(),
       });
@@ -386,44 +626,147 @@ export class Game {
   private clearBattleFeedback(): void {
     this.interlude = 0;
     this.pendingEnd = null;
+    this.pendingRoom = null;
     this.phaseBanner.hide();
-    document.body.classList.remove('defeated');
+    document.body.classList.remove('defeated', 'room-fading');
   }
 
   private receiveSnapshot(snapshot: BattleSnapshot): void {
-    if (this.completedBattles.has(snapshot.id) || !snapshot.players.some(p => p.id === this.party.client.playerId)) return;
+    const me = this.party.client.playerId;
+    if (this.completedBattles.has(snapshot.id) || !snapshot.players.some(p => p.id === me)) return;
     if (snapshot.id !== this.networkBattleId) {
       const state = this.party.client.state, dungeon = dungeonById(snapshot.dungeonId);
       if (!state || !dungeon) return;
+      this.abandonRun();
+      // Una discesa: ogni stanza e' un incontro nuovo (`<id>:<stanza>`); la discesa e' la stessa finche' non cambia l'id.
+      const runId = snapshot.id.split(':')[0]!;
+      if (runId !== this.networkRunId) {
+        this.networkRunId = runId;
+        this.networkSaved = { embers: 0, xp: 0, kills: {}, items: 0 };
+        this.runItems = [];
+        this.runXpStart = this.character.totalXp;
+        this.runTally.reset(me);
+      }
       this.networkBattleId = snapshot.id; this.dungeon = dungeon; this.battleMembers = [...state.members];
-      const members = state.members.map(m => ({ id: m.id, loadout: deserializeCharacter(m.character)!.loadout() }));
-      this.match = new Match({ rng: new SeededRng(1), dungeon, loadout: members[0].loadout, members });
-      this.match.viewPlayerId = this.party.client.playerId;
+      const members = state.members
+        .filter(m => snapshot.players.some(p => p.id === m.id))
+        .map(m => {
+          const character = deserializeCharacter(m.character)!;
+          return { id: m.id, loadout: character.loadout() };
+        });
+      this.match = replicaMatch(dungeon, snapshot.setup, members);
+      this.match.viewPlayerId = me;
+      const view = new NetworkView(this.match); this.networkView = view;
       this.allyPoses.clear(); for (const member of members) this.allyPoses.set(member.id, new ActorPoses());
-      this.allyVisuals = this.battleMembers.filter(m => m.id !== this.party.client.playerId).map(member => ({
-        player: this.match.players.get(member.id)!, poses: this.allyPoses.get(member.id)!, name: member.name, appearance: member.appearance,
+      this.allyVisuals = this.battleMembers.filter(m => m.id !== me && this.match.players.has(m.id)).map(member => ({
+        player: view.match.players.get(member.id)!, poses: this.allyPoses.get(member.id)!, name: member.name, appearance: member.appearance,
       }));
       this.renderAppearance = this.character.appearance();
       this.effects.clear(); this.poses.reset(); this.input.releaseAll();
-      this.clearBattleFeedback(); this.tally.reset(this.party.client.playerId); this.hud.resetBars();
+      this.clearBattleFeedback(); this.tally.reset(me); this.hud.resetBars();
       this.screen = 'playing'; this.screens.show(null); this.overlay.hide(); this.party.close();
-      this.hud.buildSkills(this.match.player.skillBar.skills); this.hud.setBossName(this.match.boss.definition.name); this.canvas.focus();
+      this.hud.buildSkills(this.match.player.skillBar.skills); this.hud.setBossName(this.match.boss?.definition.name ?? ''); this.canvas.focus();
+      if (snapshot.run !== null && snapshot.room !== null) this.descentHud.announce(snapshot.run, snapshot.room);
+      else this.descentHud.hide();
     }
+    this.networkRun = snapshot.run;
+    this.networkRoom = snapshot.room;
     applySnapshot(this.match, snapshot);
+    this.networkView!.accept(snapshot, performance.now());
     for (const event of snapshot.events) {
-      this.effects.handle(event, this.party.client.playerId); this.audio.handle(event, this.party.client.playerId);
-      this.hud.onEvent(event, this.party.client.playerId); this.tally.handle(event);
+      this.effects.handle(event, me); this.audio.handle(event, me);
+      this.hud.onEvent(event, me); this.tally.handle(event); this.runTally.handle(event);
       if (event.type === 'boss_phase_changed') this.onPhaseChanged(event.text, false);
-      if (!event.playerId || event.playerId === this.party.client.playerId) this.poses.handle(event);
+      if (!event.playerId || event.playerId === me) this.poses.handle(event);
       if (event.playerId) this.allyPoses.get(event.playerId)?.handle(event);
     }
     this.camera.follow(this.match.player.position);
+    if (snapshot.run !== null) this.saveNetworkRunProgress(snapshot.run);
     if (snapshot.status !== 'playing') {
       this.completedBattles.add(snapshot.id);
       const members = this.battleMembers;
-      this.onMatchEnded(this.match, snapshot.status === 'won', snapshot.rewards[this.party.client.playerId] ?? [],
-        () => showCombatReport(snapshot.report, members, snapshot.time, snapshot.status === 'won'));
+      const report = () => showCombatReport(snapshot.report, members, snapshot.time, snapshot.status === 'won');
+      if (snapshot.run !== null) this.finishNetworkRun(snapshot.run, report);
+      else this.onMatchEnded(this.match, snapshot.status === 'won', snapshot.rewards[me] ?? [], report);
     }
+  }
+
+  /** Cooperativa: porta nel personaggio braci, esperienza, bestiario e bottino della discesa man mano che arrivano. */
+  private saveNetworkRunProgress(run: RunView): void {
+    const me = this.party.client.playerId;
+    const state = run.players[me];
+    if (state === undefined) return;
+    const saved = this.networkSaved;
+    const rewards = run.rewards[me] ?? [];
+    const kills: Record<string, number> = {};
+    for (const [id, count] of Object.entries(state.kills)) {
+      const delta = count - (saved.kills[id] ?? 0);
+      if (delta > 0) kills[id] = delta;
+    }
+    const newItems = rewards.slice(saved.items);
+    if (state.embers === saved.embers && state.xp === saved.xp && Object.keys(kills).length === 0 && newItems.length === 0) return;
+    this.character.totalXp += Math.max(0, state.xp - saved.xp);
+    this.character.addKills(kills);
+    this.runItems.push(...this.character.addRolls(newItems));
+    this.networkSaved = { embers: state.embers, xp: state.xp, kills: { ...state.kills }, items: rewards.length };
+    this.persist();
+  }
+
+  /** Cooperativa: la discesa e' finita sul server. Record, salvataggio e schermata, come in partita singola. */
+  private finishNetworkRun(run: RunView, after: () => void): void {
+    this.saveNetworkRunProgress(run);
+    const me = this.party.client.playerId;
+    const won = run.status === 'won';
+    for (const victory of run.victories) this.character.recordVictory(victory.dungeonId, Number.NaN);
+    let record = { firstClear: false, newBest: false };
+    if (run.mode === 'pilgrimage') {
+      if (won) {
+        const best = this.character.pilgrimage.bestTimeSeconds;
+        record = { firstClear: this.character.pilgrimage.clears === 0, newBest: best === null || run.seconds < best };
+        this.character.pilgrimage = { clears: this.character.pilgrimage.clears + 1, bestTimeSeconds: record.newBest ? run.seconds : best };
+      }
+      for (const victory of run.victories) this.character.recordDescent(victory.dungeonId, { won: true, seconds: victory.seconds, grade: run.grade, stage: run.stages });
+    } else {
+      record = this.character.recordDescent(run.dungeonId, { won, seconds: run.seconds, grade: run.grade, stage: run.stage + 1 });
+    }
+    const saved = this.persist();
+    const state = run.players[me];
+    const before = levelProgress(this.runXpStart);
+    const afterXp = levelProgress(this.character.totalXp);
+    const dungeon = dungeonById(run.dungeonId) ?? this.dungeon;
+    const seals = run.victories.at(-1)?.seals ?? run.seals;
+    const view = {
+      title: won ? (run.mode === 'pilgrimage' ? 'Pellegrinaggio compiuto · quattro boss' : `Discesa completata · ${titleCase(dungeon.boss.name)}`) : 'La discesa si è interrotta',
+      seconds: run.seconds,
+      newBest: record.newBest,
+      firstClear: record.firstClear,
+      stage: run.stage + 1,
+      stages: run.stages,
+      rooms: run.roomsCleared,
+      embers: state?.embers ?? 0,
+      tempers: state?.tempers.length ?? 0,
+      seals,
+      summary: this.runTally.summary(),
+      xp: { gained: state?.xp ?? 0, levelBefore: before.level, levelAfter: afterXp.level, before: before.current / before.required, after: afterXp.current / afterXp.required },
+      items: this.runItems,
+      saved,
+      characterClass: this.character.characterClass,
+      dropChance: Math.min(1, lootTableFor(run.dungeonId).dropChance + 0.05 * seals),
+    };
+    this.screen = 'ended';
+    this.input.releaseAll();
+    const extra = won ? renderDescentVictory(view) : renderDescentDefeat({ ...view, onInventory: () => this.openInventory() });
+    if (!won) document.body.classList.add('defeated');
+    this.networkRunId = '';
+    this.pendingEnd = {
+      remaining: won ? END_DELAY.won : END_DELAY.lost,
+      show: () => {
+        this.overlay.showEnded({ won, dungeonName: run.mode === 'pilgrimage' ? 'Pellegrinaggio' : dungeon.name, extra });
+        this.descentHud.hide();
+        after();
+      },
+    };
+    this.updateParty();
   }
 
   /**
@@ -441,6 +784,7 @@ export class Game {
     // Durante la creazione non si ridisegna il menu: il nome che si sta scrivendo andrebbe perso.
     if (this.screen === 'menu' && this.draft === null) this.showMenu();
     else if (this.screen === 'dungeons') this.dungeonSelect.render(this.character);
+    else if (this.screen === 'bestiary') this.bestiaryScreen.render(this.character);
     else if (this.screen === 'inventory') {
       this.inventoryScreen.reset();
       this.inventoryScreen.render(this.character);
@@ -474,7 +818,7 @@ export class Game {
     if (this.networkBattleId && this.screen === 'playing') { this.party.openDialog(); return; }
     if (this.screen === 'playing') {
       this.screen = 'paused';
-      this.overlay.showPaused(this.dungeon.name);
+      this.overlay.showPaused(this.run !== null ? `${this.dungeon.name} · tappa ${this.run.stage + 1}` : this.dungeon.name);
     } else if (this.screen === 'paused') {
       this.screen = 'playing';
       this.overlay.hide();
@@ -523,9 +867,9 @@ export class Game {
     if (this.screen === 'playing' || this.screen === 'ended') {
       this.poses.update(STEP, match.player.moving);
       for (const [id, poses] of this.allyPoses) poses.update(STEP, match.players.get(id)?.moving ?? false);
-      this.effects.update(STEP, match, this.camera);
+      this.effects.update(STEP, this.networkBattleId && this.networkView ? this.networkView.match : match, this.camera);
     }
-    if (this.screen === 'playing') {
+    if (this.screen === 'playing' && this.pendingRoom === null) {
       if (this.networkBattleId) {
         if (this.party.client.input(this.readIntent())) this.input.takeLatched();
       } else if (this.interlude > 0) {
@@ -541,6 +885,18 @@ export class Game {
     this.camera.follow(match.player.position);
   }
 
+  /** Le viste della discesa in corso: dalla partita singola o dal server (cooperativa). */
+  private descentViews(): { run: RunView; room: RoomView; next: readonly DoorOption[]; localId: string } | null {
+    if (this.networkBattleId) {
+      const run = this.networkRun, room = this.networkRoom;
+      if (run === null || room === null) return null;
+      return { run, room, next: run.plan[run.stage + 1]?.options ?? [], localId: this.party.client.playerId };
+    }
+    const run = this.run;
+    if (run === null || run.match !== this.match) return null;
+    return { run: run.view(), room: run.roomView(), next: run.nextOptions, localId: 'local' };
+  }
+
   private frame(time: number): void {
     const frameStart = performance.now();
     this.party.client.flushSnapshot();
@@ -548,6 +904,8 @@ export class Game {
     this.lastTime = time;
     this.clock += delta;
     this.accumulator += delta;
+    const view = this.networkBattleId && this.networkView ? this.networkView : null;
+    view?.sample(performance.now());
     while (this.accumulator >= STEP) {
       this.step();
       this.accumulator -= STEP;
@@ -560,22 +918,49 @@ export class Game {
         show();
       }
     }
+    if (this.pendingRoom !== null) {
+      this.pendingRoom.remaining -= delta;
+      if (this.pendingRoom.remaining <= 0) {
+        const { enter } = this.pendingRoom;
+        this.pendingRoom = null;
+        document.body.classList.remove('room-fading');
+        enter();
+      }
+    }
     this.camera.shakeOffset =
       this.screen === 'playing' || this.screen === 'ended' ? this.effects.shakeOffset() : Vec2.ZERO;
+    const renderedMatch = view?.match ?? this.match;
+    this.camera.follow(renderedMatch.player.position);
+    if (view) renderedMatch.player.aim = renderedMatch.player.position.add(this.camera.pointerOffset(this.input.pointer));
     this.hud.update(this.match, levelProgress(this.character.totalXp));
+    const views = this.descentViews();
+    if (views !== null && (this.screen === 'playing' || this.screen === 'paused')) this.descentHud.update(views.run, views.room, views.localId);
     this.audio.setListener(this.match.player.position, this.camera.width / 2);
-    this.audio.setScene({ screen: this.screen, theme: this.dungeon.arena.theme, enraged: this.match.boss.isEnraged });
+    const audioScreen: AudioScreen = this.screen === 'bestiary' ? 'menu' : this.screen;
+    this.audio.setScene({ screen: audioScreen, theme: this.match.arena.theme, enraged: this.match.boss?.isEnraged ?? false });
     this.audio.update(delta);
+    const look: RoomLook | null = views === null ? null : { view: views.room, arena: this.match.arena, nextOptions: views.next, localId: views.localId };
     renderScene(this.ctx, {
-      match: this.match,
+      match: renderedMatch,
       effects: this.effects,
       poses: this.poses,
       camera: this.camera,
       clock: this.clock,
       appearance: this.renderAppearance ??= this.character.appearance(),
       allies: this.allyVisuals,
+      ...(look === null ? {} : {
+        drawRoom: (ctx: CanvasRenderingContext2D, layer: 'floor' | 'above') => (layer === 'floor' ? drawRoomFloor(ctx, look, this.clock) : drawRoomLabels(ctx, look)),
+        drawRoomScreen: (ctx: CanvasRenderingContext2D) => drawRoomIndicators(ctx, this.camera, renderedMatch.player.position, look.view, renderedMatch.minions),
+        preyId: look.view.preyId,
+      }),
     });
     this.performancePanel.frame(time, performance.now() - frameStart, this.party.client);
     requestAnimationFrame((next) => this.frame(next));
   }
+}
+
+/** "GUARDIANO DELLA CRIPTA" -> "Guardiano della cripta". */
+function titleCase(name: string): string {
+  const lower = name.toLocaleLowerCase('it-IT');
+  return lower.charAt(0).toLocaleUpperCase('it-IT') + lower.slice(1);
 }

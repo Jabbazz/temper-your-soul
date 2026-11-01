@@ -1,6 +1,7 @@
 import type { Camera } from '../../core/camera';
 import { cosmeticRng, type Rng } from '../../core/rng';
 import { TAU, Vec2 } from '../../core/vec2';
+import type { Boss } from '../boss/boss';
 import type { GameEvent } from '../combat/events';
 import type { Projectile } from '../combat/projectile';
 import type { Match } from '../match/match';
@@ -14,6 +15,8 @@ const MAX_WAVES = 80;
 /** Ogni quanti secondi un proiettile lascia un punto della scia e una particella. */
 const TRAIL_INTERVAL = 0.025;
 const TRAIL_LENGTH = 9;
+/** Oltre questo numero di proiettili le particelle di scia si dimezzano. */
+const DENSE_PROJECTILES = 40;
 
 /**
  * Durate degli effetti di risposta ai colpi e dei momenti chiave, in secondi. Provvisorie (vedi
@@ -136,6 +139,23 @@ export interface BossDeath {
   readonly total: number;
 }
 
+/**
+ * Un segnale a terra a tempo: un servitore in arrivo (`incoming`), la linea di una carica, il cerchio di un'uscita da
+ * sotto terra o di un teletrasporto, la posa di una raffica. Nasce dagli eventi, cosi' funziona anche in cooperativa.
+ */
+export interface Telegraph {
+  readonly kind: 'incoming' | 'shot' | 'charge' | 'emerge' | 'blink' | 'aura';
+  readonly position: Vec2;
+  readonly to?: Vec2;
+  /** Servitore annunciato (per seguirne la posa) o aspetto del servitore in arrivo. */
+  readonly minionId?: number;
+  readonly visual?: string;
+  readonly elite?: string;
+  readonly radius?: number;
+  remaining: number;
+  readonly total: number;
+}
+
 const SLASH_LIFE = 0.18;
 const TEXT_LIFE = 0.9;
 const DAMAGE_TEXT_LIFE = 0.75;
@@ -171,8 +191,12 @@ export class Effects {
   screenFlash = 0;
   /** Sequenza della morte del boss, se in corso. */
   bossDeath: BossDeath | null = null;
+  /** Segnali a terra dei servitori (comparse, cariche, uscite, teletrasporti, raffiche). */
+  telegraphs: Telegraph[] = [];
+  /** Rallentatore della stanza appena liberata (secondi rimasti): solo aspetto. */
+  roomClearFlash = 0;
 
-  private readonly trails = new Map<number, { emit: number; points: Vec2[] }>();
+  private readonly trails = new Map<number, { emit: number; points: Vec2[]; emitted: number }>();
   /** Particelle d'ambiente del boss "in debito" (frazioni accumulate fra un passo e l'altro). */
   private ambientDebt = 0;
 
@@ -194,6 +218,8 @@ export class Effects {
     this.bossTransform = 0;
     this.screenFlash = 0;
     this.bossDeath = null;
+    this.telegraphs = [];
+    this.roomClearFlash = 0;
     this.ambientDebt = 0;
     this.trails.clear();
   }
@@ -263,12 +289,64 @@ export class Effects {
       }
       case 'minion_defeated': {
         const art = minionArt(event.visual);
-        this.burst(event.position, art.color, event.exploded ? 34 : 20);
-        this.wave(event.position, event.exploded ? 44 : 24, art.color, 0.35);
+        // Le morti in massa restano leggere: poche particelle per servitore, un'onda piccola.
+        this.burst(event.position, art.color, event.exploded ? 26 : event.revives ? 6 : 10);
+        this.wave(event.position, event.exploded ? 44 : 22, art.color, 0.3);
         this.minionFlashes.delete(event.minionId);
+        this.telegraphs = this.telegraphs.filter((telegraph) => telegraph.minionId !== event.minionId);
         if (event.exploded) this.shake = Math.max(this.shake, 4);
         break;
       }
+      case 'minion_incoming':
+        this.telegraphs.push({
+          kind: 'incoming',
+          position: event.position,
+          visual: event.visual,
+          ...(event.elite ? { elite: event.elite } : {}),
+          remaining: event.delay,
+          total: event.delay,
+        });
+        break;
+      case 'minion_telegraph':
+        this.telegraphs.push({
+          kind: event.action,
+          position: event.position,
+          ...(event.to ? { to: event.to } : {}),
+          minionId: event.minionId,
+          remaining: event.seconds,
+          total: event.seconds,
+        });
+        break;
+      case 'minion_aura':
+        this.telegraphs.push({ kind: 'aura', position: event.position, radius: event.radius, minionId: event.minionId, remaining: 0.6, total: 0.6 });
+        break;
+      case 'minion_woke':
+      case 'minion_revived': {
+        const color = event.type === 'minion_woke' ? '#b9b2a8' : minionArt(event.visual).color;
+        this.burst(event.position, color, 14);
+        this.wave(event.position, 30, color, 0.35);
+        break;
+      }
+      case 'minion_blinked':
+        for (const point of [event.from, event.position]) {
+          this.burst(point, '#d9f2ff', 12);
+          this.wave(point, 28, '#e8f8ff', 0.3);
+        }
+        break;
+      case 'room_cleared':
+        this.roomClearFlash = 0.6;
+        for (const [radius, life] of [[120, 0.5], [220, 0.8]] as const) this.wave(event.position, radius, '#ffe3a6', life);
+        break;
+      case 'reward_taken':
+        this.burst(event.position, '#ffd889', 30);
+        this.wave(event.position, 60, '#fff1ce', 0.5);
+        break;
+      case 'last_enemy':
+        this.wave(event.position, 40, '#fff1ce', 0.6);
+        break;
+      case 'temper_chosen':
+      case 'wave_started':
+      case 'room_exited':
       case 'boss_pose':
       case 'match_ended':
         break;
@@ -279,11 +357,15 @@ export class Effects {
   update(dt: number, match: Match, camera: Camera): void {
     this.updateTrails(dt, match.projectiles, camera);
     const { boss } = match;
-    const charge = boss.charge;
-    if (charge !== null && charge.elapsed >= charge.windup && boss.health.current > 0) {
-      this.burst(boss.position, '#d89865', 2);
+    if (boss !== null) {
+      const charge = boss.charge;
+      if (charge !== null && charge.elapsed >= charge.windup && boss.health.current > 0) {
+        this.burst(boss.position, '#d89865', 2);
+      }
+      if (boss.health.current > 0 && camera.isVisible(boss.position, 120)) this.emitBossParticles(dt, boss);
     }
-    if (boss.health.current > 0 && camera.isVisible(boss.position, 120)) this.emitBossParticles(dt, match);
+    for (const telegraph of this.telegraphs) telegraph.remaining -= dt;
+    this.telegraphs = this.telegraphs.filter((telegraph) => telegraph.remaining > 0);
     this.updateDeath(dt);
 
     for (const f of this.particles) {
@@ -319,6 +401,7 @@ export class Effects {
     this.rageFlash = Math.max(0, this.rageFlash - dt);
     this.bossTransform = Math.max(0, this.bossTransform - dt);
     this.screenFlash = Math.max(0, this.screenFlash - dt);
+    this.roomClearFlash = Math.max(0, this.roomClearFlash - dt);
   }
 
   /** Scostamento di camera per la scossa corrente (zero a riposo). */
@@ -385,8 +468,7 @@ export class Effects {
   }
 
   /** Particelle d'ambiente del boss e, in furia, aura fitta del suo colore. */
-  private emitBossParticles(dt: number, match: Match): void {
-    const { boss } = match;
+  private emitBossParticles(dt: number, boss: Boss): void {
     const fx = bossFx(boss.definition.art);
     const rate = fx.ambient.rate + (boss.isEnraged ? fx.rage.rate : 0);
     this.ambientDebt += rate * dt;
@@ -511,11 +593,13 @@ export class Effects {
 
   private updateTrails(dt: number, projectiles: readonly Projectile[], camera: Camera): void {
     const alive = new Set<number>();
+    // Con molti proiettili a schermo le particelle di scia si dimezzano: sono decorazione, non informazione.
+    const dense = projectiles.length > DENSE_PROJECTILES;
     for (const projectile of projectiles) {
       alive.add(projectile.id);
       let trail = this.trails.get(projectile.id);
       if (trail === undefined) {
-        trail = { emit: 0, points: [] };
+        trail = { emit: 0, points: [], emitted: 0 };
         this.trails.set(projectile.id, trail);
       }
       trail.emit += dt;
@@ -523,6 +607,7 @@ export class Effects {
         trail.emit -= TRAIL_INTERVAL;
         trail.points.push(projectile.position);
         if (trail.points.length > TRAIL_LENGTH) trail.points.shift();
+        if (dense && trail.emitted++ % 2 === 1) continue;
         if (camera.isVisible(projectile.position, 50)) {
           const r = projectile.radius;
           this.particle(

@@ -26,9 +26,9 @@ describe('stato iniziale', () => {
     expect(match.status).toBe('playing');
     expect(match.time).toBe(0);
     expect(match.player.position).toEqual(CRYPT_ARENA.playerSpawn);
-    expect(match.boss.position).toEqual(CRYPT_ARENA.bossSpawn);
+    expect(match.boss!.position).toEqual(CRYPT_ARENA.bossSpawn);
     expect(match.player.health.current).toBe(100);
-    expect(match.boss.health.current).toBe(1800);
+    expect(match.boss!.health.current).toBe(1800);
     expect(match.projectiles).toHaveLength(0);
     expect(match.zones).toHaveLength(0);
   });
@@ -92,8 +92,8 @@ describe('movimento e skill nella partita', () => {
 
   it('le skill non partono dopo la fine della partita', () => {
     const match = createQuietMatch();
-    match.boss.health.current = 1;
-    match.projectiles.push(new Projectile(99, { ...ENEMY_SHOT, team: 'player', damage: 5 }, match.boss.position, 0));
+    match.boss!.health.current = 1;
+    match.projectiles.push(new Projectile(99, { ...ENEMY_SHOT, team: 'player', damage: 5 }, match.boss!.position, 0));
     match.step(STEP, intent(match));
     expect(match.status).toBe('won');
     const events = recordEvents(match);
@@ -105,42 +105,42 @@ describe('movimento e skill nella partita', () => {
 describe('proiettili del giocatore', () => {
   it('il dardo colpisce il boss e toglie 19; il proiettile scompare', () => {
     const match = createQuietMatch();
-    match.boss.position = match.player.position.add(new Vec2(150, 0));
+    match.boss!.position = match.player.position.add(new Vec2(150, 0));
     const events = recordEvents(match);
-    const aim = match.boss.position;
+    const aim = match.boss!.position;
     for (let i = 0; i < 120 && eventsOfType(events, 'damage_dealt').length === 0; i++) {
       match.step(STEP, i === 0 ? holding(match, [0], { aim }) : intent(match, { aim }));
     }
     const hits = eventsOfType(events, 'damage_dealt');
     expect(hits[0]).toMatchObject({ target: 'boss', amount: 19 });
-    expect(match.boss.health.current).toBe(1800 - 19);
+    expect(match.boss!.health.current).toBe(1800 - 19);
     expect(match.projectiles).toHaveLength(0);
     expect(eventsOfType(events, 'projectile_hit')).toHaveLength(1);
   });
 
   it('il globo di gelo toglie 100 e rallenta il boss per 2 s (che poi finiscono)', () => {
     const match = createQuietMatch();
-    match.boss.position = match.player.position.add(new Vec2(150, 0));
-    const aim = match.boss.position;
-    for (let i = 0; i < 120 && match.boss.health.current === 1800; i++) {
+    match.boss!.position = match.player.position.add(new Vec2(150, 0));
+    const aim = match.boss!.position;
+    for (let i = 0; i < 120 && match.boss!.health.current === 1800; i++) {
       match.step(STEP, i === 0 ? holding(match, [1], { aim }) : intent(match, { aim }));
     }
-    expect(match.boss.health.current).toBe(1700);
-    expect(match.boss.isSlowed).toBe(true);
-    expect(match.boss.slowFor).toBeGreaterThan(1.9);
+    expect(match.boss!.health.current).toBe(1700);
+    expect(match.boss!.isSlowed).toBe(true);
+    expect(match.boss!.slowFor).toBeGreaterThan(1.9);
     run(match, 2.1, (m) => intent(m, { aim }));
-    expect(match.boss.isSlowed).toBe(false);
+    expect(match.boss!.isSlowed).toBe(false);
   });
 
   it('il proiettile del giocatore ignora il giocatore e quello nemico ignora il boss', () => {
     const match = createQuietMatch();
     match.player.position = new Vec2(800, 800);
-    match.boss.position = new Vec2(1500, 1500);
+    match.boss!.position = new Vec2(1500, 1500);
     match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player' }, new Vec2(800, 800), 0));
     match.projectiles.push(new Projectile(2, ENEMY_SHOT, new Vec2(1500, 1500), 0));
     match.step(STEP, intent(match));
     expect(match.player.health.current).toBe(100);
-    expect(match.boss.health.current).toBe(1800);
+    expect(match.boss!.health.current).toBe(1800);
     expect(match.projectiles).toHaveLength(2);
   });
 
@@ -161,12 +161,12 @@ describe('proiettili del giocatore', () => {
 
   it('il danno al boss e\' riportato per intero anche oltre gli HP rimasti', () => {
     const match = createQuietMatch();
-    match.boss.health.current = 10;
+    match.boss!.health.current = 10;
     const events = recordEvents(match);
-    match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss.position, 0));
+    match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss!.position, 0));
     match.step(STEP, intent(match));
     expect(eventsOfType(events, 'damage_dealt')[0]).toMatchObject({ target: 'boss', amount: 19 });
-    expect(match.boss.health.current).toBe(0);
+    expect(match.boss!.health.current).toBe(0);
   });
 });
 
@@ -210,7 +210,7 @@ describe('danni al giocatore', () => {
 
   it('il contatto con il boss (sotto 29) toglie 18, poi serve la fine dell\'invulnerabilita\'', () => {
     const match = createQuietMatch();
-    match.boss.position = match.player.position.add(new Vec2(20, 0));
+    match.boss!.position = match.player.position.add(new Vec2(20, 0));
     match.step(STEP, intent(match));
     expect(match.player.health.current).toBe(100 - GUARDIAN_STATS.contactDamage);
     run(match, 0.5);
@@ -224,7 +224,7 @@ describe('confini delle collisioni con il boss', () => {
   /** Giocatore sotto il boss a 100: il boss gli gira attorno in orizzontale e la distanza verticale non cambia. */
   const arranged = () => {
     const match = createQuietMatch();
-    match.boss.position = new Vec2(1600, 1100);
+    match.boss!.position = new Vec2(1600, 1100);
     match.player.position = new Vec2(1600, 1200);
     return match;
   };
@@ -232,7 +232,7 @@ describe('confini delle collisioni con il boss', () => {
   it('il contatto ferisce sotto 29 di distanza e non a 29,1', () => {
     for (const [distance, hurt] of [[28.9, true], [29.1, false]] as const) {
       const match = createQuietMatch();
-      match.boss.position = match.player.position.add(new Vec2(distance, 0));
+      match.boss!.position = match.player.position.add(new Vec2(distance, 0));
       match.step(STEP, intent(match));
       expect(match.player.health.current, `distanza ${distance}`).toBe(hurt ? 82 : 100);
     }
@@ -241,33 +241,33 @@ describe('confini delle collisioni con il boss', () => {
   it('un proiettile del giocatore colpisce il boss entro raggio + 26 (5 + 26 = 31), non oltre', () => {
     for (const [distance, hit] of [[30.8, true], [31.2, false]] as const) {
       const match = arranged();
-      match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss.position.add(new Vec2(0, -distance)), 0));
+      match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss!.position.add(new Vec2(0, -distance)), 0));
       match.step(STEP, intent(match));
-      expect(match.boss.health.current, `distanza ${distance}`).toBe(hit ? 1781 : 1800);
+      expect(match.boss!.health.current, `distanza ${distance}`).toBe(hit ? 1781 : 1800);
     }
   });
 
   it('la meteora del giocatore colpisce il boss entro raggio + 25 (66 + 25 = 91), non oltre', () => {
     for (const [distance, hit] of [[90.5, true], [91.5, false]] as const) {
       const match = arranged();
-      match.zones.push(new DangerZone(1, { team: 'player', radius: 66, delay: 0.05, damage: 210 }, match.boss.position.add(new Vec2(0, -distance))));
+      match.zones.push(new DangerZone(1, { team: 'player', radius: 66, delay: 0.05, damage: 210 }, match.boss!.position.add(new Vec2(0, -distance))));
       run(match, 0.2);
-      expect(match.boss.health.current, `distanza ${distance}`).toBe(hit ? 1590 : 1800);
+      expect(match.boss!.health.current, `distanza ${distance}`).toBe(hit ? 1590 : 1800);
     }
   });
 
   it('colpire di nuovo con il gelo rinnova il rallentamento a 2 s, non lo somma', () => {
     const match = arranged();
     const frost: ProjectileSpec = { ...ENEMY_SHOT, team: 'player', damage: 100, radius: 8, slowSeconds: 2, visual: 'frost_orb' };
-    match.projectiles.push(new Projectile(1, frost, match.boss.position, 0));
+    match.projectiles.push(new Projectile(1, frost, match.boss!.position, 0));
     match.step(STEP, intent(match));
-    expect(match.boss.slowFor).toBe(2);
+    expect(match.boss!.slowFor).toBe(2);
     run(match, 1);
-    expect(match.boss.slowFor).toBeCloseTo(1, 1);
-    match.projectiles.push(new Projectile(2, frost, match.boss.position, 0));
+    expect(match.boss!.slowFor).toBeCloseTo(1, 1);
+    match.projectiles.push(new Projectile(2, frost, match.boss!.position, 0));
     match.step(STEP, intent(match));
-    expect(match.boss.slowFor).toBe(2);
-    expect(match.boss.health.current).toBe(1600);
+    expect(match.boss!.slowFor).toBe(2);
+    expect(match.boss!.health.current).toBe(1600);
   });
 });
 
@@ -297,38 +297,38 @@ describe('zone di pericolo', () => {
 
   it('la meteora del giocatore colpisce il boss per 210 entro raggio + 25 e non ferisce il giocatore', () => {
     const match = createQuietMatch();
-    match.boss.position = new Vec2(1400, 1000);
+    match.boss!.position = new Vec2(1400, 1000);
     match.player.position = new Vec2(1460, 1000);
     // Mira sul boss: la meteora esplode sul punto mirato dopo 0,65 s (il boss gli gira attorno e si sposta di poco).
-    const aim = match.boss.position;
+    const aim = match.boss!.position;
     match.step(STEP, holding(match, [2], { aim }));
     expect(match.zones).toHaveLength(1);
     run(match, 0.7, (m) => intent(m, { aim }));
     expect(match.zones).toHaveLength(0);
-    expect(match.boss.health.current).toBe(1800 - 210);
+    expect(match.boss!.health.current).toBe(1800 - 210);
     expect(match.player.health.current).toBe(100);
   });
 
   it('una zona del giocatore non ferisce il giocatore e una nemica non ferisce il boss', () => {
     const match = createQuietMatch();
-    match.boss.position = new Vec2(300, 300);
+    match.boss!.position = new Vec2(300, 300);
     match.player.position = new Vec2(1500, 1500);
     match.zones.push(new DangerZone(1, { team: 'player', radius: 66, delay: 0.05, damage: 210 }, new Vec2(1500, 1500)));
     match.zones.push(new DangerZone(2, { team: 'enemy', radius: 66, delay: 0.05, damage: 24 }, new Vec2(300, 300)));
     run(match, 0.2);
     expect(match.zones).toHaveLength(0);
     expect(match.player.health.current).toBe(100);
-    expect(match.boss.health.current).toBe(1800);
+    expect(match.boss!.health.current).toBe(1800);
   });
 });
 
 describe('fine della partita', () => {
   it('quando il boss muore la partita e\' vinta, con un solo evento di sconfitta del boss e uno di fine', () => {
     const match = createQuietMatch();
-    match.boss.health.current = 10;
+    match.boss!.health.current = 10;
     const events = recordEvents(match);
-    match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss.position, 0));
-    match.projectiles.push(new Projectile(2, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss.position, 0));
+    match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss!.position, 0));
+    match.projectiles.push(new Projectile(2, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss!.position, 0));
     match.step(STEP, intent(match));
     expect(match.status).toBe('won');
     expect(eventsOfType(events, 'boss_defeated')).toHaveLength(1);
@@ -339,7 +339,7 @@ describe('fine della partita', () => {
   it('quando il giocatore muore la partita e\' persa', () => {
     const match = createQuietMatch();
     match.player.health.current = 10;
-    match.boss.position = match.player.position;
+    match.boss!.position = match.player.position;
     const events = recordEvents(match);
     match.step(STEP, intent(match));
     expect(match.status).toBe('lost');
@@ -350,7 +350,7 @@ describe('fine della partita', () => {
   it('dopo la fine il tempo e lo stato sono congelati e nessun evento viene emesso', () => {
     const match = createQuietMatch();
     match.player.health.current = 1;
-    match.boss.position = match.player.position;
+    match.boss!.position = match.player.position;
     match.step(STEP, intent(match));
     expect(match.status).toBe('lost');
     const time = match.time;
@@ -366,13 +366,13 @@ describe('fine della partita', () => {
   it('se giocatore e boss muoiono nello stesso passo vince la sconfitta: il contatto e\' valutato prima dei proiettili', () => {
     const match = createQuietMatch();
     match.player.health.current = 1;
-    match.boss.health.current = 1;
-    match.boss.position = match.player.position;
-    match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss.position, 0));
+    match.boss!.health.current = 1;
+    match.boss!.position = match.player.position;
+    match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss!.position, 0));
     const events = recordEvents(match);
     match.step(STEP, intent(match));
     expect(match.status).toBe('lost');
-    expect(match.boss.health.current).toBe(1);
+    expect(match.boss!.health.current).toBe(1);
     expect(eventsOfType(events, 'match_ended')).toEqual([{ type: 'match_ended', won: false }]);
     expect(eventsOfType(events, 'boss_defeated')).toHaveLength(0);
     run(match, 1);
@@ -385,7 +385,7 @@ describe('riproducibilita\'', () => {
     const t = match.time;
     return intent(match, {
       move: new Vec2(Math.cos(t * 0.7), Math.sin(t * 0.9)),
-      aim: match.boss.position,
+      aim: match.boss!.position,
       skills: [true, Math.floor(t) % 3 === 0, Math.floor(t) % 5 === 0, Math.floor(t) % 4 === 0],
     });
   };
@@ -397,8 +397,8 @@ describe('riproducibilita\'', () => {
     run(b, 25, script);
     expect(b.status).toBe(a.status);
     expect(b.player.position).toEqual(a.player.position);
-    expect(b.boss.position).toEqual(a.boss.position);
-    expect(b.boss.health.current).toBe(a.boss.health.current);
+    expect(b.boss!.position).toEqual(a.boss!.position);
+    expect(b.boss!.health.current).toBe(a.boss!.health.current);
     expect(b.player.health.current).toBe(a.player.health.current);
     expect(b.projectiles.length).toBe(a.projectiles.length);
     expect(b.zones.map((z) => z.position)).toEqual(a.zones.map((z) => z.position));
@@ -407,8 +407,8 @@ describe('riproducibilita\'', () => {
   it('semi diversi cambiano le posizioni casuali delle fratture', () => {
     const positions = (seed: number) => {
       const match = createMatch(seed);
-      match.boss.attackCount = 2;
-      match.boss.attackTimer = 0;
+      match.boss!.attackCount = 2;
+      match.boss!.attackTimer = 0;
       match.step(STEP, intent(match));
       return match.zones.map((zone) => zone.position);
     };
@@ -422,22 +422,22 @@ describe('simulazione lunga (controllo di sanita\')', () => {
     for (const seed of [1, 2, 3]) {
       const match = createMatch(seed);
       // Il giocatore e il boss non muoiono: l'obiettivo e' far girare tutti gli schemi a lungo e controllare gli invarianti.
-      match.boss.health.current = 850;
+      match.boss!.health.current = 850;
       let invalid = 0;
       for (let i = 0; i < 60 * 180 && match.status === 'playing'; i++) {
         const t = match.time;
         match.player.health.current = 100;
-        match.boss.health.current = Math.max(match.boss.health.current, 600);
+        match.boss!.health.current = Math.max(match.boss!.health.current, 600);
         match.step(
           STEP,
           intent(match, {
             move: new Vec2(Math.cos(t * 0.5 + seed), Math.sin(t * 0.8)),
-            aim: new Vec2(match.boss.position.x + Math.sin(t) * 50, match.boss.position.y),
+            aim: new Vec2(match.boss!.position.x + Math.sin(t) * 50, match.boss!.position.y),
             skills: [true, true, Math.floor(t * 2) % 3 === 0, Math.floor(t * 2) % 5 === 0],
           }),
         );
         if (!Number.isFinite(match.player.position.x + match.player.position.y)) invalid++;
-        if (!Number.isFinite(match.boss.position.x + match.boss.position.y)) invalid++;
+        if (!Number.isFinite(match.boss!.position.x + match.boss!.position.y)) invalid++;
         for (const projectile of match.projectiles) {
           if (!Number.isFinite(projectile.position.x + projectile.position.y)) invalid++;
           if (isOutsideProjectileBounds(CRYPT_ARENA, projectile.position)) invalid++;
@@ -445,8 +445,8 @@ describe('simulazione lunga (controllo di sanita\')', () => {
       }
       expect(invalid).toBe(0);
       expect(match.status).toBe('playing');
-      expect(match.boss.phase).toBe(2);
-      expect(match.boss.attackCount).toBeGreaterThan(30);
+      expect(match.boss!.phase).toBe(2);
+      expect(match.boss!.attackCount).toBeGreaterThan(30);
       expect(match.player.position.x).toBeGreaterThanOrEqual(CRYPT_ARENA.playerMargin);
       expect(match.player.position.x).toBeLessThanOrEqual(CRYPT_ARENA.width - CRYPT_ARENA.playerMargin);
     }
@@ -474,28 +474,28 @@ describe('mappe con ostacoli e boss diversi', () => {
   it('un pilastro ferma anche i proiettili del giocatore: il boss dietro non viene colpito', () => {
     const match = createQuietMatch(1, { dungeon: withPillar(new Vec2(1300, 1350)) });
     match.player.position = new Vec2(1100, 1350);
-    match.boss.position = new Vec2(1500, 1350);
-    match.boss.attackTimer = Infinity;
-    const aim = match.boss.position;
+    match.boss!.position = new Vec2(1500, 1350);
+    match.boss!.attackTimer = Infinity;
+    const aim = match.boss!.position;
     for (let i = 0; i < 90; i++) match.step(STEP, i === 0 ? holding(match, [0], { aim }) : intent(match, { aim }));
-    expect(match.boss.health.current).toBe(1800);
+    expect(match.boss!.health.current).toBe(1800);
   });
 
   it('senza pilastro lo stesso tiro colpisce (controllo del test precedente)', () => {
     const match = createQuietMatch(1);
     match.player.position = new Vec2(1100, 1350);
-    match.boss.position = new Vec2(1500, 1350);
-    const aim = match.boss.position;
-    for (let i = 0; i < 90 && match.boss.health.current === 1800; i++) {
+    match.boss!.position = new Vec2(1500, 1350);
+    const aim = match.boss!.position;
+    for (let i = 0; i < 90 && match.boss!.health.current === 1800; i++) {
       match.step(STEP, i === 0 ? holding(match, [0], { aim }) : intent(match, { aim }));
     }
-    expect(match.boss.health.current).toBeLessThan(1800);
+    expect(match.boss!.health.current).toBeLessThan(1800);
   });
 
   it('il boss ignora i pilastri e il giocatore non puo\' attraversarli', () => {
     const pillar = new Vec2(1600, 1250);
     const match = createQuietMatch(1, { dungeon: withPillar(pillar, 60) });
-    match.boss.position = new Vec2(1600, 1100);
+    match.boss!.position = new Vec2(1600, 1100);
     match.player.position = new Vec2(1600, 1350);
     for (let i = 0; i < 180; i++) match.step(STEP, intent(match, { move: new Vec2(0, -1) }));
     expect(match.player.position.distanceTo(pillar)).toBeGreaterThanOrEqual(70 - 1e-6);
@@ -508,11 +508,11 @@ describe('mappe con ostacoli e boss diversi', () => {
     };
     for (const [dungeon, hit] of [[big, true], [CRYPT, false]] as const) {
       const match = createQuietMatch(1, { dungeon });
-      match.boss.position = new Vec2(1600, 1100);
+      match.boss!.position = new Vec2(1600, 1100);
       match.player.position = new Vec2(1600, 1200);
-      match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss.position.add(new Vec2(0, -50)), 0));
+      match.projectiles.push(new Projectile(1, { ...ENEMY_SHOT, team: 'player', damage: 19 }, match.boss!.position.add(new Vec2(0, -50)), 0));
       match.step(STEP, intent(match));
-      expect(match.boss.health.current, dungeon.id).toBe(hit ? 1781 : 1800);
+      expect(match.boss!.health.current, dungeon.id).toBe(hit ? 1781 : 1800);
     }
   });
 
@@ -536,7 +536,7 @@ describe('mappe con ostacoli e boss diversi', () => {
     for (const [label, offset, hit] of cases) {
       const match = createQuietMatch(1, { loadout: [slash, null, null, null] });
       match.player.position = new Vec2(1600, 1350);
-      match.boss.position = match.player.position.add(offset);
+      match.boss!.position = match.player.position.add(offset);
       const events = recordEvents(match);
       // La mira e' a destra del giocatore: il boss non si muove nel passo perche' il suo spostamento e' minimo.
       match.step(STEP, { move: Vec2.ZERO, aimOffset: new Vec2(100, 0), skills: [true, false, false, false] });
@@ -564,7 +564,7 @@ describe('mappe con ostacoli e boss diversi', () => {
     for (const [label, pillar, radius, hit] of cases) {
       const match = createQuietMatch(1, { dungeon: withPillar(pillar, radius), loadout: [slash, null, null, null] });
       match.player.position = player;
-      match.boss.position = boss;
+      match.boss!.position = boss;
       const events = recordEvents(match);
       match.step(STEP, { move: Vec2.ZERO, aimOffset: new Vec2(100, 0), skills: [true, false, false, false] });
       const damaged = eventsOfType(events, 'damage_dealt').some((event) => event.target === 'boss');
@@ -582,11 +582,11 @@ describe('mappe con ostacoli e boss diversi', () => {
       effect: { kind: 'ground_blast', center: 'caster', zone: { team: 'player', radius: 110, delay: 0.2, damage: 120, slowSeconds: 3 } },
     };
     const match = createQuietMatch(1, { loadout: [null, null, nova, null] });
-    match.boss.position = match.player.position.add(new Vec2(0, -90));
+    match.boss!.position = match.player.position.add(new Vec2(0, -90));
     match.step(STEP, holding(match, [2]));
     run(match, 0.3);
-    expect(match.boss.health.current).toBe(1800 - 120);
-    expect(match.boss.slowFor).toBeGreaterThan(2.5);
+    expect(match.boss!.health.current).toBe(1800 - 120);
+    expect(match.boss!.slowFor).toBeGreaterThan(2.5);
   });
 
   it('con gli slot vuoti la partita funziona e il giocatore non lancia nulla', () => {

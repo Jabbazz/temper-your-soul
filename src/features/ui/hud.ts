@@ -2,7 +2,7 @@ import { SKILL_ICONS } from '../presentation/skill-icons';
 import { renderPixelIcon } from './pixel-icon';
 import { describeSkillStats } from '../items/item';
 import { manaCost } from '../skills/mana';
-import type { Match } from '../match/match';
+import { ENVIRONMENT_ID, type Match } from '../match/match';
 import type { Loadout } from '../skills/skill-definition';
 import type { GameEvent } from '../combat/events';
 import { requireElement } from './dom';
@@ -47,6 +47,7 @@ export class Hud {
    */
   onEvent(event: GameEvent, localPlayerId?: string): void {
     if (event.type !== 'damage_dealt' || event.target === 'player') return;
+    if (event.playerId === ENVIRONMENT_ID) return;
     if (localPlayerId !== undefined && event.playerId !== undefined && event.playerId !== localPlayerId) return;
     const now = performance.now() / 1000;
     this.meter.add(event.amount, now);
@@ -99,17 +100,22 @@ export class Hud {
     const { player, boss } = match;
     this.setWidth(this.playerBar, player.health.fraction * 100);
     this.setText(this.playerText, `${Math.ceil(player.health.current)} / ${player.health.max} PV`);
-    this.setWidth(this.bossBar, boss.health.fraction * 100);
-    this.setText(this.bossText, `${Math.ceil(boss.health.current)} / ${boss.health.max} · FASE ${boss.phase === 2 ? 'II' : 'I'}`);
     const now = performance.now() / 1000;
     this.setWidth(this.playerChip, this.playerChipBar.update(player.health.fraction, now) * 100);
-    this.setWidth(this.bossChip, this.bossChipBar.update(boss.health.fraction, now) * 100);
+    // Nelle stanze senza boss (o dopo la caduta del luogotenente) la barra del boss sparisce.
+    const showBoss = boss !== null && !(boss.health.isDead && match.encounter !== null);
+    this.bossHud.classList.toggle('no-boss', !showBoss);
+    if (boss !== null) {
+      this.setWidth(this.bossBar, boss.health.fraction * 100);
+      this.setText(this.bossText, `${Math.ceil(boss.health.current)} / ${boss.health.max} · FASE ${boss.phase === 2 ? 'II' : 'I'}`);
+      this.setWidth(this.bossChip, this.bossChipBar.update(boss.health.fraction, now) * 100);
+      this.bossHud.classList.toggle('enraged', boss.isEnraged);
+      // La tacca indica la soglia della furia finche' non e' superata.
+      this.bossHud.style.setProperty('--phase-mark', `${boss.stats.phaseTwoThreshold * 100}%`);
+    }
     const recent = this.meter.total(now);
     this.setText(this.bossDamage, recent > 0 ? `−${Math.round(recent)}` : '');
-    this.bossHud.classList.toggle('enraged', boss.isEnraged);
     this.bossHud.classList.toggle('struck', now - this.lastBossHit < 0.12);
-    // La tacca indica la soglia della furia finche' non e' superata.
-    this.bossHud.style.setProperty('--phase-mark', `${boss.stats.phaseTwoThreshold * 100}%`);
     this.cooldownBars.forEach((bar, slot) => this.setWidth(bar, player.skillBar.cooldownFraction(slot) * 100));
   }
 

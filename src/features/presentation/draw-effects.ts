@@ -17,7 +17,7 @@ export function drawText(
   ctx.fillText(s, x, y);
 }
 
-/** Onde e particelle, a luce additiva. */
+/** Onde, fendenti e scintille d'impatto, a luce additiva. */
 export function drawGlowEffects(ctx: CanvasRenderingContext2D, effects: Effects): void {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -57,6 +57,13 @@ export function drawGlowEffects(ctx: CanvasRenderingContext2D, effects: Effects)
     ctx.fillStyle = spark.color;
     ctx.fillRect(spark.x - 2, spark.y - 2, 4, 4);
   }
+  ctx.restore();
+}
+
+/** Particelle (scie, scoppi), a luce additiva. Si disegnano sotto i proiettili nemici, che non devono sbiadire. */
+export function drawParticles(ctx: CanvasRenderingContext2D, effects: Effects): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
   for (const f of effects.particles) {
     const alpha = clamp(f.remaining / f.total, 0, 1);
     const size = Math.max(1, f.size * Math.sqrt(alpha));
@@ -142,7 +149,7 @@ export function drawCrosshair(ctx: CanvasRenderingContext2D, aim: Vec2): void {
  * Freccia ai bordi della vista che indica dov'e' il boss quando e' fuori schermo. In coordinate di vista (non di mondo).
  * I margini lasciano libere le zone coperte dall'interfaccia (barre in alto, skill in basso).
  */
-export function drawBossIndicator(ctx: CanvasRenderingContext2D, camera: Camera, player: Vec2, boss: Vec2): void {
+export function drawBossIndicator(ctx: CanvasRenderingContext2D, camera: Camera, player: Vec2, boss: Vec2, label = 'BOSS', color = '#f0b380'): void {
   const { width: w, height: h } = camera;
   const bx = boss.x - camera.position.x;
   const by = boss.y - camera.position.y;
@@ -157,7 +164,7 @@ export function drawBossIndicator(ctx: CanvasRenderingContext2D, camera: Camera,
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(a);
-  ctx.fillStyle = '#f0b380';
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(12, 0);
   ctx.lineTo(-7, -7);
@@ -165,5 +172,5 @@ export function drawBossIndicator(ctx: CanvasRenderingContext2D, camera: Camera,
   ctx.closePath();
   ctx.fill();
   ctx.restore();
-  drawText(ctx, 'BOSS', x, y + 22, '#f0b380', 10, 'center');
+  drawText(ctx, label, x, y + 22, color, 10, 'center');
 }

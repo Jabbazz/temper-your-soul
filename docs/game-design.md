@@ -279,6 +279,89 @@ Regole comuni:
 - compaiono in cerchio attorno al boss, senza casualità (la partita resta riproducibile);
 - fermano i proiettili del giocatore prima del boss (fanno da scudo) e sono colpiti da zone e colpi ravvicinati;
 - contano nei danni del resoconto e muoiono con il boss;
-- in cooperativa viaggiano nelle istantanee (protocollo **3**: lista `m` con id, tipo, posizione e vita).
+- in cooperativa viaggiano nelle istantanee (protocollo **3**: lista `m` con id, tipo, posizione e vita; nel revisione locale della PR #4 protocollo 5, vedi sotto).
 
 Grafica nel codice in `presentation/minion-art.ts`. Punti aperti: numeri e frequenze, esperienza o bottino per i servitori (oggi nessuno), servitori anche in fase I.
+
+## Discesa: decisione del 1 novembre 2026 (revisione PR #4)
+
+La revisione locale della PR #4 mantiene mappe, 32 servitori a tema con élite, luogotenenti/pre-boss, Bestiario e scelta delle direzioni lungo otto tappe. **Nessuna ricompensa intermedia**: niente XP, oggetti, braci, cure a fine stanza, sigilli, tempre o Altare. Le skill restano quelle dell’equipaggiamento; solo il boss finale assegna gli XP e il bottino già previsti (25% di possibilità di un oggetto). La progressione tra stanze verrà progettata in un secondo momento.
+
+- Otto tappe: Soglia; due Scontri; Scontro/Prova/Reliquiario; Luogotenente; Santuario/Assedio; Scontro/Caccia; Anticamera; Boss. Il percorso e le direzioni restano deterministici dal seme.
+- A stanza libera si aprono le porte. Tutti i vivi restano sulla stessa soglia per 0,8 s. Nessuna scelta di potenziamenti blocca l’uscita.
+- Restano ondate a budget, insidie a tema, élite, segnali di comparsa, tetto dei vivi e scalatura del gruppo. Nessun moltiplicatore da gradi di tempra.
+- Prove, Assedio e Caccia mantengono obiettivi e combattimento. Stanze tranquille e Anticamera non curano e non generano forzieri/fonti/incudini.
+- Vita e mana passano alla stanza successiva; la rigenerazione mana ordinaria resta. In cooperativa un alleato a terra si rialza nella stanza seguente al 30%: meccanica KO preesistente, non premio di stanza.
+- Restano i 32 servitori a tema, i quattro luogotenenti e le mappe modello. Uccisioni registrate nel Bestiario anche alla sconfitta.
+- Boss: XP originali e tabelle originali, nessun bonus sigillo. I servitori e i luogotenenti non assegnano oggetti, XP o valuta.
+- Restano Duello e Pellegrinaggio della PR; la progressione tra stanze è rinviata.
+- Salvataggio v7: conserva migrazioni e dati storici braci/benedizioni/gradi senza applicarne gli effetti. Nessun reset dei profili.
+- Cooperativa: protocollo 5, stessa autorità server. Leader sceglie dungeon e modalità con pulsanti; grado sempre zero. I comandi storici di tempra/patto non assegnano benefici.
+
+### Punti aperti
+
+- Taratura di vita, danni e budget con partite vere: ogni dungeon è stato provato a fondo solo con simulazioni e bot.
+- Banda nelle stanze affollate: si potrebbero inviare le posizioni dei servitori a 15 Hz o solo quando cambiano.
+- Il resoconto della sconfitta chiama "Contatto con il boss" anche il contatto con il luogotenente.
+- Il Bestiario usa il tema Reliquiario, ma la revisione grafica complessiva resta sospesa.
+
+## Grafica: fase 0 dello studio (proposta del ramo `feature/discesa`, da approvare)
+
+Primo passo dello studio su grafica, stanze, minimappa e nemici (documento a parte, condiviso dall'utente): leggibilità a costo basso, senza nuovi asset e senza toccare le regole. Valori provvisori nelle tabelle indicate.
+
+- **Proiettili per squadra** (`draw-combat.ts`, `PROJECTILE_STYLE`):
+  - quelli nemici hanno alone, contorno scuro e nucleo chiaro;
+  - quelli dei giocatori sono al 70% di opacità, con scia leggera e senza alone.
+
+  Tutte le forme usano il colore del loro aspetto. Prima il rombo e il dardo avevano un colore fisso, quindi il globo di gelo era uguale alla nova del Custode e il dardo arcano uguale al dardo a croce.
+- **Colori nuovi dei proiettili nemici** che si confondevano con la lava o con i colpi dei giocatori:
+  - fucina: mantice, braci e scossa del Colosso, dardo a croce e schegge d'incudine;
+  - ghiacciaio: nova, schegge, bufera antioraria e schegge dell'apprendista;
+  - cripta: incensiere e campana.
+
+  Le zone a terra restano del loro materiale. Un test controlla la distanza di colore fra colpi dei giocatori e proiettili nemici della stessa forma, e fra i proiettili di un dungeon e i colori a terra del suo tema (`ArenaTheme.groundColors`).
+- **Ordine di disegno**: le figure (servitori, boss, eroi) si ordinano per profondità, poi vengono i colpi dei giocatori, le particelle e infine i proiettili nemici. Nomi e vita degli alleati stanno sopra tutto. Con più di 40 proiettili le particelle di scia si dimezzano.
+- **Sagome**: i servitori hanno un bordo chiaro di un'unità del colore del tema (`ArenaTheme.silhouette`), cotto nel raster in cache. I dormienti non ce l'hanno: devono sembrare pietra.
+- **Luce finta** (`presentation/lights.ts`):
+  - aloni in cache sotto torce, bracieri, crepe di lava, funghi e cristalli;
+  - buio ai bordi dello schermo, del colore del tema.
+
+  I funghi della palude diventano ciano: il giallo e il viola sono della Madre delle spore.
+- **Decori**:
+  - torce della cripta e bracieri della fucina stanno lungo i muri, a passo regolare;
+  - le incudini stanno in posizioni relative alla mappa;
+  - tutti lontano da ingresso, porte e pilastri (`themes/decor.ts`);
+  - tappeto e cerchi runici della cripta sono frazioni della mappa: nell'arena del boss restano dov'erano.
+
+  Prima, nelle stanze, un braciere cadeva sulla porta centrale e uno sull'ingresso.
+- **Pavimento della cripta**: un hash vero al posto della sinusoide, che disegnava strisce regolari.
+
+
+## Storico delle migliorie multiplayer integrate dalla copia locale
+
+Le misure seguenti precedono l’integrazione con le stanze della PR #4; non sono benchmark della versione combinata.
+
+### Diagnostica FPS e completamento dell’ottimizzazione (1 novembre 2026)
+
+Il tasto **F2**, o il pulsante **FPS · F2**, apre un pannello facoltativo con FPS, tempo dei fotogrammi al 95° percentile, lavoro per frame, aggiornamenti di rete al secondo, traffico approssimato, RTT e costi del server. I dati server arrivano da `/health` soltanto quando il pannello è visibile e il client è in party. CPU server è una percentuale di **un core**, non il consumo totale del PC; il tempo del frame non misura direttamente il carico della GPU. Nessuna telemetria inviata a terzi.
+
+La Cripta memorizza il pavimento in tasselli con cache limitata a 8 MiB per arena; torce animate e rune sono disegnate a parte. Completata la verifica di sei viste, inclusi bordi e coordinate frazionarie: **zero differenze di pixel** rispetto alla versione senza cache. Due test controllano riutilizzo, separazione fra arene e rimozione dei tasselli vecchi. Il caricamento audio limita a due le operazioni contemporanee; selezione delle piste e scritture di volume evitano lavoro ripetuto quando lo stato non cambia. Queste ottimizzazioni erano già integrate nel main; la ripresa ne completa verifica e documentazione.
+
+Corretto un problema rilevato nelle prove Windows: il watcher di Vite includeva `.tools/` e poteva arrestarsi con `EBUSY` su file bloccati dei profili browser. Ora ignora `.tools/` e `dist/`. È un problema dell’ambiente di sviluppo/test, non una causa dimostrata del calo durante una partita sulla build pubblica.
+
+Profilo della versione attuale: un browser con accelerazione grafica e un alleato simulato tramite socket, senza un secondo renderer sul PC. Circa **159 FPS in singolo e 165 in party**, frame p95 circa 6,2 ms; server circa **1,5–3,1% di un core**, passo p95 0,11–0,13 ms, invio p95 0,34–0,35 ms, rete 30 aggiornamenti/s e circa 6,3 KB/s nella finestra misurata. In questa prova il server non è risultato saturo e il calo segnalato non è stato riprodotto: non è una garanzia per altre reti, dungeon o carichi. La misura con F2 durante il problema reale resta necessaria; aggiornamenti del mondo a 30 Hz e FPS del canvas sono grandezze distinte. Questo profilo precede l’interpolazione implementata nel successivo incremento descritto sotto.
+
+Verifica aggiornata: **478 test**, tipi client/server e build superati. Controllati il pannello desktop/mobile e la lettura dei dati server. Conferma giocata dell’utente ancora da ricevere. La prossima parte della progressione resta da concordare, senza modifiche implicite a XP, drop o permadeath.
+
+### Interpolazione del multiplayer (1 novembre 2026)
+
+Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, giocatore, alleati, boss, proiettili e servitori interpolano le posizioni a ogni fotogramma fra gli stati ricevuti. Input, HUD, danni, collisioni, ricariche e premi continuano a usare lo stato autorevole. Le scie seguono le posizioni visuali; la mira locale resta agganciata al puntatore. Server a 60 Hz e trasporto a 30 Hz invariati.
+
+Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
+
+Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.
+
+
+### Verifica della versione combinata (1 novembre 2026)
+
+Integrate le fix delle stanze e le migliorie multiplayer locali. `npm run verify`: 555 test in 42 file, tipi client/server e build superati. Due regressioni aggiuntive verificano interpolazione in stanze senza boss e conservazione del luogotenente con vita scalata. Nessuna nuova prova visiva eseguita, come richiesto dall’utente.

@@ -59,6 +59,27 @@ export function cuesForEvent(event: GameEvent, localPlayerId?: string): Cue[] {
       return [{ sound: 'boss_defeated', position: event.position }];
     case 'match_ended':
       return [{ sound: event.won ? 'victory' : 'defeat' }];
+    // Discesa: le porte che si chiudono sulla prima ondata, l'ultimo nemico, la stanza libera, i premi.
+    case 'wave_started':
+      return event.wave === 1 ? [{ sound: 'boss_slam' }] : [];
+    case 'last_enemy':
+      return [{ sound: 'ui_toggle', position: event.position }];
+    case 'room_cleared':
+      return [{ sound: 'level_up' }];
+    case 'reward_taken':
+    case 'temper_chosen':
+      return [{ sound: 'loot' }];
+    case 'room_exited':
+      return [{ sound: 'ui_click' }];
+    case 'minion_blinked':
+      return [{ sound: 'boss_teleport', position: event.position }];
+    case 'minion_woke':
+      return [{ sound: 'impact', position: event.position }];
+    // Segnali che si vedono: annunci, scudi, rinascite (troppo frequenti per avere un suono).
+    case 'minion_incoming':
+    case 'minion_revived':
+    case 'minion_aura':
+    case 'minion_telegraph':
     case 'boss_pose':
       return [];
   }

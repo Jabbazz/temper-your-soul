@@ -15,7 +15,10 @@ import { MINIONS } from '../minions/minion-catalog';
 import { ActorPoses } from './poses';
 import { MAGE_CASTING, MAGE_PALETTE, MAGE_WALK, type SpriteFrame } from './sprites';
 import { ARENA_THEMES } from './themes';
+import { DECOR_CLEARANCE, wallSpots } from './themes/decor';
 import { PROJECTILE_LOOKS, ZONE_LOOKS, zoneLook } from './visuals';
+import { ITEM_FAMILIES } from '../items/item-families';
+import { roomArena, roomDoors, ROOM_TEMPLATES } from '../run/room-templates';
 
 const dimensions = (frame: SpriteFrame): string => `${frame[0]!.length}x${frame.length}`;
 const symbolsOf = (frames: readonly SpriteFrame[]) => new Set(frames.flatMap((frame) => frame.flatMap((row) => [...row])));
@@ -147,7 +150,7 @@ describe('effetti', () => {
     const effects = seeded();
     const match = createQuietMatch();
     // Senza boss vivo: le sue particelle d'ambiente non nascerebbero mai finite.
-    match.boss.health.current = 0;
+    match.boss!.health.current = 0;
     effects.handle({ type: 'zone_detonated', position: new Vec2(50, 50), radius: 42, team: 'player' });
     effects.handle({ type: 'damage_dealt', target: 'boss', amount: 5, position: new Vec2(0, 0) });
     for (let i = 0; i < 60 * 3; i++) effects.update(STEP, match, camera);
@@ -189,7 +192,7 @@ describe('effetti', () => {
   it('fuori dalla vista le scie non producono particelle', () => {
     const effects = seeded();
     const match = createQuietMatch();
-    match.boss.health.current = 0;
+    match.boss!.health.current = 0;
     const spec: ProjectileSpec = { team: 'enemy', speed: 0, damage: 1, radius: 4, lifetime: 5, visual: 'ember_nova' };
     match.projectiles.push(new Projectile(1, spec, new Vec2(100, 100), 0));
     for (let i = 0; i < 30; i++) effects.update(STEP, match, camera);
@@ -210,14 +213,14 @@ describe('effetti', () => {
     const effects = seeded();
     withEffects.events.connect((event) => effects.handle(event));
     const command = (match: typeof withEffects) =>
-      intent(match, { move: new Vec2(1, 0), aim: match.boss.position, skills: [true, true, true, true] });
+      intent(match, { move: new Vec2(1, 0), aim: match.boss!.position, skills: [true, true, true, true] });
     for (let i = 0; i < 600; i++) {
       withEffects.step(STEP, command(withEffects));
       effects.update(STEP, withEffects, camera);
       without.step(STEP, command(without));
     }
     expect(withEffects.player.position).toEqual(without.player.position);
-    expect(withEffects.boss.health.current).toBe(without.boss.health.current);
+    expect(withEffects.boss!.health.current).toBe(without.boss!.health.current);
     expect(withEffects.projectiles.length).toBe(without.projectiles.length);
   });
 });
@@ -274,7 +277,7 @@ describe('risposta ai colpi e momenti chiave', () => {
   it('la morte del boss dura un attimo (il boss resta visibile), poi si frantuma con un lampo bianco', () => {
     const effects = seeded();
     const match = createQuietMatch();
-    match.boss.health.current = 0;
+    match.boss!.health.current = 0;
     effects.handle({ type: 'boss_defeated', position: at });
     expect(effects.bossDeath).not.toBeNull();
     for (let t = 0; t < FEEDBACK.bossDeath - 0.1; t += STEP) effects.update(STEP, match, camera);
@@ -288,12 +291,12 @@ describe('risposta ai colpi e momenti chiave', () => {
   it('il boss vivo emette le sue particelle d\'ambiente, molte di piu\' in furia', () => {
     const calm = seeded();
     const match = createQuietMatch();
-    camera.follow(match.boss.position);
+    camera.follow(match.boss!.position);
     for (let i = 0; i < 60; i++) calm.update(STEP, match, camera);
     const calmCount = calm.particles.length;
     expect(calmCount).toBeGreaterThan(0);
     const angry = seeded();
-    match.boss.phase = 2;
+    match.boss!.phase = 2;
     for (let i = 0; i < 60; i++) angry.update(STEP, match, camera);
     expect(angry.particles.length).toBeGreaterThan(calmCount * 2);
     camera.follow(new Vec2(1600, 1350));
@@ -350,5 +353,65 @@ describe('pose', () => {
     poses.update(0.1, true);
     poses.reset();
     expect([poses.walkPhase, poses.playerCast, poses.bossCast]).toEqual([0, 0, 0]);
+  });
+});
+
+describe('leggibilità (fase 0 dello studio sulla grafica)', () => {
+  const rgb = (hex: string): number[] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const distance = (a: string, b: string): number => {
+    const [x, y] = [rgb(a), rgb(b)];
+    return Math.hypot(x[0]! - y[0]!, x[1]! - y[1]!, x[2]! - y[2]!);
+  };
+  const playerVisuals = new Set(
+    [...MAGE_SKILLS, ...ITEM_FAMILIES.map((family) => family.skill)].flatMap((skill) =>
+      skill.effect.kind === 'projectile' ? [skill.effect.projectile.visual] : [],
+    ),
+  );
+
+  it('un colpo dei giocatori non ha mai forma e colore quasi uguali a quelli di un proiettile nemico', () => {
+    expect(playerVisuals.size).toBeGreaterThan(5);
+    const enemies = Object.entries(PROJECTILE_LOOKS).filter(([id]) => !playerVisuals.has(id));
+    for (const id of playerVisuals) {
+      const own = PROJECTILE_LOOKS[id]!;
+      for (const [enemyId, enemy] of enemies) {
+        if (enemy.shape === own.shape) expect(distance(own.color, enemy.color), `${id} contro ${enemyId}`).toBeGreaterThan(60);
+      }
+    }
+  });
+
+  it('i proiettili nemici di un dungeon si staccano dal pavimento e dai pericoli a terra del suo tema', () => {
+    for (const [theme, look] of Object.entries(ARENA_THEMES)) {
+      expect(look.groundColors.length).toBeGreaterThan(2);
+      for (const [id, projectile] of Object.entries(PROJECTILE_LOOKS)) {
+        if (!id.startsWith(`${theme}_`)) continue;
+        for (const ground of look.groundColors) expect(distance(projectile.color, ground), `${id} su ${ground}`).toBeGreaterThan(70);
+      }
+    }
+  });
+
+  it('torce e bracieri stanno lungo i muri, lontano da ingresso, porte e pilastri, in ogni stanza e arena', () => {
+    const arenas = [
+      ...DUNGEONS.map((dungeon) => ({ arena: dungeon.arena, doors: [] as Vec2[] })),
+      ...DUNGEONS.flatMap((dungeon) => (ROOM_TEMPLATES[dungeon.id] ?? []).map((room) => ({
+        arena: roomArena(room, dungeon.arena.theme),
+        doors: [1, 2, 3].flatMap((count) => roomDoors(room, count).map((door) => door.position)),
+      }))),
+    ];
+    for (const { arena, doors } of arenas) {
+      for (const [inset, spacing, radius] of [[64, 384, 20], [95, 450, 40]] as const) {
+        const spots = wallSpots(arena, inset, spacing, radius);
+        expect(spots.length, arena.id).toBeGreaterThan(3);
+        for (const spot of spots) {
+          const nearWall = Math.min(spot.x, spot.y, arena.width - spot.x, arena.height - spot.y);
+          expect(nearWall, `${arena.id}: lungo il muro`).toBeCloseTo(inset, 5);
+          expect(spot.distanceTo(arena.playerSpawn), `${arena.id}: ingresso`).toBeGreaterThanOrEqual(DECOR_CLEARANCE.entrance);
+          for (const door of doors) {
+            const blocks = Math.abs(spot.x - door.x) < DECOR_CLEARANCE.doorHalfWidth && spot.y < door.y + DECOR_CLEARANCE.doorDepth;
+            expect(blocks, `${arena.id}: porta in ${door.x}`).toBe(false);
+          }
+          for (const pillar of arena.pillars) expect(spot.distanceTo(pillar.position), `${arena.id}: pilastro`).toBeGreaterThan(pillar.radius + radius);
+        }
+      }
+    }
   });
 });

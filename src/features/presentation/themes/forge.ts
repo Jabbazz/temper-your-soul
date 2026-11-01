@@ -1,11 +1,14 @@
 import type { Camera } from '../../../core/camera';
 import { TAU, Vec2 } from '../../../core/vec2';
 import type { ArenaDefinition, Pillar } from '../../arena/arena';
+import { drawLight } from '../lights';
+import { isClearSpot, wallSpots } from './decor';
 import type { ArenaTheme } from './theme';
 
 /**
- * Decorazione della fucina (solo aspetto, coordinate della mappa `forge`). Valori provvisori: pavimento di basalto
- * nero-bruno con crepe di lava che pulsano, bracieri lungo i muri, incudini addossate ai muri, scintille che salgono.
+ * Decorazione della fucina (solo aspetto). Valori provvisori: pavimento di basalto nero-bruno con crepe di lava che
+ * pulsano, bracieri lungo i muri, incudini addossate ai muri, scintille che salgono. Le posizioni dipendono dalla
+ * misura della mappa e lasciano liberi ingresso e porte.
  */
 const FORGE_DECOR = {
   /** Lato delle lastre di basalto. */
@@ -14,11 +17,43 @@ const FORGE_DECOR = {
   crackThreshold: 0.78,
   /** Una lastra su venti circa emette una scintilla. */
   sparkThreshold: 0.95,
-  /** Bracieri lungo i muri lunghi (ogni `spacing`, a `inset` dal muro) e uno al centro di ogni muro corto. */
-  braziers: { start: 225, spacing: 450, inset: 95 },
-  /** Incudini addossate ai muri (centro). */
-  anvils: [new Vec2(560, 125), new Vec2(2950, 125), new Vec2(1430, 2075), new Vec2(3200, 2075), new Vec2(125, 1560)],
+  /** Bracieri lungo i muri: distanza dal bordo e passo. */
+  braziers: { inset: 95, spacing: 450 },
+  /**
+   * Incudini addossate ai muri, a `inset` dal bordo: `at` e' la frazione del muro (da sinistra o dall'alto).
+   * Ricavate dall'arena del prototipo (3600 x 2200).
+   */
+  anvils: {
+    inset: 125,
+    spots: [
+      { wall: 'top', at: 0.156 },
+      { wall: 'top', at: 0.819 },
+      { wall: 'bottom', at: 0.397 },
+      { wall: 'bottom', at: 0.889 },
+      { wall: 'left', at: 0.709 },
+    ] as const,
+  },
+  /** Luce dei bracieri e bagliore delle crepe. */
+  brazierLight: { color: '#ff7a2a', radius: 140 },
+  crackLight: { color: '#ff5a1a', radius: 46 },
 };
+
+const anvilCache = new WeakMap<ArenaDefinition, readonly Vec2[]>();
+
+/** Le incudini di questa mappa, tolte quelle che coprirebbero ingresso o porte. */
+function anvilsOf(arena: ArenaDefinition): readonly Vec2[] {
+  let anvils = anvilCache.get(arena);
+  if (anvils) return anvils;
+  const { inset, spots } = FORGE_DECOR.anvils;
+  anvils = spots
+    .map(({ wall, at }) =>
+      wall === 'top' ? new Vec2(at * arena.width, inset)
+        : wall === 'bottom' ? new Vec2(at * arena.width, arena.height - inset)
+          : new Vec2(inset, at * arena.height))
+    .filter((anvil) => isClearSpot(arena, anvil.x, anvil.y, 50));
+  anvilCache.set(arena, anvils);
+  return anvils;
+}
 
 const COLORS = {
   void: '#0c0908',
@@ -76,11 +111,8 @@ function drawCrack(ctx: CanvasRenderingContext2D, x: number, y: number, h: numbe
 
 function drawBrazier(ctx: CanvasRenderingContext2D, x: number, y: number, clock: number): void {
   const flicker = Math.sin(clock * 9 + x * 0.1);
-  // Alone sul pavimento.
-  ctx.fillStyle = `rgba(255, 106, 31, ${0.1 + 0.03 * flicker})`;
-  ctx.beginPath();
-  ctx.arc(x, y, 62 + flicker * 4, 0, TAU);
-  ctx.fill();
+  const light = FORGE_DECOR.brazierLight;
+  drawLight(ctx, x, y - 10, light.color, light.radius + flicker * 5, 0.8 + flicker * 0.1);
   // Ciotola di ferro su tre piedi.
   ctx.fillStyle = COLORS.iron;
   ctx.fillRect(x - 15, y + 4, 4, 11);
@@ -148,10 +180,13 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
     }
   }
 
-  // Scintille: salgono dalle lastre con le crepe piu' calde e si spengono prima di arrivare in cima.
+  // Bagliore delle crepe (dopo tutte le lastre, cosi' nessuna lo copre) e scintille che salgono dalle crepe piu'
+  // calde e si spengono prima di arrivare in cima.
+  const crackLight = FORGE_DECOR.crackLight;
   for (let y = y0; y < y1; y += tileSize) {
     for (let x = x0; x < x1; x += tileSize) {
       const h = hash(x, y);
+      if (h > FORGE_DECOR.crackThreshold) drawLight(ctx, x + tileSize / 2, y + tileSize / 2, crackLight.color, crackLight.radius, 0.35 + 0.2 * Math.sin(clock * 2 + h * 40));
       if (h <= FORGE_DECOR.sparkThreshold) continue;
       const t = (clock * 0.5 + h * 20) % 1;
       ctx.fillStyle = `rgba(255, 193, 90, ${1 - t})`;
@@ -183,17 +218,11 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
     if (camY + camera.height > arena.height - wall) ctx.fillRect(x, arena.height - 18, 6, 6);
   }
 
-  const { braziers, anvils } = FORGE_DECOR;
-  for (let x = braziers.start; x < arena.width; x += braziers.spacing) {
-    for (const y of [braziers.inset, arena.height - braziers.inset]) {
-      if (camera.isVisible(new Vec2(x, y), 90)) drawBrazier(ctx, x, y, clock);
-    }
+  const { braziers } = FORGE_DECOR;
+  for (const brazier of wallSpots(arena, braziers.inset, braziers.spacing, 40)) {
+    if (camera.isVisible(brazier, FORGE_DECOR.brazierLight.radius)) drawBrazier(ctx, brazier.x, brazier.y, clock);
   }
-  for (const side of [braziers.inset, arena.width - braziers.inset]) {
-    const middle = new Vec2(side, arena.height / 2);
-    if (camera.isVisible(middle, 90)) drawBrazier(ctx, middle.x, middle.y, clock);
-  }
-  for (const anvil of anvils) {
+  for (const anvil of anvilsOf(arena)) {
     if (camera.isVisible(anvil, 80)) drawAnvil(ctx, anvil.x, anvil.y, clock);
   }
 }
@@ -241,4 +270,10 @@ function drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camer
   ctx.fill();
 }
 
-export const forgeTheme: ArenaTheme = { drawFloor, drawPillar };
+export const forgeTheme: ArenaTheme = {
+  drawFloor,
+  drawPillar,
+  silhouette: '#ffe8d673',
+  vignette: '#050302',
+  groundColors: [...COLORS.basalt, COLORS.lava, COLORS.lavaCore, COLORS.lavaDark],
+};

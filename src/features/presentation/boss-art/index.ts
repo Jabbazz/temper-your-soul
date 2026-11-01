@@ -2,6 +2,7 @@ import type { BossArt } from './boss-art';
 import { FORGE_COLOSSUS_ART } from './forge-colossus';
 import { FROST_WARDEN_ART } from './frost-warden';
 import { GUARDIAN_ART } from './guardian';
+import { ANVIL_MASTER_ART, BELFRY_GARGOYLE_ART, FIRST_APPRENTICE_ART, TOAD_KING_ART } from './lieutenants';
 import { SPORE_MOTHER_ART } from './spore-mother';
 
 export type { BossArt } from './boss-art';
@@ -15,6 +16,11 @@ export const BOSS_ART: Readonly<Record<string, BossArt>> = {
   spore_mother: SPORE_MOTHER_ART,
   forge_colossus: FORGE_COLOSSUS_ART,
   frost_warden: FROST_WARDEN_ART,
+  // I luogotenenti della discesa.
+  belfry_gargoyle: BELFRY_GARGOYLE_ART,
+  toad_king: TOAD_KING_ART,
+  anvil_master: ANVIL_MASTER_ART,
+  first_apprentice: FIRST_APPRENTICE_ART,
 };
 
 /** La grafica di un boss; se l'id e' sconosciuto usa quella del guardiano (un test controlla che i dati non ne usino). */

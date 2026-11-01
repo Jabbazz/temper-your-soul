@@ -1,12 +1,144 @@
+import type { DangerZoneSpec } from '../combat/danger-zone';
 import type { ProjectileSpec } from '../combat/projectile';
 
 /**
- * Come si comporta un servitore:
+ * Come si muove e attacca un servitore (il comportamento sta in `minion-ai.ts`):
  * - `chaser`: insegue il giocatore piu' vicino e lo ferisce per contatto (con l'invulnerabilita' dopo il colpo);
  * - `kamikaze`: insegue e, arrivato a contatto, esplode ferendo chi e' vicino e muore;
- * - `turret`: resta fermo e spara a intervalli verso il giocatore piu' vicino.
+ * - `turret`: resta fermo e spara (o lancia zone) a intervalli;
+ * - `shooter`: tiene la distanza (`preferredDistance`) e spara colpi annunciati;
+ * - `charger`: si avvicina, segna una linea a terra e scatta (`charge`);
+ * - `flyer`: vola sopra i ripari con una traiettoria ondulata (`weave`);
+ * - `leaper`: salta sul giocatore; il punto d'atterraggio e' una zona segnalata (`leap`);
+ * - `burrower`: si muove sotto terra, emerge con un segnale e frusta in linea (`burrow`);
+ * - `nest`: fermo, genera altri servitori finche' vive (`nest`);
+ * - `support`: resta lontano e protegge i vicini (`aura`);
+ * - `orbiter`: gira attorno al giocatore sparando (`orbit`);
+ * - `fleer`: fugge dai giocatori (la preda della stanza Caccia).
  */
-export type MinionBehavior = 'chaser' | 'kamikaze' | 'turret';
+export type MinionBehavior =
+  | 'chaser'
+  | 'kamikaze'
+  | 'turret'
+  | 'shooter'
+  | 'charger'
+  | 'flyer'
+  | 'leaper'
+  | 'burrower'
+  | 'nest'
+  | 'support'
+  | 'orbiter'
+  | 'fleer';
+
+/** Ruolo per il regista delle ondate: decide il costo e le regole di composizione. */
+export type MinionTier = 'swarm' | 'base' | 'heavy' | 'nest' | 'support';
+
+/** Disposizione dei colpi di una raffica. */
+export type ShotPattern =
+  /** `count` colpi a ventaglio verso il bersaglio, distanziati di `spread` radianti. */
+  | { readonly kind: 'aimed'; readonly count: number; readonly spread: number }
+  /** Anello di `count` colpi; senza i `gap` colpi rivolti verso il bersaglio (il varco), ruotato di `turn` a ogni raffica. */
+  | { readonly kind: 'ring'; readonly count: number; readonly gap?: number; readonly turn?: number }
+  /** Quattro colpi a croce, allineati al bersaglio o in diagonale. */
+  | { readonly kind: 'cross'; readonly diagonal?: boolean }
+  /** Due colpi perpendicolari alla direzione del bersaglio, in versi opposti. */
+  | { readonly kind: 'pair' }
+  /** Anello di `count` colpi su un cerchio di raggio `radius` attorno al bersaglio, che si stringe; `gap` colpi mancanti. */
+  | { readonly kind: 'implode'; readonly count: number; readonly radius: number; readonly gap: number };
+
+export interface MinionShot {
+  readonly projectile: ProjectileSpec;
+  /** Secondi tra una raffica e la successiva. */
+  readonly interval: number;
+  /** Secondi prima della prima raffica. */
+  readonly firstDelay: number;
+  /** Disposizione dei colpi (predefinita: un colpo mirato). */
+  readonly pattern?: ShotPattern;
+  /** Secondi di posa annunciata prima della raffica (il tempo della raffica non cambia: la posa la precede). */
+  readonly windup?: number;
+  /** Spara solo se il bersaglio e' entro questa distanza. */
+  readonly range?: number;
+}
+
+/** Carica: preparazione con la linea a terra, scatto rettilineo, poi un attimo di respiro in cui e' vulnerabile. */
+export interface MinionCharge {
+  readonly range: number;
+  readonly windup: number;
+  readonly distance: number;
+  readonly speed: number;
+  readonly recover: number;
+  readonly cooldown: number;
+  readonly damage: number;
+  /** Zone lasciate lungo il percorso (ogni `trailSpacing` unita'). */
+  readonly trail?: DangerZoneSpec;
+  readonly trailSpacing?: number;
+}
+
+/** Salto: il punto d'arrivo e' una zona segnalata che esplode all'atterraggio. */
+export interface MinionLeap {
+  readonly range: number;
+  readonly windup: number;
+  readonly flight: number;
+  readonly cooldown: number;
+  readonly zone: DangerZoneSpec;
+}
+
+/** Scavatore: sotto terra non si colpisce; emerge con un segnale, frusta in linea e resta scoperto per un po'. */
+export interface MinionBurrow {
+  readonly emergeRange: number;
+  readonly emergeTime: number;
+  readonly exposed: number;
+  readonly lash: { readonly zone: DangerZoneSpec; readonly count: number; readonly spacing: number };
+}
+
+/** Nido: genera servitori di un altro tipo finche' vive. */
+export interface MinionNest {
+  /** Id del servitore generato (in `MINIONS`). */
+  readonly spawn: string;
+  readonly interval: number;
+  readonly firstDelay: number;
+  readonly burst: number;
+  readonly maxChildren: number;
+}
+
+/** Sostegno: a intervalli copre i servitori vicini con uno scudo che assorbe i proiettili. */
+export interface MinionAura {
+  readonly kind: 'shield';
+  readonly radius: number;
+  readonly amount: number;
+  readonly interval: number;
+}
+
+/** Zone lanciate sul bersaglio (artiglieria) o una fila di zone di traverso sul suo percorso. */
+export interface MinionLob {
+  readonly zone: DangerZoneSpec;
+  readonly interval: number;
+  readonly firstDelay: number;
+  readonly range: number;
+  /** `spots`: `count` zone attorno al bersaglio (entro `scatter`); `wall`: una fila perpendicolare con un varco. */
+  readonly shape: 'spots' | 'wall';
+  readonly count: number;
+  readonly scatter: number;
+}
+
+/** Teletrasporto difensivo: se un giocatore si avvicina troppo, sparisce e ricompare lontano dopo un segnale. */
+export interface MinionBlink {
+  readonly trigger: number;
+  readonly range: number;
+  readonly windup: number;
+  readonly cooldown: number;
+}
+
+/** Che cosa succede alla morte. */
+export type MinionDeath =
+  /** Si divide in `count` servitori `into`. */
+  | { readonly kind: 'split'; readonly into: string; readonly count: number }
+  /** Lascia una pozza: `pulses` zone nello stesso punto, una ogni `interval` secondi. */
+  | { readonly kind: 'pool'; readonly zone: DangerZoneSpec; readonly pulses: number; readonly interval: number }
+  /** Si frantuma in un anello di `count` proiettili. */
+  | { readonly kind: 'ring'; readonly projectile: ProjectileSpec; readonly count: number }
+  /** Si rialza una volta dopo `delay` secondi con `fraction` della vita, se non lo finisce una zona o un colpo ravvicinato. */
+  | { readonly kind: 'revive'; readonly delay: number; readonly fraction: number };
 
 /** Un tipo di servitore. Dati di sola lettura e provvisori (vedi docs/game-design.md). */
 export interface MinionDefinition {
@@ -17,6 +149,8 @@ export interface MinionDefinition {
   /** Aspetto (id in `presentation/minion-art.ts`). Il prefisso del tema (`crypt_`, `swamp_`...) sceglie anche il suono. */
   readonly visual: string;
   readonly behavior: MinionBehavior;
+  /** Ruolo per il regista (predefinito dal comportamento: vedi `minionTier`). */
+  readonly tier?: MinionTier;
   readonly maxHealth: number;
   /** Velocita' in unita' al secondo (zero per le torrette). */
   readonly speed: number;
@@ -26,8 +160,32 @@ export interface MinionDefinition {
   readonly contactDamage: number;
   /** Solo `kamikaze`: raggio dell'esplosione attorno al servitore. */
   readonly blastRadius?: number;
-  /** Solo `turret`: proiettile, intervallo tra i colpi e attesa prima del primo. */
-  readonly shot?: { readonly projectile: ProjectileSpec; readonly interval: number; readonly firstDelay: number };
+  /** Raffiche a intervalli (torrette, tiratori, orbitanti, pesanti che colpiscono da vicino). */
+  readonly shot?: MinionShot;
+  readonly charge?: MinionCharge;
+  readonly leap?: MinionLeap;
+  readonly burrow?: MinionBurrow;
+  readonly nest?: MinionNest;
+  readonly aura?: MinionAura;
+  readonly lob?: MinionLob;
+  readonly blink?: MinionBlink;
+  readonly onDeath?: MinionDeath;
+  /** Zone lasciate camminando, una ogni `interval` secondi. */
+  readonly trail?: { readonly zone: DangerZoneSpec; readonly interval: number };
+  /** Distanza a cui resta (tiratori, sostegni, orbitanti). */
+  readonly preferredDistance?: number;
+  /** Ampiezza dell'ondeggiamento dei volanti, in unita'. */
+  readonly weave?: number;
+  /** Raggio e velocita' angolare (radianti al secondo) attorno al giocatore. */
+  readonly orbit?: { readonly radius: number; readonly speed: number };
+  /** Vola sopra i pilastri (non ne e' fermato). */
+  readonly flying?: boolean;
+  /** Parte addormentato (sembra arredo) e si sveglia quando un giocatore si avvicina o lo colpisce. */
+  readonly dormant?: { readonly wakeRadius: number };
+  /** I suoi colpi rallentano il giocatore per questi secondi. */
+  readonly slowOnHit?: number;
+  /** Se e' rallentato quando muore, non si divide (il metallo fuso si fredda). */
+  readonly inertWhenSlowed?: boolean;
 }
 
 /** Quando e quanti servitori evoca un boss. Provvisorio. */
@@ -42,4 +200,20 @@ export interface BossSummons {
   readonly maxAlive: number;
   /** Distanza dal boss a cui compaiono (in cerchio). */
   readonly ringRadius: number;
+}
+
+/** Il ruolo di un servitore per il regista: dichiarato, o dedotto dal comportamento. */
+export function minionTier(definition: MinionDefinition): MinionTier {
+  if (definition.tier !== undefined) return definition.tier;
+  switch (definition.behavior) {
+    case 'nest':
+      return 'nest';
+    case 'support':
+      return 'support';
+    case 'flyer':
+    case 'chaser':
+      return 'swarm';
+    default:
+      return 'base';
+  }
 }

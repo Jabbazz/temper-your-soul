@@ -2,7 +2,7 @@
 
 Gioco d’azione 2D per browser in **TypeScript strict**, Canvas 2D e DOM, senza motore di gioco né dipendenze runtime nel browser (server cooperativo Node con WebSocket). I principi sono ispirati ad Ashen Realm: le abilità dipendono dall’equipaggiamento. Il prototipo originale si chiamava Emberfall; il nome del gioco attuale è **Temper your soul**.
 
-**Stato al 31 ottobre 2026:** prototipo giocabile con quattro dungeon, tre classi, personaggi multipli locali, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, gear score e bottino specifico per boss. Implementata la **cooperativa sincronizzata fino a quattro giocatori tramite link**, con server autorevole, leader, ping e combat report. Audio a canali con registrazioni vere a licenza libera (musica per menu, dungeon e furia, ambienti, effetti) e pannello dei volumi. Risposta ai colpi, fase II con stendardo e servitori dei boss, schermate di vittoria e sconfitta con statistiche. Boss in pixel art di terzi a licenza libera, con animazioni di attacco, trasformazione e morte (proposta in revisione). Ultima verifica automatica: **476 test, controllo dei tipi client/server e build superati**. Rete e rendering ottimizzati con protocollo v2; benchmark ripetibile incluso. Bilanciamento e qualità visiva non sono definitivi; il permadeath non è ancora implementato.
+**Stato al 1 novembre 2026:** prototipo TypeScript con quattro dungeon, tre classi, profili locali multipli, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, GS, audio e cooperativa autorevole fino a quattro giocatori. La revisione locale della PR #4 mantiene mappe, 32 servitori a tema con élite, luogotenenti/pre-boss, Bestiario e scelta delle direzioni lungo otto tappe. **Nessuna ricompensa intermedia**: niente XP, oggetti, braci, cure a fine stanza, sigilli, tempre o Altare. Le skill restano quelle dell’equipaggiamento; solo il boss finale assegna gli XP e il bottino già previsti (25% di possibilità di un oggetto). La progressione tra stanze verrà progettata in un secondo momento. Salvataggio v7 compatibile con v6, protocollo cooperativo 5. La qualità visiva e il bilanciamento richiedono ancora prove manuali; il permadeath non è implementato.
 
 ## Prima di lavorare: istruzioni per collaboratori e agenti AI
 
@@ -105,6 +105,22 @@ Ogni singolo pezzo di set ha quindi **2,0833% per uccisione**; ogni singolo verd
 
 Ogni boss ha **otto combinazioni esplicite** in [loot-tables.ts](src/features/loot/loot-tables.ts), non pesca liberamente dal catalogo. I set sono tematici: **nessun bonus al completamento del set**. La Cripta non supera il Raro. Le famiglie di origine di un set possono comparire altrove in variante verde; `exclusiveTo` indica l’origine storica, non sostituisce le tabelle effettive.
 
+### Discesa: revisione della PR #4
+
+La revisione locale della PR #4 mantiene mappe, 32 servitori a tema con élite, luogotenenti/pre-boss, Bestiario e scelta delle direzioni lungo otto tappe. **Nessuna ricompensa intermedia**: niente XP, oggetti, braci, cure a fine stanza, sigilli, tempre o Altare. Le skill restano quelle dell’equipaggiamento; solo il boss finale assegna gli XP e il bottino già previsti (25% di possibilità di un oggetto). La progressione tra stanze verrà progettata in un secondo momento.
+
+Le tappe restano: Soglia → due direzioni di Scontro → Scontro/Prova/Reliquiario → Luogotenente → Santuario/Assedio → Scontro/Caccia → Anticamera → Boss. Reliquiario, Santuario e Anticamera sono stanze tranquille, senza premi o recuperi di vita. Le Prove mantengono gli obiettivi; completarli non assegna bonus.
+
+Le porte mostrano il tipo di stanza: in cooperativa tutti i membri vivi devono sostare sulla stessa uscita. Il Bestiario conserva le uccisioni. Restano il Duello sbloccato dopo la prima vittoria e il Pellegrinaggio già presenti nella PR. Non sono disponibili gradi di tempra né menu a tendina per dungeon/modalità: la lobby usa pulsanti.
+
+I vecchi campi del salvataggio relativi a braci/benedizioni/gradi sono conservati per non perdere dati, ma non attribuiscono bonus e non sono utilizzabili. Il protocollo 5 impedisce di mescolare client e server delle due versioni. Aggiornare tutte le schede dopo il riavvio.
+
+Multiplayer: integrata la copia visuale `NetworkView`, che interpola camera, giocatori, boss, proiettili e servitori a ogni fotogramma senza modificare HUD, regole o premi autorevoli. Server 60 Hz e trasporto 30 Hz invariati; ritardo visuale provvisorio di circa 33 ms, nessuna predizione locale. Compatibile con stanze senza boss e luogotenenti. Integrati anche test della cache del pavimento, rune della Cripta fuori dalla cache e watcher Vite che ignora `.tools/` e `dist/`. La fluidità osservata dall’utente con una sola scheda per finestra non sostituisce una prova giocata della versione combinata.
+
+Prossimo passo: prova manuale di porte, mappe, servitori e pre-boss in singolo/cooperativa; poi definire insieme la progressione fra stanze. Non rigenerare sprite o ritratti: revisione sospesa.
+
+Verifica automatica della revisione: `npm run verify` superato, **555 test in 42 file**, tipi client/server e build. Le prove visive e giocate di questa revisione sono ancora a carico dell’utente.
+
 ### Party cooperativo sincronizzato
 
 Server autorevole **Node + WebSocket**: una sola simulazione a 60 Hz per stanza, input e snapshot a 30 Hz. Il browser rappresenta lo stato ricevuto; HP, mana, collisioni, ricariche, danni, esito e bottino sono decisi dal server. Il client non invia posizioni o danni. Nessuna dipendenza di rete nel bundle browser; `ws` gira soltanto sul server e `tsx` esegue il server TypeScript.
@@ -147,10 +163,10 @@ Confronto browser tramite tunnel, due Edge headless isolati a 1440×1000, finest
 
 ### Salvataggi locali
 
-- Chiave: `temper-your-soul:save`; formato **v6**, raccolta `character-roster` con profili, id attivo e contatore degli id.
+- Chiave: `temper-your-soul:save`; formato **v7**, raccolta `character-roster` con profili, id attivo e contatore degli id. La v7 aggiunge braci, benedizioni, bestiario, record delle discese e Pellegrinaggio; i salvataggi v6 si leggono senza perdite.
 - Migrazione dei precedenti salvataggi singoli v1–v5 senza reset di inventario, XP o record. Copia precedente alla raccolta in `temper-your-soul:save:before-roster`.
 - Dati illeggibili conservati in `temper-your-soul:save:corrupt`. Dati esterni sempre validati: vedere [save-format.ts](src/features/character/save-format.ts), [character-roster.ts](src/features/character/character-roster.ts) e [save-store.ts](src/features/character/save-store.ts).
-- Si salva a creazione/selezione/rimozione, cambio equipaggiamento e vittoria, prima di mostrare i premi. Skill, GS e classe richiesta dell’oggetto si ricalcolano dal catalogo; non si salvano statistiche duplicate.
+- Si salva a creazione/selezione/rimozione, cambio equipaggiamento e vittoria, prima di mostrare i premi; nella discesa anche a ogni stanza per aggiornare il bestiario (nessun XP o valuta intermedia). Skill, GS e classe richiesta dell’oggetto si ricalcolano dal catalogo; non si salvano statistiche duplicate.
 - Nessun account, salvataggio cloud, inventario condiviso fra profili o sincronizzazione dei progressi tra dispositivi. Il server conserva solo stanze/incontri temporanei. Con due schede aperte, ognuna riprende i salvataggi dell’altra appena avvengono; due salvataggi quasi simultanei possono ancora sovrascriversi.
 - **Permadeath non implementato:** una sconfitta non elimina attualmente il personaggio. La rimozione dal menu è manuale.
 
@@ -208,18 +224,18 @@ Per un nuovo oggetto servono: id stabile, famiglia e classe, skill/statistiche/c
 
 ## Verifiche e prossimi passi
 
-`npm run verify` deve uscire con codice 0. I **476 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
+`npm run verify` deve uscire con codice 0. I **555 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
 
 Priorità per chi riprende il lavoro:
 
 Il prossimo incremento richiesto riguarda un’altra parte della progressione del personaggio, **ancora da definire con il proprietario**. Non dedurre nuove regole di livelli, talenti, permadeath o ricompense da questa intenzione. La cooperativa è stata dichiarata funzionante dall’utente; la resa della versione ottimizzata sul suo PC resta da confermare.
 
-1. **Conferma giocata della cooperativa:** provare con amici su reti diverse, classi miste e tutti i boss. Già verificati due browser isolati via tunnel: lobby, leader, movimento, skill, vittoria, report identico e salvataggio XP senza duplicazioni. Misura RTT su 40 campioni da questa macchina: locale mediana 0,34 ms / p95 1,20 ms; tunnel mediana 13,85 ms / p95 17,05 ms. La prova automatizzata con input validi non certifica bilanciamento o qualità della connessione da altre reti. Prossimi miglioramenti: interpolazione/predizione, rientro dopo disconnessione, server persistente e identità affidabili.
+1. **Conferma giocata della cooperativa:** provare con amici su reti diverse, classi miste e tutti i boss. Già verificati due browser isolati via tunnel: lobby, leader, movimento, skill, vittoria, report identico e salvataggio XP senza duplicazioni. Misura RTT su 40 campioni da questa macchina: locale mediana 0,34 ms / p95 1,20 ms; tunnel mediana 13,85 ms / p95 17,05 ms. La prova automatizzata con input validi non certifica bilanciamento o qualità della connessione da altre reti. Prossimi miglioramenti: predizione locale, rientro dopo disconnessione, server persistente e identità affidabili.
 2. **Prova giocata dei tre personaggi sui quattro boss.** Verificare leggibilità, mana, collisioni, ritmo e progressione del grind. Riprodurre e registrare i problemi effettivi; distinguere verifica automatica, fotogramma e conferma manuale dell’utente.
 3. **Bilanciamento di oggetti e progressione.** Tarare danni, cooldown, costi, livelli oggetto e difficoltà; mantenere la struttura di drop richiesta e le soglie GS salvo nuova decisione dell’utente. I test verificano che ogni classe possa raggiungere 100 GS prima di T3 e 200 prima di T4, non quanto sia divertente o lungo farlo.
 4. **Progettare e implementare il permadeath nel prossimo incremento concordato.** Prima definire cosa viene perso, cosa succede al profilo morto e come si ricrea un personaggio. Non assumere inventario condiviso, eredità o nuove penalità non decise.
 5. **Robustezza dei salvataggi:** esportazione/importazione e migrazioni future (le due schede si allineano già con l’evento `storage`). Il server cooperativo è già implementato, ma non conserva i progressi: un eventuale salvataggio cloud richiede un incremento dedicato.
-6. **Debito noto:** raggi di collisione non uniformi, camera senza limiti/interpolazione, limiti documentati dei backup. Valutare gli aggiornamenti delle dipendenze in un intervento dedicato; gli avvisi storici in `bugs.md` non sono una nuova scansione aggiornata.
+6. **Debito noto:** raggi di collisione non uniformi, camera senza limiti e interpolazione del singolo ancora assente, limiti documentati dei backup. Valutare gli aggiornamenti delle dipendenze in un intervento dedicato; gli avvisi storici in `bugs.md` non sono una nuova scansione aggiornata.
 7. **Grafica:** resta nella TODO, sospesa; non è il lavoro da riprendere automaticamente.
 
 Leggere sempre [docs/game-design.md](docs/game-design.md) per decisioni e valori, [docs/roadmap.md](docs/roadmap.md) per priorità e prove, [docs/bugs.md](docs/bugs.md) per difetti e limiti. Aggiornare questi file con i risultati del prossimo incremento.

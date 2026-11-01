@@ -19,10 +19,27 @@
 - [x] Interfaccia party in alto a destra: quattro posti, sprite del personaggio attivo, lobby locale con stato pronto e boss comune; stile Reliquiario e layout mobile.
 - [x] Server cooperativo autorevole Node/WebSocket: link, leader/destinazione/avvio, pronto, controllo GS di tutti, alleati/boss condivisi, no fuoco amico, ping, KO/disconnessioni, premi personali e combat report.
 - [x] Ottimizzazione rete/rendering: protocollo compatto v2, entità riutilizzate, raster cache, badge ping senza ricostruzione DOM, snapshot serializzato una volta per stanza e stop dopo la fine.
-- [ ] Prova giocata con amici su reti differenti; interpolazione/predizione, riconnessione e server persistente in incrementi successivi. Profilare i picchi RTT osservati nel browser in sviluppo Vite (fino a 922 ms nella prova localhost→tunnel), distinti dalle misure dirette e dalla build pubblica.
+- [ ] Prova giocata con amici su reti differenti; predizione locale, riconnessione e server persistente in incrementi successivi. Profilare i picchi RTT osservati nel browser in sviluppo Vite (fino a 922 ms nella prova localhost→tunnel), distinti dalle misure dirette e dalla build pubblica.
 - [ ] Provare manualmente creazione, persistenza, sensazione dei tre set iniziali, grind e premi dei quattro boss.
 - [ ] Tarare GS, livelli oggetto, probabilità e futuro effetto del livello oggetto sulle statistiche.
 - [ ] Prova manuale del grind per classe, della chiarezza delle probabilità condizionate e dei blocchi GS.
+- [x] Revisione PR #4: mantenuti mappe, 32 servitori, luogotenenti/pre-boss, Bestiario e direzioni delle stanze.
+- [x] Rimossi premi intermedi, tempre, sigilli, braci, Altare e selettori a tendina di dungeon/modalità/grado. Skill dell’equipaggiamento e ricompense dei boss invariate.
+- [x] Salvataggio v7 conservato senza perdita dei dati storici; relativi bonus disattivati. Protocollo cooperativo 5.
+- [ ] Prova manuale utente: porte, mappe, Prova/Assedio/Caccia, luogotenenti, Bestiario, ricompense dei soli boss, singolo e cooperativa. Nessuna nuova prova visiva automatizzata richiesta.
+- [ ] Definire con l’utente la progressione tra stanze in un incremento successivo.
+- [ ] Tarare budget e danni dei servitori dopo le prove giocate.
+
+Verifica automatica della revisione: `npm run verify` superato, 555 test in 42 file, tipi e build. Le prove manuali della revisione restano da fare dall’utente. Le correzioni descritte sotto appartengono alla PR originale e non confermano la revisione corrente.
+
+Corretti durante le prove:
+- miniature del Bestiario che coprivano la schermata;
+- pulsanti delle schede dei dungeon fuori dal riquadro;
+- quinta statistica della vittoria a capo;
+- luogotenenti assenti dal Bestiario;
+- testi con accenti scritti come apostrofi.
+
+Non è una prova giocata a mano: le stanze sono state liberate da script e bot.
 
 Incremento vincoli e probabilità: **383 test**, tipi e build superati. Copertura delle tre classi su tutte le famiglie, dei set iniziali compatibili, della lettura di vecchi equipaggiamenti, dei confini GS e della raggiungibilità delle soglie tramite i dungeon precedenti. Browser isolato a 1440 e 390 px: hover scuro, arco non equipaggiabile al Mago da clic destro o pulsante, trascinamento disattivato, blocchi T3/T4 a 80 GS, sblocco esatto a 100/200, tooltip 33,33%/66,67% e quote per pezzo. Nessuna eccezione JavaScript; conferma giocata ancora da ricevere.
 
@@ -229,3 +246,22 @@ Checklist manuale:
 - [ ] Attacchi, trasformazione in fase II e morte arrivano al momento giusto.
 - [ ] La differenza di finezza dei pixel fra i boss non disturba.
 - [ ] Le vignette della scelta del dungeon sono piu' belle di prima.
+
+
+## Storico delle migliorie multiplayer integrate dalla copia locale
+
+Le misure seguenti precedono l’integrazione con le stanze della PR #4; non sono benchmark della versione combinata.
+
+### Ripresa e completamento della diagnostica (1 novembre 2026)
+
+478 test, tipi e build superati. Cache della Cripta confrontata con la versione precedente su sei viste: zero differenze di pixel; aggiunti test di riutilizzo e memoria limitata. Watcher Vite corretto per non monitorare log, build e profili browser bloccati. F2 verificato su desktop/mobile; dati server letti durante il party. Un solo browser e alleato simulato via socket: circa 165 FPS in party e server 1,5–3,1% di un core nella finestra misurata. Il calo segnalato non è stato riprodotto in quella prova: conferma manuale e misura F2 nel caso reale ancora da ricevere. Dettagli e limiti nel README.
+
+Prova finale sul nuovo tunnel con due browser isolati: movimento e skill condivisi, vittoria, report identico e 100 XP salvati una sola volta per entrambi; verificato il salvataggio mentre il rendering del membro era sospeso e la comparsa del report alla ripresa, dopo l’animazione finale. Nessuna eccezione JavaScript.
+
+### Interpolazione del multiplayer (1 novembre 2026)
+
+Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, giocatore, alleati, boss, proiettili e servitori interpolano le posizioni a ogni fotogramma fra gli stati ricevuti. Input, HUD, danni, collisioni, ricariche e premi continuano a usare lo stato autorevole. Le scie seguono le posizioni visuali; la mira locale resta agganciata al puntatore. Server a 60 Hz e trasporto a 30 Hz invariati.
+
+Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
+
+Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.

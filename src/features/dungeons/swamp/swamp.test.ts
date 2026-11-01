@@ -532,10 +532,10 @@ describe('swamp: partita completa', () => {
       const t = m.time;
       if (Math.round(t * 60) % 60 === 0) {
         trace.push(
-          [m.projectiles.length, m.zones.length, m.boss.position.x.toFixed(2), m.boss.position.y.toFixed(2), m.boss.attackCount].join(','),
+          [m.projectiles.length, m.zones.length, m.boss!.position.x.toFixed(2), m.boss!.position.y.toFixed(2), m.boss!.attackCount].join(','),
         );
       }
-      return intent(m, { move: new Vec2(Math.cos(t), Math.sin(t * 1.3)), aim: m.boss.position });
+      return intent(m, { move: new Vec2(Math.cos(t), Math.sin(t * 1.3)), aim: m.boss!.position });
     });
     return { trace, events, match };
   };
@@ -557,7 +557,7 @@ describe('swamp: partita completa', () => {
   it('swamp: la partita parte con il boss a nord, il giocatore a sud e nessun attacco prima di 2,4 s', () => {
     const match = createMatch(1, { dungeon: SWAMP });
     const events = recordEvents(match);
-    expect(match.boss.definition).toBe(SPORE_MOTHER);
+    expect(match.boss!.definition).toBe(SPORE_MOTHER);
     expect(match.player.position).toBe(SWAMP_ARENA.playerSpawn);
     run(match, 2.3);
     expect(eventsOfType(events, 'boss_attack').length).toBe(0);
