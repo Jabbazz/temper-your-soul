@@ -1,3 +1,5 @@
+import type { BuffSpec, PetSpec, HitEffect } from '../classes/skill-mechanics';
+import type { EquipmentStats } from '../classes/class-stats';
 import type { DangerZoneSpec } from '../combat/danger-zone';
 import type { ProjectileSpec } from '../combat/projectile';
 import type { Vec2 } from '../../core/vec2';
@@ -12,9 +14,11 @@ export type SkillEffect =
   /** Una zona che esplode dopo un ritardo: nel punto mirato (`aim`, predefinito) o attorno al lanciatore (`caster`). */
   | { kind: 'ground_blast'; zone: DangerZoneSpec; center?: 'aim' | 'caster' }
   /** Uno spostamento istantaneo verso la mira, con invulnerabilita' temporanea. */
-  | { kind: 'dash'; distance: number; invulnerability: number }
+  | { kind: 'dash'; distance: number; invulnerability: number; travelSeconds?: number; impactDamage?: number; explosion?: DangerZoneSpec }
   /** Un colpo ravvicinato a settore verso la mira: colpisce il boss se e' nel raggio e nell'arco. */
-  | { kind: 'melee_arc'; range: number; arc: number; damage: number };
+  | { kind: 'melee_arc'; range: number; arc: number; damage: number; clearsProjectiles?: boolean; taunt?: { radius: number; duration: number } }
+  | { kind: 'buff'; buff: BuffSpec }
+  | { kind: 'summon'; pet: PetSpec };
 
 export interface SkillDefinition {
   /** Id stabile della famiglia di oggetti che la concede (o della skill base): usato da test ed eventi. */
@@ -24,6 +28,10 @@ export interface SkillDefinition {
   readonly description: string;
   /** Ricarica in secondi. */
   readonly cooldown: number;
+  readonly charges?: number;
+  readonly channelSeconds?: number;
+  readonly onHit?: HitEffect;
+  readonly equipmentStats?: EquipmentStats;
   readonly manaCost?: number;
   readonly manaRegeneration?: number;
   /** Id dell'aspetto e del suono (chiavi in `presentation/effects.ts` e `audio/audio-player.ts`; sconosciuto = generico per tipo). */

@@ -1,3 +1,5 @@
+import { equipmentStats, describeEquipmentStats } from '../classes/equipment-stats';
+import { STATUS_EFFECTS } from '../combat/status-effects/status-catalog';
 import { manaCost, manaBonus } from '../skills/mana';
 import type { SkillDefinition } from '../skills/skill-definition';
 import { familyById } from './item-families';
@@ -27,7 +29,9 @@ export interface ItemRoll {
 
 /** La skill che l'oggetto concede: quella della famiglia con i valori della rarita'. */
 export function resolveItemSkill(family: ItemFamily, rarity: Rarity): SkillDefinition {
-  return scaleSkill(family.skill, rarity);
+  const skill = scaleSkill(family.skill, rarity);
+  return { ...skill, equipmentStats: equipmentStats(family.characterClass, family.slot, rarity),
+    ...(family.slot === 'primary_hand' && family.characterClass !== 'mage' ? { manaCost: 0 } : {}) };
 }
 
 /** Oggetto, famiglia e skill risolta; `undefined` se la famiglia non esiste nel catalogo (dati vecchi o corrotti). */
@@ -53,9 +57,27 @@ export function formatNumber(value: number): string {
  * distanza; l'ultima e' sempre la ricarica.
  */
 export function describeSkillStats(skill: SkillDefinition): string[] {
-  const lines: string[] = [];
+  const lines: string[] = describeEquipmentStats(skill.equipmentStats ?? {});
   const effect = skill.effect;
+  if (skill.charges) lines.push(`Cariche ${skill.charges}`);
+  if (skill.channelSeconds) lines.push(`Canalizzazione ${formatNumber(skill.channelSeconds)} s · movimento al 35%`);
+  if (skill.onHit?.status) lines.push(`Stato: ${STATUS_EFFECTS[skill.onHit.status].name} · ${formatNumber((skill.onHit.chance ?? 1) * 100)}%`);
   switch (effect.kind) {
+    case 'buff':
+      lines.push(`Durata ${formatNumber(effect.buff.duration)} s`);
+      if (effect.buff.guard) lines.push('Assorbe il prossimo colpo, incluso quello rosso');
+      if (effect.buff.armor) lines.push(`Difesa temporanea +${formatNumber(effect.buff.armor)}`);
+      if (effect.buff.regeneration) lines.push(`Rigenerazione vita ${formatNumber(effect.buff.regeneration)} HP/s`);
+      if (effect.buff.attackSpeed) lines.push(`Frequenza primaria +${formatNumber(effect.buff.attackSpeed * 100)}%`);
+      if (effect.buff.lifesteal) lines.push(`Furto vita ${formatNumber(effect.buff.lifesteal * 100)}%`);
+      if (effect.buff.abilityPower) lines.push(`Danno abilità +${formatNumber(effect.buff.abilityPower * 100)}%`);
+      break;
+    case 'summon':
+      lines.push(`Durata compagno ${formatNumber(effect.pet.duration)} s`);
+      lines.push(`Danno morso ${formatNumber(effect.pet.damage)}`);
+      lines.push(`Intervallo morsi ${formatNumber(effect.pet.interval)} s`);
+      lines.push('Sanguinamento: 20% per morso');
+      break;
     case 'projectile': {
       const { projectile, count } = effect;
       lines.push(`Danno ${formatNumber(projectile.damage)}`);
@@ -84,10 +106,15 @@ export function describeSkillStats(skill: SkillDefinition): string[] {
       break;
     }
     case 'dash':
+      lines.push(effect.travelSeconds ? 'Scatto fisico' : 'Teletrasporto');
+      if (effect.impactDamage) lines.push(`Danno urto ${formatNumber(effect.impactDamage)}`);
+      if (effect.explosion) lines.push(`Danno esplosione all’arrivo ${formatNumber(effect.explosion.damage)}`);
       lines.push(`Distanza ${formatNumber(Math.round(effect.distance))}`);
       lines.push(`Invulnerabile ${formatNumber(effect.invulnerability)} s`);
       break;
     case 'melee_arc':
+      if (effect.clearsProjectiles) lines.push('Cancella i proiettili ordinari nel fendente');
+      if (effect.taunt) lines.push(`Provocazione ${formatNumber(effect.taunt.duration)} s · raggio ${formatNumber(effect.taunt.radius)}`);
       lines.push(`Danno ${formatNumber(effect.damage)}`);
       lines.push(`Gittata ${formatNumber(effect.range)}`);
       lines.push(`Arco ${formatNumber(Math.round((effect.arc * 180) / Math.PI))}°`);

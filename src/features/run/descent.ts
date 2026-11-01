@@ -7,7 +7,8 @@ import type { DungeonDefinition } from '../dungeons/dungeon-definition';
 import { lootTableFor } from '../loot/loot-tables';
 import type { LootTable } from '../loot/loot-table';
 import { Match, spreadPlayers, type MatchMember } from '../match/match';
-import { PLAYER_STATS } from '../player/player';
+import type { CharacterClass } from '../character/character-class';
+import { resolveCombatStats } from '../classes/class-stats';
 import type { Loadout } from '../skills/skill-definition';
 import type { BlessingLevels } from './blessings';
 import { RoomEncounter, type RoomMember, type RoomView } from './encounter';
@@ -30,11 +31,13 @@ export type RunMode = 'descent' | 'pilgrimage';
 export interface RunMemberSetup {
   readonly id: string;
   readonly loadout: Loadout;
+  readonly characterClass?: CharacterClass | null;
   readonly blessings?: BlessingLevels;
 }
 
 /** Cio' che un giocatore porta da una stanza all'altra. */
 export interface RunPlayerState {
+  readonly characterClass: CharacterClass | null;
   health: number;
   maxHealth: number;
   mana: number;
@@ -135,11 +138,13 @@ export class DescentRun {
     this.dungeons = options.mode === 'pilgrimage' ? ['crypt', 'swamp', 'forge', 'glacier'].map((id) => dungeonById(id)!) : [start];
 
     for (const member of options.members) {
-      const maxHealth = PLAYER_STATS.maxHealth;
+      const stats = resolveCombatStats(member.characterClass ?? null, member.loadout);
+      const maxHealth = stats.maxHealth;
       this.players.set(member.id, {
+        characterClass: member.characterClass ?? null,
         health: maxHealth,
         maxHealth,
-        mana: 100,
+        mana: stats.maxMana,
         tempers: [],
         secondLife: false,
         pacts: 0,
@@ -200,7 +205,7 @@ export class DescentRun {
         secondLife: state.secondLife,
         ...(state.startingTemper && this.stage === 0 ? { extraOffers: 1 } : {}),
       });
-      matchMembers.push({ id, loadout: state.baseLoadout, health: state.health, maxHealth: state.maxHealth, mana: state.mana });
+      matchMembers.push({ id, characterClass: state.characterClass, loadout: state.baseLoadout, health: state.health, maxHealth: state.maxHealth, mana: state.mana });
     }
     const encounter = new RoomEncounter({
       dungeonId: dungeon.id,

@@ -1,4 +1,9 @@
-import { MANA, manaBonus } from '../skills/mana';
+import { CLASS_COMBAT } from '../classes/combat-tuning';
+import type { BuffSpec } from '../classes/skill-mechanics';
+import type { SkillDefinition } from '../skills/skill-definition';
+import type { CharacterClass } from '../character/character-class';
+import { resolveCombatStats, damageAfterArmor, type CombatStats } from '../classes/class-stats';
+import { manaBonus } from '../skills/mana';
 import { Vec2 } from '../../core/vec2';
 import { clampToArena, pushOutOfPillars, type ArenaDefinition } from '../arena/arena';
 import { BODY_RADIUS } from '../combat/collision';
@@ -18,9 +23,10 @@ export const PLAYER_STATS = {
 } as const;
 
 export class Player {
-  mana: number = MANA.maximum;
-  readonly maxMana = MANA.maximum;
-  manaRegeneration: number = MANA.regeneration;
+  mana: number;
+  readonly maxMana: number;
+  manaRegeneration: number;
+  readonly stats: CombatStats;
   position: Vec2;
   /** Punto del mondo verso cui si mira (sempre l'ultimo ricevuto). */
   aim: Vec2;
@@ -32,17 +38,36 @@ export class Player {
   slowFor = 0;
   /** Vero se nell'ultimo passo il giocatore ha cercato di muoversi. */
   moving = false;
+  buffs: (BuffSpec & { remaining: number })[] = [];
+  channel: { remaining: number; skill: SkillDefinition; aim: Vec2 } | null = null;
+  rush: { remaining: number; speed: number; angle: number; damage: number; hit: Set<string> } | null = null;
+
+  buffValue(key: 'armor' | 'regeneration' | 'attackSpeed' | 'lifesteal' | 'abilityPower'): number {
+    return this.buffs.reduce((sum, buff) => sum + (buff[key] ?? 0), 0);
+  }
+  get guarding(): boolean { return this.buffs.some(buff => buff.guard); }
+  addBuff(buff: BuffSpec): void {
+    this.buffs = this.buffs.filter(active => Boolean(active.guard) !== Boolean(buff.guard));
+    this.buffs.push({ ...buff, remaining: buff.duration });
+  }
+
 
   constructor(
     readonly arena: ArenaDefinition,
-    loadout: Loadout,
-    maxHealth: number = PLAYER_STATS.maxHealth,
+    readonly baseLoadout: Loadout,
+    maxHealth?: number,
+    readonly characterClass: CharacterClass | null = null,
   ) {
     this.position = arena.playerSpawn;
     this.aim = arena.playerSpawn;
-    this.health = new Health(maxHealth);
-    this.skillBar = new SkillBar(loadout);
-    this.manaRegeneration += loadout.reduce((sum, skill) => sum + (skill ? manaBonus(skill) : 0), 0);
+    this.stats = resolveCombatStats(characterClass, baseLoadout);
+    this.health = new Health(maxHealth ?? this.stats.maxHealth);
+    this.maxMana = this.stats.maxMana;
+    this.mana = this.maxMana;
+    this.manaRegeneration = this.stats.manaRegeneration;
+    this.skillBar = new SkillBar(baseLoadout.map((skill, slot) => skill && slot === 0
+      ? { ...skill, cooldown: skill.cooldown / (1 + this.stats.attackSpeed) } : skill));
+    this.manaRegeneration += baseLoadout.reduce((sum, skill) => sum + (skill ? manaBonus(skill) : 0), 0);
   }
 
   get isInvulnerable(): boolean {
@@ -59,8 +84,9 @@ export class Player {
 
   /** Si muove con la direzione `move` (lunghezza al massimo 1) restando nell'arena e fuori dai pilastri. */
   moveBy(dt: number, move: Vec2): void {
+    if (this.rush !== null) { this.moving = true; return; }
     this.moving = move.x !== 0 || move.y !== 0;
-    const speed = PLAYER_STATS.moveSpeed * (this.slowFor > 0 ? PLAYER_STATS.slowFactor : 1);
+    const speed = this.stats.moveSpeed * (this.channel ? CLASS_COMBAT.channelMoveFactor : 1) * (this.slowFor > 0 ? PLAYER_STATS.slowFactor : 1);
     const moved = clampToArena(this.arena, this.position.add(move.mul(speed * dt)), this.arena.playerMargin);
     this.position = pushOutOfPillars(this.arena, moved, BODY_RADIUS.player);
   }
@@ -69,9 +95,10 @@ export class Player {
    * Subisce un colpo. Restituisce false (nessun effetto) se e' invulnerabile; altrimenti toglie vita e avvia
    * l'invulnerabilita' dopo il colpo.
    */
-  tryHurt(amount: number): boolean {
-    if (this.isInvulnerable) return false;
-    this.health.takeDamage(amount);
+  tryHurt(amount: number, unblockable = false): boolean {
+    if (this.guarding) { this.buffs = this.buffs.filter(buff => !buff.guard); return true; }
+    if (this.isInvulnerable && !unblockable) return false;
+    this.health.takeDamage(damageAfterArmor(amount, this.stats.armor + this.buffValue('armor')));
     this.invulnerableFor = PLAYER_STATS.hitInvulnerability;
     return true;
   }

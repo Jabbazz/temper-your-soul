@@ -84,14 +84,14 @@ export class PartyRoom {
     }
     this.run = null;
     if (this.mode === 'duel') {
-      const members = [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout() }));
+      const members = [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout(), characterClass: character.characterClass }));
       this.match = new Match({ rng: new SeededRng(seed), dungeon, loadout: members[0]!.loadout, members });
       spreadPlayers(this.match);
     } else {
       this.run = new DescentRun({
         mode: this.mode,
         dungeonId: this.mode === 'pilgrimage' ? DUNGEONS[0]!.id : dungeon.id,
-        members: [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout() })),
+        members: [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout(), characterClass: character.characterClass })),
         seed,
         grade: this.grade,
       });

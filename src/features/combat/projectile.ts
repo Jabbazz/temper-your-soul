@@ -1,4 +1,5 @@
 import { Vec2 } from '../../core/vec2';
+import type { HitEffect } from '../classes/skill-mechanics';
 import type { Team } from './team';
 
 /**
@@ -10,6 +11,8 @@ export type ProjectileVisual = string;
 
 /** Dati di un tipo di proiettile. Di sola lettura: lo stato variabile vive in `Projectile`. */
 export interface ProjectileSpec {
+  readonly onHit?: HitEffect;
+  readonly unblockable?: boolean;
   readonly team: Team;
   /** Velocita' in unita' al secondo. */
   readonly speed: number;

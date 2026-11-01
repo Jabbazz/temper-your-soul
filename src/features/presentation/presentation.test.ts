@@ -1,3 +1,4 @@
+import { ITEM_LOOKS } from './looks/items';
 import { describe, expect, it } from 'vitest';
 import { Camera } from '../../core/camera';
 import { SeededRng } from '../../core/rng';
@@ -363,9 +364,9 @@ describe('leggibilità (fase 0 dello studio sulla grafica)', () => {
     return Math.hypot(x[0]! - y[0]!, x[1]! - y[1]!, x[2]! - y[2]!);
   };
   const playerVisuals = new Set(
-    [...MAGE_SKILLS, ...ITEM_FAMILIES.map((family) => family.skill)].flatMap((skill) =>
+    [...Object.keys(ITEM_LOOKS.projectiles), ...[...MAGE_SKILLS, ...ITEM_FAMILIES.map((family) => family.skill)].flatMap((skill) =>
       skill.effect.kind === 'projectile' ? [skill.effect.projectile.visual] : [],
-    ),
+    )],
   );
 
   it('un colpo dei giocatori non ha mai forma e colore quasi uguali a quelli di un proiettile nemico', () => {

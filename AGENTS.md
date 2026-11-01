@@ -83,6 +83,8 @@ In cooperativa il server esegue `Match.stepParty(dt, intents)` a 60 Hz; i client
 
 ## Convenzioni
 
+- **Moduli piccoli per responsabilità:** classi in `src/features/classes/<classe>/`, stati in `combat/status-effects/`. Separare profili, equipaggiamento, skill e comportamento; mantenere registri condivisi leggeri. Estrarre nuove categorie in file dedicati invece di ampliare file monolitici. Gli id esistenti di skill e oggetti restano stabili.
+
 - TypeScript **strict**: niente `any`, parametri inutilizzati con prefisso `_`. File in `kebab-case`, classi in `PascalCase`.
 - Testi visibili al giocatore e documentazione in italiano; identificatori nel codice in inglese.
 - **La simulazione non conosce il DOM, il canvas, il tempo reale ne' `Math.random`**: tutto cio' che e' casuale nelle regole passa da un `Rng` iniettato (`SeededRng` nei test e nelle partite), cosi' una partita e' riproducibile con il seme. La casualita' estetica (`cosmeticRng`) vale solo in `presentation/`.

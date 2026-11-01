@@ -1,9 +1,12 @@
 import type { Vec2 } from '../../core/vec2';
+import type { HitEffect } from '../classes/skill-mechanics';
 import type { Team } from './team';
 
 /** Dati di una zona a scoppio ritardato: un'area segnalata che esplode dopo `delay` secondi. */
 export interface DangerZoneSpec {
   /** Squadra di chi la crea: colpisce la squadra avversaria. */
+  readonly onHit?: HitEffect;
+  readonly unblockable?: boolean;
   readonly team: Team;
   readonly radius: number;
   /** Secondi tra la comparsa del segnale e lo scoppio. */
@@ -42,6 +45,7 @@ export class DangerZone {
 
   /** Avanzamento del conto alla rovescia, da 0 (appena creata) a 1 (sta per esplodere). */
   get progress(): number {
+    if (this.spec.delay <= 0) return 1;
     return Math.min(Math.max(1 - this.remaining / this.spec.delay, 0), 1);
   }
 

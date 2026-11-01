@@ -20,17 +20,26 @@ export function scaleSkill(skill: SkillDefinition, rarity: Rarity): SkillDefinit
   const { powerMultiplier, cooldownMultiplier } = RARITY_STATS[rarity];
   const damage = (value: number): number => Math.round(value * powerMultiplier);
   const dashFactor = 1 + (powerMultiplier - 1) * DASH_POWER_SHARE;
-  return { ...skill, manaCost: manaCost(skill) * cooldownMultiplier, manaRegeneration: (1 / cooldownMultiplier - 1) * 8 + manaBonus(skill), cooldown: skill.cooldown * cooldownMultiplier, effect: scaleEffect(skill.effect, damage, dashFactor) };
+  return { ...skill, manaCost: manaCost(skill) * cooldownMultiplier, manaRegeneration: (1 / cooldownMultiplier - 1) * 8 + manaBonus(skill), cooldown: skill.cooldown * cooldownMultiplier, onHit: skill.onHit ? { ...skill.onHit, ...(skill.onHit.damagePerSecond ? { damagePerSecond: damage(skill.onHit.damagePerSecond) } : {}) } : undefined, effect: scaleEffect(skill.effect, damage, dashFactor) };
 }
 
 function scaleEffect(effect: SkillEffect, damage: (value: number) => number, dashFactor: number): SkillEffect {
   switch (effect.kind) {
+    case 'buff':
+      return { ...effect, buff: { ...effect.buff,
+        ...(effect.buff.armor ? { armor: damage(effect.buff.armor) } : {}),
+        ...(effect.buff.regeneration ? { regeneration: damage(effect.buff.regeneration) } : {}),
+      } };
+    case 'summon':
+      return { ...effect, pet: { ...effect.pet, damage: damage(effect.pet.damage) } };
     case 'projectile':
       return { ...effect, projectile: { ...effect.projectile, damage: damage(effect.projectile.damage) } };
     case 'ground_blast':
       return { ...effect, zone: { ...effect.zone, damage: damage(effect.zone.damage) } };
     case 'dash':
-      return { ...effect, distance: effect.distance * dashFactor, invulnerability: effect.invulnerability * dashFactor };
+      return { ...effect, distance: effect.distance * dashFactor, invulnerability: effect.invulnerability * dashFactor,
+        ...(effect.impactDamage ? { impactDamage: damage(effect.impactDamage) } : {}),
+        ...(effect.explosion ? { explosion: { ...effect.explosion, damage: damage(effect.explosion.damage) } } : {}) };
     case 'melee_arc':
       return { ...effect, damage: damage(effect.damage) };
   }

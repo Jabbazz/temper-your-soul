@@ -294,6 +294,10 @@ export const AMBIENCE: Readonly<Record<ArenaThemeId, LoopDefinition>> = {
  * scegliere il materiale e' una decisione, non un ripiego.
  */
 export const SKILL_SOUNDS: Readonly<Record<string, SoundId>> = {
+  mage_fire_bolt: 'cast_fire', mage_fire_cinder: 'cast_fire', mage_water_orb: 'cast_frost',
+  mage_water_mirror: 'cast_frost', mage_earth_light: 'cast_nature', mage_wind_bolt: 'cast_arcane',
+  warrior_sweep: 'cast_blade', warrior_guard: 'cast_blade', warrior_fortify: 'cast_blade', warrior_rush: 'cast_dash',
+  archer_predator: 'cast_nature', archer_wolf: 'cast_nature', mage_earth_buff: 'cast_nature',
   arcane_bolt: 'cast_arcane',
   storm_bolt: 'cast_arcane',
   spirit_wisp: 'cast_arcane',
@@ -322,15 +326,18 @@ export const SKILL_SOUNDS: Readonly<Record<string, SoundId>> = {
 };
 
 /** Suono di lancio per le skill senza voce in `SKILL_SOUNDS` (per esempio quelle dei test), per tipo di effetto. */
-export const KIND_SOUNDS: Readonly<Record<'projectile' | 'ground_blast' | 'dash' | 'melee_arc', SoundId>> = {
+export const KIND_SOUNDS: Readonly<Record<'projectile' | 'ground_blast' | 'dash' | 'melee_arc' | 'buff' | 'summon', SoundId>> = {
   projectile: 'cast_arcane',
   ground_blast: 'cast_fire',
   dash: 'cast_dash',
   melee_arc: 'cast_blade',
+  buff: 'cast_arcane',
+  summon: 'cast_nature',
 };
 
 /** Scoppio delle zone del giocatore per `DangerZoneSpec.visual`. */
 export const ZONE_SOUNDS: Readonly<Record<string, SoundId>> = {
+  mage_blink_burst: 'blast_arcane',
   hammer_blast: 'blast_fire',
   plate_blast: 'blast_fire',
   aegis_blast: 'blast_fire',

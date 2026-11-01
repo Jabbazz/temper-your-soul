@@ -1,6 +1,6 @@
 # Versione del gioco e changelog
 
-Il menu mostra la versione al centro in basso (`v0.02.00`) e il pulsante **Changelog** in basso a sinistra. Le note riguardano l’ultimo aggiornamento; le versioni precedenti restano in `src/release-notes.ts`. Questi elementi appartengono solo al menu, mai a dungeon, zaino o combattimento.
+Il menu mostra la versione al centro in basso (`v0.02.00`) e il pulsante **Changelog** in basso a sinistra. Il changelog mostra la cronologia completa disponibile in `src/release-notes.ts`, dalla versione corrente alle precedenti. Ogni versione ha data, feature e variazioni di bilanciamento in una sezione espandibile; quella corrente è aperta inizialmente. Non eliminare né nascondere le versioni passate quando si aggiungono nuove note. Questi elementi appartengono solo al menu, mai a dungeon, zaino o combattimento.
 
 ## Fonti e formato
 

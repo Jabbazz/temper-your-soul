@@ -1,3 +1,4 @@
+import { CLASS_LOOKS } from './looks/class-skills';
 import type { Team } from '../combat/team';
 import { CORE_LOOKS } from './looks/core';
 import { DESCENT_LOOKS } from './looks/descent';
@@ -30,7 +31,7 @@ export interface PresentationLooks {
   readonly zones: Readonly<Record<string, ZoneLook>>;
 }
 
-const ALL: readonly PresentationLooks[] = [CORE_LOOKS, ITEM_LOOKS, SWAMP_LOOKS, FORGE_LOOKS, GLACIER_LOOKS, DESCENT_LOOKS];
+const ALL: readonly PresentationLooks[] = [CORE_LOOKS, ITEM_LOOKS, SWAMP_LOOKS, FORGE_LOOKS, GLACIER_LOOKS, DESCENT_LOOKS, CLASS_LOOKS];
 
 export const PROJECTILE_LOOKS: Readonly<Record<string, ProjectileLook>> = Object.assign({}, ...ALL.map((looks) => looks.projectiles));
 export const ZONE_LOOKS: Readonly<Record<string, ZoneLook>> = Object.assign({}, ...ALL.map((looks) => looks.zones));

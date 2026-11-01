@@ -1,3 +1,4 @@
+import { drawClassCombat } from './draw-class-combat';
 import type { CharacterAppearance } from '../character/appearance';
 import type { Camera } from '../../core/camera';
 import type { Match } from '../match/match';
@@ -108,6 +109,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const zone of match.zones) drawFallingSpell(ctx, zone);
 
   scene.drawRoom?.(ctx, 'above');
+  drawClassCombat(ctx, match, clock);
   drawGlowEffects(ctx, effects);
   drawFloatingTexts(ctx, effects);
   drawCrosshair(ctx, player.aim);

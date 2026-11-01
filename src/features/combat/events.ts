@@ -28,12 +28,13 @@ export type GameEvent = (
       type: 'skill_cast';
       skillId: string;
       visual: string;
-      kind: 'projectile' | 'ground_blast' | 'dash' | 'melee_arc';
+      kind: 'projectile' | 'ground_blast' | 'dash' | 'melee_arc' | 'buff' | 'summon';
       origin: Vec2;
       destination: Vec2;
       angle: number;
       range?: number;
       arc?: number;
+      travelSeconds?: number;
     }
   /**
    * Danno inflitto (`amount` e' il danno del colpo, anche se supera gli HP rimasti). Ai giocatori porta la fonte; ai
@@ -52,6 +53,9 @@ export type GameEvent = (
   /** Il boss annuncia un attacco: testo sopra la testa. */
   | { type: 'boss_attack'; patternId: string; position: Vec2; name: string; color: string; labelOffsetY: number }
   /** Il boss assume la posa di lancio per `seconds` secondi. */
+  | { type: 'status_applied'; position: Vec2; status: string; seconds: number }
+  | { type: 'guard_blocked'; position: Vec2 }
+  | { type: 'channel_started'; position: Vec2; seconds: number }
   | { type: 'boss_pose'; seconds: number }
   | { type: 'boss_charge_finished'; position: Vec2 }
   /** Il boss si sposta di colpo (teletrasporto): la rappresentazione puo' mostrare un'esplosione nei due punti. */

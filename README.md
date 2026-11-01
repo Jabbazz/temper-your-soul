@@ -72,7 +72,7 @@ La build è in `dist/`, con script classico IIFE e risorse locali: è pubblicabi
 
 - Profili locali multipli: creazione, selezione, annullamento della bozza e rimozione con conferma nominativa. Ogni personaggio ha inventario, equipaggiamento, XP e record separati; la selezione attiva viene salvata.
 - Nome da 3 a 20 caratteri, sesso e classe scelti alla creazione. Nome, sesso e classe non sono modificabili dopo la conferma. Il sesso non è descritto nei riepiloghi del profilo, ma resta salvato per lo sprite.
-- Classi: **Guerriero, Arciere, Mago**. Nessun bonus innato alle statistiche per classe: è l’oggetto a concedere la skill dello slot.
+- Classi: **Guerriero, Arciere, Mago**. Statistiche innate distinte e bonus passivi degli oggetti per classe; è l’oggetto a concedere la skill dello slot. Prima taratura provvisoria in `features/classes/`.
 - Quattro slot: primaria, secondaria, armatura, stivali. Ogni nuovo personaggio riceve quattro pezzi **Comuni bianchi di classe**, livello oggetto 1, 20 GS ciascuno, già equipaggiati: **80 GS totali**. Queste varianti bianche non cadono dai boss.
 - 25 famiglie con rarità Comune bianca, Non comune verde, Raro blu, Epico viola e Leggendario rosso. La rarità scala le skill; il livello oggetto entra attualmente nel GS, non aggiunge un secondo moltiplicatore alle skill.
 - Classe richiesta su ogni famiglia: archi solo Arciere; spade, martelli e lance Guerriero; bastoni/scettri e globi Mago. Anche secondarie, armature e stivali hanno una classe specifica: vedere [item-classes.ts](src/features/items/item-classes.ts).
@@ -83,7 +83,7 @@ La build è in `dist/`, con script classico IIFE e risorse locali: è pubblicabi
 ### Livelli, mana e gear score
 
 - Livello iniziale 1, XP cumulativi per vittoria. Costo del passaggio di livello: `100 + 50 × (livello attuale − 1)`. Per ora salire di livello non concede bonus automatici di potenza.
-- Mana massimo 100, rigenerazione base 8/s più bonus degli oggetti e della rarità. Ogni skill ha un costo; senza mana non parte e non avvia la ricarica. Pausa e fine partita fermano la rigenerazione.
+- Mana massimo e rigenerazione dipendono dalla classe, più bonus degli oggetti e della rarità. Attacchi primari di Guerriero e Arciere gratuiti; le altre skill hanno un costo; senza mana non parte e non avvia la ricarica. Pausa e fine partita fermano la rigenerazione.
 - GS per pezzo: `min(100, baseRarità + livelloOggetto − 1)`. Basi 20/40/60/80/100; livello oggetto 1–20. Esempi: Arco novizio bianco livello 1 = 20 GS; Arco del cacciatore verde livello 1 = 40 GS.
 - GS del personaggio = somma dei quattro pezzi equipaggiati compatibili, massimo 400. Gli oggetti solo nello zaino non contano.
 - HUD centrale in basso: vita rossa a sinistra, livello al centro, mana blu a destra, XP sotto e quattro icone skill in ordine **DX / SX / Q / E**.
@@ -137,7 +137,7 @@ Server autorevole **Node + WebSocket**: una sola simulazione a 60 Hz per stanza,
 2. **Copia invito** condivide un URL `?party=<codice>`. Chi lo apre sceglie/crea il proprio personaggio e si unisce alla stessa stanza (massimo quattro membri).
 3. Solo il creatore/leader sceglie il dungeon. Tutti confermano **Sono pronto**, poi il leader preme **Avvia dungeon**. Cambiare destinazione azzera le conferme. Il server verifica il GS di **tutti**: T3 100, T4 200.
 4. Alleati visibili con sprite/equipaggiamento, nome e barra vita. Proiettili, zone e colpi alleati non infliggono fuoco amico; attacchi, contatto e cariche del boss possono colpire ciascun membro. Il boss prende di mira il vivo più vicino. Un KO rimane fuori combattimento fino al prossimo incontro; sconfitta solo quando tutti sono KO. Nessuna resurrezione né permadeath aggiunti.
-5. A vittoria/sconfitta si apre il **Combat report** condiviso: danni effettivi inflitti, subiti e guarigione per membro, senza overkill. Guarigione resta 0: cure/Chierico non sono ancora implementati. Anche il singolo ha il report.
+5. A vittoria/sconfitta si apre il **Combat report** condiviso: danni effettivi inflitti, subiti e guarigione per membro, senza overkill. La guarigione include rigenerazione del Guerriero e furto vita dell’Arciere; Chierico non implementato. Anche il singolo ha il report.
 
 Il pannello mostra il **ping RTT** misurato ogni due secondi, con variazione dell’ultima misura nel tooltip. In cooperativa aprire menu/lobby o cambiare scheda **non mette in pausa il mondo**; l’input scade dopo 350 ms senza comandi. Uscita, ricaricamento e disconnessione abbandonano l’incontro (nessun rientro nello stesso combattimento); il corpo diventa KO. Se il leader esce, il comando passa al primo membro rimasto. Tornare al menu durante l’incontro esce dal party. Cambiare profilo esce dal party; cambiare equipaggiamento in lobby aggiorna il personaggio sul server e annulla il proprio pronto.
 
@@ -246,7 +246,7 @@ Per un nuovo oggetto servono: id stabile, famiglia e classe, skill/statistiche/c
 
 ## Verifiche e prossimi passi
 
-`npm run verify` deve uscire con codice 0. I **568 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
+`npm run verify` deve uscire con codice 0. I **599 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
 
 Priorità per chi riprende il lavoro:
 
@@ -275,3 +275,23 @@ Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, g
 Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
 
 Verifica storica prima dell’integrazione: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.
+
+### Ruoli di classe: primo incremento (1 novembre 2026)
+
+Con i quattro pezzi Comuni iniziali: Guerriero 200 HP, 40 difesa, 60 MP, movimento 173 u/s; Mago 95 HP, 2 difesa, 200 MP, movimento 179 u/s e +7% danno abilità; Arciere 120 HP, 10 difesa, 80 MP, movimento 212 u/s e +20% frequenza primaria. Numeri provvisori: i bonus degli slot crescono con la rarità x1/1,2/1,5/2/3, il livello oggetto continua a influire solo sul GS. Difesa: danno ricevuto = danno × 100/(100+difesa). HP e mana sono coerenti fra stanze, server e replica visuale. Protocollo 6: riavviare il server e ricaricare le schede.
+
+Le skill di classe sono state implementate nella revisione seguente; resta da completare la taratura generale dei boss e la prova giocata.
+
+Verifica di questo incremento: 578 test, tipi client/server e build superati; mutazione temporanea della difesa rilevata dai test e ripristinata. La verifica browser del ramo non è riuscita: il browser integrato va in timeout sul server di sviluppo 5181. Nessuna prova visiva o giocata dichiarata per questi cambiamenti.
+
+### Skill e oggetti di classe aggiornati
+
+- **Guerriero:** SX fendente con taunt e cancellazione proiettili ordinari; DX parata che assorbe un colpo, anche rosso; Q difesa/rigenerazione; E carica fisica con urto e collisione con pilastri.
+- **Mago:** primaria con 15% di stato elementale, secondarie elementali, armature con magie canalizzate o buff; E blink con esplosione immediata. Quattro stati applicati: bruciatura, rallentamento dell’acqua, radicamento della terra, esposizione al vento.
+- **Arciere:** SX gratuito con marchio e penetrazione scudo; DX buff di frequenza e furto vita; Q lupo che segue, attacca il marchio e salta al prossimo bersaglio dopo una uccisione, con 20% di sanguinamento per morso; E due cariche di corsa.
+
+Oggetti esistenti aggiornati senza reset o migrazione: basta ricaricare e avviare una nuova partita. Icone della barra ridisegnate nel codice, effetti e suoni collegati. Protocollo 7: riavviare il server cooperativo e ricaricare tutti i client. Il boss annuncia un nuovo colpo rosso distinto: non viene cancellato dal fendente e supera l’invulnerabilità ordinaria, ma si evita muovendosi o si assorbe con la parata. Danno base 100, preparazione 1,1 s; numeri provvisori.
+
+Verifica aggiornata: 599 test, tipi e build; controlli browser su barra e Q delle tre classi. Conferma giocata ancora necessaria. Restano fuori da questo incremento l’aumento generale degli HP dei boss, la velocità/danno dei loro colpi ordinari e la scalatura HP uniforme del party.
+
+Versione main di questo incremento: **v0.03.00** (package `0.3.0`). Punti aperti e prove ancora necessarie restano nella roadmap; la pubblicazione non costituisce approvazione del bilanciamento o conferma giocata.

@@ -1,5 +1,6 @@
-import { el, requireElement } from './dom';
-import { CURRENT_RELEASE, GAME_VERSION_LABEL, describeBalanceChange } from '../../release-notes';
+import { requireElement } from './dom';
+import { GAME_VERSION_LABEL } from '../../release-notes';
+import { renderChangelog } from './changelog';
 import { BACKPACK_SPRITE } from '../presentation/item-sprites';
 import { renderPixelIcon } from './pixel-icon';
 
@@ -16,12 +17,7 @@ export class MainMenu {
     requireElement('menu-bestiary').addEventListener('click', handlers.onBestiary);
     requireElement('menu-version').textContent = GAME_VERSION_LABEL;
     const notes = requireElement('menu-changelog-content');
-    notes.append(el('h2', '', `Novità · ${GAME_VERSION_LABEL}`), el('small', '', CURRENT_RELEASE.date.split('-').reverse().join('/')));
-    const changes = el('ul');
-    for (const text of CURRENT_RELEASE.changes) changes.append(el('li', '', text));
-    for (const change of CURRENT_RELEASE.balanceChanges) changes.append(el('li', '', describeBalanceChange(change)));
-    notes.append(changes);
-    if (CURRENT_RELEASE.balanceChanges.length === 0) notes.append(el('p', 'release-balance-note', 'Nessuna modifica ai valori di combattimento.'));
+    notes.replaceChildren(renderChangelog());
     requireElement('menu-changelog').addEventListener('keydown', event => {
       if (event.key === 'Escape') {
         requireElement<HTMLDetailsElement>('menu-changelog').open = false;

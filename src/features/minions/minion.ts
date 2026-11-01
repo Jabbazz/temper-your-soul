@@ -53,6 +53,7 @@ export class Minion {
   warded: boolean;
   /** Secondi di rallentamento rimasti (gelo del giocatore). */
   slowFor = 0;
+  rootFor = 0;
   /** Secondi di vita: non spara nei primi istanti. */
   age = 0;
   /** Gia' rialzato una volta (scheletri). */

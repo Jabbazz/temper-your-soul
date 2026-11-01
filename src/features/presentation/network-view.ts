@@ -19,7 +19,7 @@ export class NetworkView {
 
   constructor(authoritative: Match) {
     this.match = new Match({ dungeon: authoritative.dungeon, arena: authoritative.arena, boss: authoritative.boss?.definition ?? null, rng: new SeededRng(1), loadout: authoritative.player.skillBar.skills,
-      members: [...authoritative.players].map(([id, player]) => ({ id, loadout: player.skillBar.skills, maxHealth: player.health.max })) });
+      members: [...authoritative.players].map(([id, player]) => ({ id, loadout: player.baseLoadout, characterClass: player.characterClass, maxHealth: player.health.max })) });
     this.match.viewPlayerId = authoritative.viewPlayerId;
   }
 
@@ -31,7 +31,7 @@ export class NetworkView {
       return { from: start, to, current: start };
     };
     const livePlayers = new Set<string>(), liveShots = new Set<number>(), liveMinions = new Set<number>();
-    const dashed = new Set(snapshot.events.flatMap(event => event.type === 'skill_cast' && event.kind === 'dash' && event.playerId ? [event.playerId] : []));
+    const dashed = new Set(snapshot.events.flatMap(event => event.type === 'skill_cast' && event.kind === 'dash' && !event.travelSeconds && event.playerId ? [event.playerId] : []));
     for (const p of snapshot.players) {
       livePlayers.add(p.id); this.players.set(p.id, track(dashed.has(p.id) ? undefined : this.match.players.get(p.id)?.position, p.position));
     }

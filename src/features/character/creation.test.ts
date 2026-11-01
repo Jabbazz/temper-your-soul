@@ -18,7 +18,7 @@ describe('creazione del personaggio',()=>{
       expect(character.created).toBe(true);expect(character.gearScore).toBe(80);
       expect(character.inventory.map(i=>i.familyId)).toEqual(STARTER_SETS[kind]);
       expect(character.inventory).toHaveLength(4);
-      expect(character.inventory.every(i=>i.rarity==='common'&&gearScore(i)===20&&itemName(i).includes('novizio'))).toBe(true);
+      expect(character.inventory.every(i=>i.rarity==='common'&&gearScore(i)===20&&/novizi[oa]/.test(itemName(i)))).toBe(true);
       expect(character.loadout().every(Boolean)).toBe(true);
       expect(character.totalXp).toBe(0);expect(character.records).toEqual({});
     }

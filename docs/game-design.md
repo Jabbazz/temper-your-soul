@@ -45,7 +45,7 @@ Tutti i valori sono provvisori e modificabili: stanno in tabelle di dati con nom
 
 - Visuale dall'alto, camera centrata sul giocatore (zoom 1,5, nessun limite ai bordi). Movimento con WASD, mira con il mouse, si può lanciare mentre ci si muove. Vittoria: il boss arriva a 0 PV. Sconfitta: il giocatore arriva a 0 PV.
 - Grafica: pixel art disegnata dal codice (matrici di caratteri), particelle e ambiente procedurali. Audio: motore a canali guidato dai dati con registrazioni vere a licenza libera (vedi "Audio" sotto), acceso per impostazione.
-- **Giocatore** (`PLAYER_STATS`): vita 100, velocità 177/s (in diagonale non aumenta), 0,65 s di invulnerabilità dopo un colpo. Raggio di colpo 9, corpo contro i pilastri 10 (`combat/collision.ts`).
+- **Giocatore** (valori storici del prototipo, sostituiti dai profili di classe nell’ultima sezione): vita 100, velocità 177/s (in diagonale non aumenta), 0,65 s di invulnerabilità dopo un colpo. Raggio di colpo 9, corpo contro i pilastri 10 (`combat/collision.ts`).
 - Ambientazione e testi del prototipo ("Ordine della Brace", "cripta", "guardiano") sono provvisori.
 
 ### Dungeon, mappe e boss
@@ -158,12 +158,12 @@ Un clic seleziona l'oggetto nello zaino e mostra i comandi Equipaggia/Scarta; lo
 
 ## Livelli, mana e HUD (incremento corrente)
 XP cumulativi salvati nel formato v2; v1 migrato con 0 XP mantenendo oggetti e record. Premi provvisori per vittoria: cripta 100, palude 180, fucina 280, ghiacciaio 400. Livello iniziale 1; costo del passaggio 100 + 50 per ogni livello gia ottenuto. Nessun bonus automatico alle statistiche per livello, per ora.
-Mana massimo 100, ripristinato a inizio dungeon, rigenerazione base 8/s; ogni oggetto aggiunge un bonus secondo il tipo di skill e la rarita. Costi per tutte le skill in SPELL_MANA; rigenerazione ferma in pausa/fine partita. Skill senza mana non attiva ricarica. Danno per rarita: x1, x1.2, x1.5, x2, x3; costi e cooldown migliorano con rarita. Valori tutti provvisori.
+Mana massimo e rigenerazione base dipendono ora dalla classe (vedi ultima sezione); ogni oggetto aggiunge un bonus secondo il tipo di skill e la rarita. Costi per tutte le skill in SPELL_MANA; rigenerazione ferma in pausa/fine partita. Skill senza mana non attiva ricarica. Danno per rarita: x1, x1.2, x1.5, x2, x3; costi e cooldown migliorano con rarita. Valori tutti provvisori.
 HUD centrale in basso: vita rossa, livello, mana blu, barra XP e icone originali pixel art in ordine DX/SX/Q/E; tooltip con statistiche. Ogni nuova skill richiede icona in SKILL_ICONS, costo in SPELL_MANA e test di copertura.
 Boss e cariche collidono coi pilastri; i teletrasporti atterrano fuori dagli ostacoli. Droprate e permadeath rimandati.
 
 ## Classi e anteprima delle animazioni
-Le tre classi sono Guerriero, Arciere e Mago. Nell’anteprima: Fornace rappresenta il Guerriero, arco e stivali del vento rappresentano l’Arciere, Arcano rappresenta il Mago. I preset dell’anteprima sono combinazioni visive libere; nel gioco reale ogni famiglia è ora vincolata a una classe, senza introdurre statistiche innate di classe.
+Le tre classi sono Guerriero, Arciere e Mago. Nell’anteprima: Fornace rappresenta il Guerriero, arco e stivali del vento rappresentano l’Arciere, Arcano rappresenta il Mago. I preset dell’anteprima sono combinazioni visive libere; nel gioco reale ogni famiglia è ora vincolata a una classe, con statistiche innate distinte dal primo incremento di bilanciamento (vedi ultima sezione).
 Le armi vengono disegnate come strati rigidi e ruotate attorno alla presa, senza deformare la lama. Braccio, polso e dita condividono un punto di attacco per mano; il lancio usa lo slot della skill effettivamente lanciata. L’anteprima permette di scegliere Primaria/Secondaria/Armatura/Stivali. Il ventaglio non contiene pixel di pelle: la mano viene disegnata una sola volta dal corpo.
 
 ### Ritratti indossabili e scelta della classe
@@ -369,3 +369,47 @@ Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono 
 ### Verifica della versione combinata (1 novembre 2026)
 
 Integrate le fix delle stanze e le migliorie multiplayer locali. `npm run verify`: 555 test in 42 file, tipi client/server e build superati. Due regressioni aggiuntive verificano interpolazione in stanze senza boss e conservazione del luogotenente con vita scalata. Nessuna nuova prova visiva eseguita, come richiesto dall’utente.
+
+## Ruoli di classe: richiesta e primo incremento (1 novembre 2026)
+
+Decisione: Guerriero tank (HP/difesa), Mago magia e controllo elementale (mana/recupero/potenza), Arciere movimento e frequenza d’attacco. Tabelle provvisorie in `features/classes/<classe>/profile.ts`; aggregazione in `class-stats.ts`. Ogni slot concede bonus specifici di classe, moltiplicati per la potenza della rarità x1/1,2/1,5/2/3. Nessun bonus dal livello oggetto oltre al GS. La difesa riduce ogni danno ricevuto con `100/(100+difesa)`; report ed eventi usano la perdita effettiva di HP.
+
+| Classe | HP base / set Comune | Difesa base / set | MP base / set | Movimento base / set (u/s) | Bonus frequenza primaria base / set | Potenza abilità base / set |
+| --- | --- | --- | --- | --- | --- | --- |
+| Guerriero | 150 / 200 | 15 / 40 | 60 / 60 | 170 / 173 | 0% / 0% | 0% / 0% |
+| Mago | 90 / 95 | 0 / 2 | 150 / 200 | 177 / 179 | 0% / 0% | 0% / 7% |
+| Arciere | 110 / 120 | 5 / 10 | 80 / 80 | 195 / 212 | 10% / 20% | 0% / 0% |
+
+Rigenerazione mana base: Guerriero 5/s, Mago 10/s, Arciere 6/s. Restano i precedenti bonus delle skill; il set Comune del Mago aggiunge ulteriori 3,5 MP/s. Frequenza primaria: cooldown diviso per (1+bonus); gli altri slot non accelerano. Tutti gli attacchi primari non magici costano 0 MP, inclusi martello e lancia; tutti i lanci del Mago mantengono i costi correnti. La potenza aumenta il danno generato dalle abilità, oltre allo scaling già presente della rarità. Nessun dato nuovo nei salvataggi; protocollo 6 trasmette la classe nel setup.
+
+### Revisione delle skill di classe (1 novembre 2026)
+
+Le famiglie salvate mantengono gli id: i pezzi già posseduti ricalcolano le nuove abilità. Il catalogo viene dai registri `classes/warrior/skills.ts`, `classes/mage/skills.ts`, `classes/archer/skills.ts`; `ClassCombat` gestisce interazioni, compagni e colpo speciale, `StatusRuntime` gestisce applicazione e scadenza degli stati. Nessun cambio al formato di salvataggio.
+
+| Classe | Primaria · SX | Secondaria · DX | Armatura · Q | Stivali · E |
+| --- | --- | --- | --- | --- |
+| Guerriero | Fendenti di spada/martello/lancia; cancellano proiettili ordinari nell’arco e provocano in raggio | Scudo: assorbe completamente il prossimo colpo per 2 s, anche rosso | Secondo fiato / Fortezza vivente: difesa e rigenerazione HP temporanee | Corse fisiche con urto, fermate dai pilastri |
+| Mago | Staffa: fuoco; scettro: vento; 15% di stato per proiettile a segno | Tomo/specchio acqua, lanterna terra, globo fuoco; stato garantito al colpo | Meteora fuoco con channeling, Marea acqua con channeling, Patto della terra con buff | Blink con esplosione immediata e esposizione al vento all’arrivo |
+| Arciere | Frecce gratuite con marchio e 35% di penetrazione dello scudo numerico | Faretra: frequenza primaria +35% e furto vita 15% per 5 s | Lupo evocato per 20 s | Due cariche di corsa, recuperate una alla volta |
+
+Valori Comuni provvisori: fendente 36 danni/0,45 s, spazzata martello 60/0,75 s, falciata lancia 42/0,55 s. Tutte provocano entro 300 unità per 3 s: prevale l’ultima provocazione valida, termina al KO o fuori raggio; i proiettili e gli attacchi già diretti non cambiano traiettoria. Scudo: costo 12 MP, recupero 8 s. Armatura base: +40 difesa e 5 HP/s per 5 s, costo 20 MP e recupero 12 s; fornace: +65 difesa e 7 HP/s per 6 s, 25 MP e 15 s. Le rigenerazioni e il furto vita contano gli HP effettivamente recuperati nel report.
+
+Corse del Guerriero: 150–210 unità in 0,22 s, urto 35–55 danni Comuni una sola volta per nemico attraversato; collisione verificata lungo il percorso, nessun blink. Arciere: 170 unità in 0,16 s, 0 MP, due cariche e recupero base 3 s. La rarità aumenta distanza, protezione e danni secondo lo scaling esistente. Parata e buff sono distinti e possono coesistere; riapplicare lo stesso tipo di buff rinnova senza cumulare indefinitamente.
+
+Il channeling paga mana e avvia la ricarica all’inizio; movimento al 35%, nessun nuovo lancio durante la preparazione. Meteora: 0,7 s; Marea: 0,5 s. Alla fine usa il punto mirato all’inizio della canalizzazione; il KO interrompe senza rimborso. Blink: esplosione immediata da 65 danni base, raggio 85. La rarità scala il danno dell’esplosione.
+
+Stati, senza cumulo dello stesso stato sullo stesso bersaglio (nuovo colpo rinnova la durata, non anticipa il prossimo tick): fuoco → bruciatura 8 HP/s per 4 s alla rarità Comune; acqua → rallentamento per 3 s; terra → radicamento del movimento ordinario per 1,2 s (non interrompe le cariche o i teletrasporti speciali); vento → esposizione, +20% danno subito per 4 s. Effetti su boss, luogotenenti e servitori; tiri tramite Rng iniettato, nessun proc sul colpo mancato. La bruciatura scala con la rarità; il bonus di potenza del personaggio scala il danno diretto delle abilità, non aggiunge un secondo moltiplicatore al danno periodico.
+
+Lupo: segue senza sovrapporsi al proprietario, attacca il marchio delle frecce; dopo una uccisione può saltare su un nemico entro 180 unità senza attraversare un pilastro. Morso Comune 22 danni ogni 0,7 s; la rarità scala il morso x1/1,2/1,5/2/3. Ogni morso a segno ha 20% di sanguinamento per 4 s: danno ogni secondo pari allo 0,15% degli HP massimi del boss, 0,3% del luogotenente, 2,5% del servitore. Il pet svanisce a scadenza/KO o cambio stanza; può essere rievocato dalla skill. Il marchio è personale per proprietario. La penetrazione delle frecce agisce sugli scudi numerici esistenti; non è stata aggiunta una nuova statistica di armatura ai nemici. Gli scudi speciali degli élite mantengono la loro regola di rottura tramite melee/area.
+
+Boss e luogotenenti: colpo rosso speciale a 10 s, poi ogni 12 s; preparazione 1,1 s con linea di mira e glifi rossi rotanti, quindi proiettile da 100 danni base a 390 u/s. Supera invulnerabilità ordinaria e cancellazione del fendente, ma viene assorbito dalla parata; può essere evitato muovendosi o usando gli ostacoli. Non è un colpo garantito. Dati in `classes/combat-tuning.ts`. Non introdotto questo attacco nelle fixture storiche prive di classe; nel gioco ogni personaggio ha la propria classe esplicita.
+
+Icone della barra nuove per tutte le skill di classe; Scudo degli spiriti e Faretra del predatore rinominati mantenendo gli id salvati. Aggiornata l’icona oggetto dello scudo; nessuna rigenerazione o revisione dei ritratti/personaggi. Segnali persistenti per parata, buff, canalizzazione, pet, marchio e debuff. Protocollo **7**: il server trasmette anche stato delle classi e cariche; il client rappresenta senza simulare danni, DoT o pet. Riavviare server e ricaricare i client.
+
+Verifica: tipi client/server, suite e build; controlli browser con nuovi personaggi delle tre classi (icone, skill, Q Guerriero, lupo e due cariche, channeling Mago). Mutazione della parata rilevata dal test e ripristinata. Questi controlli non sono una conferma giocata dell’utente.
+
+### Ancora aperto
+
+- Taratura giocata di durate, danni, costi e recuperi; bilanciamento completo dei quattro boss.
+- Aumento HP base dei boss e danno/velocità dei proiettili ordinari. +50% HP per membro aggiuntivo per boss e servitori: oggi questa crescita è già presente per i luogotenenti, il budget delle ondate cresce col party; resta da uniformare.
+- Salvataggio del pet fra stanze e profili di resistenza dei nemici: non aggiunti in questo incremento.

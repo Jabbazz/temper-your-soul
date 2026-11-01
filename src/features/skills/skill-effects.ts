@@ -1,3 +1,4 @@
+import type { PetSpec } from '../classes/skill-mechanics';
 import { manaCost } from './mana';
 import { Vec2 } from '../../core/vec2';
 import { clampToArena, pushOutOfPillars } from '../arena/arena';
@@ -16,6 +17,9 @@ export interface SkillContext {
   /** Colpo ravvicinato: ferisce il boss se e' entro `range` (dal bordo del boss) e nell'arco `arc` attorno a `angle`. */
   strikeArc(origin: Vec2, angle: number, range: number, arc: number, damage: number): void;
   emit(event: GameEvent): void;
+  taunt?(radius: number, duration: number): void;
+  clearProjectiles?(origin: Vec2, angle: number, range: number, arc: number): void;
+  summon?(spec: PetSpec): void;
 }
 
 /**
@@ -25,13 +29,29 @@ export interface SkillContext {
 export function tryCastSkill(slot: number, ctx: SkillContext): boolean {
   const { player } = ctx;
   const skill = player.skillBar.skillAt(slot);
-  if (skill === null || !player.skillBar.isReady(slot)) return false;
+  if (player.channel || player.rush || skill === null || !player.skillBar.isReady(slot)) return false;
   const cost = manaCost(skill);
   if (player.mana < cost) return false;
   player.mana -= cost;
-  player.skillBar.start(slot);
-  executeSkill(skill, ctx);
+  player.skillBar.start(slot, slot === 0 ? 1 + player.buffValue('attackSpeed') : 1);
+  if (skill.channelSeconds) {
+    player.channel = { remaining: skill.channelSeconds, skill, aim: player.aim };
+    ctx.emit({ type: 'channel_started', position: player.position, seconds: skill.channelSeconds });
+  } else executeSkill(skill, ctx);
   return true;
+}
+
+/** Completa una canalizzazione solo nel passo della simulazione, senza ripagare mana/ricarica. */
+export function stepSkillChannel(dt: number, ctx: SkillContext): void {
+  const channel = ctx.player.channel;
+  if (!channel) return;
+  channel.remaining -= dt;
+  if (channel.remaining > 1e-9) return;
+  ctx.player.channel = null;
+  const aim = ctx.player.aim;
+  ctx.player.aim = channel.aim;
+  executeSkill(channel.skill, ctx);
+  ctx.player.aim = aim;
 }
 
 /** Comportamento delle skill: legge i dati di `SkillDefinition.effect` e agisce sulla simulazione. */
@@ -48,28 +68,42 @@ function executeSkill(skill: SkillDefinition, ctx: SkillContext): void {
       const count = effect.count ?? 1;
       const spread = effect.spread ?? 0;
       for (let i = 0; i < count; i++) {
-        ctx.spawnProjectile(effect.projectile, muzzle, angle + (i - (count - 1) / 2) * spread);
+        ctx.spawnProjectile({ ...effect.projectile, onHit: skill.onHit ?? effect.projectile.onHit, damage: effect.projectile.damage * (1 + player.stats.abilityPower + player.buffValue('abilityPower')) }, muzzle, angle + (i - (count - 1) / 2) * spread);
       }
       ctx.emit({ ...base, origin: muzzle, destination: muzzle });
       break;
     }
     case 'ground_blast': {
       const target = effect.center === 'caster' ? origin : clampToArena(arena, player.aim, arena.playerMargin);
-      ctx.spawnZone(effect.zone, target);
+      ctx.spawnZone({ ...effect.zone, onHit: skill.onHit ?? effect.zone.onHit, damage: effect.zone.damage * (1 + player.stats.abilityPower + player.buffValue('abilityPower')) }, target);
       ctx.emit({ ...base, origin, destination: target });
       break;
     }
     case 'dash': {
       const raw = clampToArena(arena, origin.add(Vec2.fromAngle(angle, effect.distance)), arena.playerMargin);
       const destination = pushOutOfPillars(arena, raw, BODY_RADIUS.player);
-      player.position = destination;
+      if (effect.travelSeconds) {
+        player.rush = { remaining: effect.travelSeconds, speed: effect.distance / effect.travelSeconds,
+          angle, damage: effect.impactDamage ?? 0, hit: new Set() };
+      } else player.position = destination;
+      if (effect.explosion) ctx.spawnZone({ ...effect.explosion, damage: effect.explosion.damage * (1 + player.stats.abilityPower + player.buffValue('abilityPower')) }, destination);
       // Lo scatto non accorcia l'invulnerabilita' gia' in corso (per esempio quella dopo un colpo).
       player.invulnerableFor = Math.max(player.invulnerableFor, effect.invulnerability);
-      ctx.emit({ ...base, origin, destination });
+      ctx.emit({ ...base, origin, destination: effect.travelSeconds ? origin : destination, travelSeconds: effect.travelSeconds });
       break;
     }
+    case 'buff':
+      player.addBuff(effect.buff);
+      ctx.emit({ ...base, origin, destination: origin });
+      break;
+    case 'summon':
+      ctx.summon?.(effect.pet);
+      ctx.emit({ ...base, origin, destination: origin });
+      break;
     case 'melee_arc': {
-      ctx.strikeArc(origin, angle, effect.range, effect.arc, effect.damage);
+      if (effect.clearsProjectiles) ctx.clearProjectiles?.(origin, angle, effect.range, effect.arc);
+      if (effect.taunt) ctx.taunt?.(effect.taunt.radius, effect.taunt.duration);
+      ctx.strikeArc(origin, angle, effect.range, effect.arc, effect.damage * (1 + player.stats.abilityPower + player.buffValue('abilityPower')));
       ctx.emit({ ...base, origin, destination: origin, range: effect.range, arc: effect.arc });
       break;
     }

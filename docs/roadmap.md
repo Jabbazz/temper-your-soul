@@ -268,3 +268,31 @@ Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, g
 Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
 
 Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.
+
+## Bilanciamento per ruoli (1 novembre 2026)
+
+- [x] Primo incremento: profili di classe separati, bonus per slot e rarità, difesa effettiva, potenza delle abilità, frequenza primaria, attacchi primari non magici gratuiti; classi propagate in discesa e cooperativa (protocollo 6).
+- [x] Vocabolario di quattro elementi e stati separato dal comportamento; regola generale di modularità in AGENTS.md.
+- [ ] Prova manuale di questo incremento: tre classi con set Comune e oggetti superiori, singolo e party, cambio stanza e HUD.
+- [x] Guerriero: taunt, intercettazione, scudo/parata speciale, buff difensivo e scatto fisico.
+- [x] Mago: applicazione dei quattro stati, incantesimi per slot, channeling e blink esplosivo.
+- [x] Arciere: marchio/pet, sanguinamento, lifesteal, penetrazione degli scudi numerici e doppio scatto.
+- [ ] Boss: HP base e danni/velocità dei colpi ordinari; +50% HP per membro aggiuntivo anche per boss e mob. Il colpo rosso speciale è implementato.
+
+La suite headless non conferma bilanciamento o sensazione di gioco. Nessuna nuova prova giocata dell’utente registrata.
+
+### Revisione skill e oggetti di classe
+
+- [x] Applicate le nuove abilità a tutte le 25 famiglie, preservando id e inventari esistenti; registri separati per classe.
+- [x] Icone della barra, segnali degli stati, lupo, marchio, buff e contatore delle cariche; suoni associati.
+- [x] Colpo rosso speciale per boss e luogotenenti e parata dello scudo.
+- [x] Replica autorevole con protocollo 7: pet, stati, guardia, channeling e cariche verificati anche passando per codec e lobby mista.
+- [x] Controlli browser: creazione e barra delle tre classi, buff Guerriero, pet e cariche Arciere, channeling Mago. Sono prove di interfaccia automatizzate, non conferme giocate.
+- [ ] Prova manuale del Guerriero già creato: SX cancella proiettili ordinari, DX para, Q protegge/cura, E corre senza attraversare pilastri.
+- [ ] Prova manuale di Mago e Arciere e party misto fino al boss: effetti, leggibilità del rosso, mana, aggro, danni e recuperi.
+
+La taratura generale degli HP e dei colpi ordinari dei boss resta un incremento separato.
+
+### Pubblicazione su main · v0.03.00
+
+Pubblicazione autorizzata dall’utente; restano aperte le checklist manuali e la taratura generale dei boss/HP del party. Nessuna conferma giocata aggiunta. La cronologia conserva anche la versione di sviluppo v0.02.03.

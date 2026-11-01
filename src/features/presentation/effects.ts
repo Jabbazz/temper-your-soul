@@ -235,6 +235,16 @@ export class Effects {
    */
   handle(event: GameEvent, localPlayerId?: string): void {
     switch (event.type) {
+      case 'status_applied':
+        this.wave(event.position, 22, '#d7c3a1', 0.3);
+        break;
+      case 'channel_started':
+        this.wave(event.position, 36, '#d5aff3', event.seconds);
+        break;
+      case 'guard_blocked':
+        this.wave(event.position, 45, '#ffe2a5', 0.35);
+        this.burst(event.position, '#ffe2a5', 20);
+        break;
       case 'skill_cast':
         this.onSkillCast(event);
         break;
@@ -509,6 +519,14 @@ export class Effects {
   private onSkillCast(event: Extract<GameEvent, { type: 'skill_cast' }>): void {
     const { origin, destination } = event;
     switch (event.kind) {
+      case 'buff':
+        this.wave(origin, 45, event.visual.startsWith('warrior') ? '#eecb8d' : '#a9dfb8', 0.5);
+        this.burst(origin, '#e5d7af', 15);
+        break;
+      case 'summon':
+        this.wave(origin, 55, '#c0d6b1', 0.6);
+        this.burst(origin, '#c0d6b1', 25);
+        break;
       case 'projectile': {
         const color = CAST_COLORS[event.visual] ?? projectileLook(event.visual).color;
         this.burst(origin.add(Vec2.fromAngle(event.angle, 14)), color, 8);

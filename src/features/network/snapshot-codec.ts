@@ -1,3 +1,4 @@
+import type { ClassCombatSnapshot } from '../classes/class-combat';
 import { Vec2 } from '../../core/vec2';
 import type { Charge } from '../boss/boss';
 import type { DangerZoneSpec } from '../combat/danger-zone';
@@ -26,6 +27,7 @@ const MINION_FLAGS = { shield: 1, warded: 2, prey: 4, slowed: 8 } as const;
  * quando cambia. Stanza e discesa solo quando cambiano.
  */
 export interface SnapshotFrame {
+  cs?: ClassCombatSnapshot;
   type: 'frame'; q: number; t: number; s: MatchStatus;
   start?: [string, string, string[], BattleSetup];
   p: PlayerState[]; b: [number, number, number, 1 | 2, number, Charge | null] | null;
@@ -60,6 +62,7 @@ export class SnapshotEncoder {
       this.projectileTypes.clear(); this.zoneTypes.clear(); this.room = ''; this.run = '';
     }
     const frame: SnapshotFrame = {
+      cs: snapshot.classState,
       type: 'frame', q: this.sequence++, t: snapshot.time, s: snapshot.status,
       p: snapshot.players.map(p => [compact(p.position.x), compact(p.position.y), compact(p.aim.x), compact(p.aim.y),
         p.health, compact(p.mana), compact(p.invulnerableFor), p.moving ? 1 : 0, p.cooldowns.map(compact)]),
@@ -179,6 +182,8 @@ export class SnapshotDecoder {
     for (const zone of this.zones.values()) { zone.state.remaining = zone.remaining - (frame.t - zone.time); zones.push(zone.state); }
     const boss = frame.b;
     return {
+      classState: frame.cs ? { ...frame.cs, pets: frame.cs.pets.map(pet => ({ ...pet, position: vector(pet.position) })),
+        heavy: frame.cs.heavy ? { ...frame.cs.heavy, position: vector(frame.cs.heavy.position), target: vector(frame.cs.heavy.target) } : null } : undefined,
       id: this.battle, dungeonId: this.dungeon, time: frame.t, status: frame.s, setup: this.setup,
       players: frame.p.map(([px, py, ax, ay, hp, mana, invulnerableFor, moving, cooldowns], i) => ({ id: this.ids[i]!,
         position: new Vec2(px, py), aim: new Vec2(ax, ay), health: hp, mana, invulnerableFor, moving: moving === 1, cooldowns })),

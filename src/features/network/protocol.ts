@@ -1,3 +1,5 @@
+import type { ClassCombatSnapshot } from '../classes/class-combat';
+import type { CharacterClass } from '../character/character-class';
 import { SeededRng } from '../../core/rng';
 import { Vec2 } from '../../core/vec2';
 import type { CharacterAppearance } from '../character/appearance';
@@ -21,10 +23,10 @@ import type { Loadout } from '../skills/skill-definition';
 import type { SnapshotFrame } from './snapshot-codec';
 
 /**
- * Valori di rete provvisori: simulazione 60 Hz, snapshot e input 30 Hz. Protocollo 4: la discesa (stanze, porte, premi,
+ * Valori di rete provvisori: simulazione 60 Hz, snapshot e input 30 Hz. Protocollo 7: skill e stati di classe; classe nel setup; la discesa (stanze, porte, premi,
  * tempre) e i servitori compatti (tipo alla nascita, poi posizione e stato).
  */
-export const NETWORK = { protocolVersion: 5, capacity: 4, step: 1 / 60, snapshotSteps: 2, inputMs: 1000 / 30, staleInputMs: 350, maxBufferedBytes: 512_000 } as const;
+export const NETWORK = { protocolVersion: 7, capacity: 4, step: 1 / 60, snapshotSteps: 2, inputMs: 1000 / 30, staleInputMs: 350, maxBufferedBytes: 512_000 } as const;
 
 /** Come il party entra nel dungeon: la Discesa, il Duello con il solo boss, il Pellegrinaggio dei quattro dungeon. */
 export type PartyMode = 'descent' | 'duel' | 'pilgrimage';
@@ -43,6 +45,7 @@ export interface BattleSetup {
   /** Vita massima del boss (il luogotenente cresce con il gruppo). */
   readonly bossHealth: number | null;
   readonly maxHealth: Readonly<Record<string, number>>;
+  readonly classes?: Readonly<Record<string, CharacterClass | null>>;
 }
 
 /** Un servitore nella vista di rete: tipo, posizione, vita, variante e stato (per disegnarlo come sul server). */
@@ -61,6 +64,7 @@ export interface MinionSnapshot {
 }
 
 export interface BattleSnapshot {
+  classState?: ClassCombatSnapshot;
   id: string; dungeonId: string; time: number; status: MatchStatus; setup: BattleSetup;
   players: { id: string; position: Vec2; aim: Vec2; health: number; mana: number; invulnerableFor: number; moving: boolean; cooldowns: number[] }[];
   boss: { position: Vec2; health: number; phase: 1 | 2; slowFor: number; charge: Charge | null } | null;
@@ -105,6 +109,7 @@ export function setupOf(match: Match): BattleSetup {
     arena: match.arena === match.dungeon.arena ? null : match.arena.id,
     boss: match.boss?.definition.id ?? null,
     bossHealth: match.boss?.health.max ?? null,
+    classes: Object.fromEntries([...match.players].map(([id, player]) => [id, player.characterClass])),
     maxHealth: Object.fromEntries([...match.players].map(([id, player]) => [id, player.health.max])),
   };
 }
@@ -123,7 +128,7 @@ export function replicaMatch(dungeon: DungeonDefinition, setup: BattleSetup, mem
     rng: new SeededRng(1),
     dungeon,
     loadout: members[0]?.loadout ?? [],
-    members: members.map((member) => ({ ...member, ...(setup.maxHealth[member.id] !== undefined ? { maxHealth: setup.maxHealth[member.id] } : {}) })),
+    members: members.map((member) => ({ ...member, characterClass: setup.classes?.[member.id] ?? null, ...(setup.maxHealth[member.id] !== undefined ? { maxHealth: setup.maxHealth[member.id] } : {}) })),
     ...(template !== undefined ? { arena: roomArena(template, dungeon.arena.theme) } : {}),
     boss,
   });
@@ -148,6 +153,7 @@ export function snapshotOf(
   extra: { readonly room?: RoomView | null; readonly run?: RunView | null; readonly status?: MatchStatus } = {},
 ): BattleSnapshot {
   return {
+    classState: match.classCombat.snapshot(),
     id, dungeonId: match.dungeon.id, time: match.time, status: extra.status ?? match.status, setup: setupOf(match),
     players: [...match.players].map(([playerId, p]) => ({ id: playerId, position: p.position, aim: p.aim, health: p.health.current,
       mana: p.mana, invulnerableFor: p.invulnerableFor, moving: p.moving, cooldowns: p.skillBar.cooldowns() })),
@@ -174,10 +180,11 @@ export function applySnapshot(match: Match, snapshot: BattleSnapshot): void {
   let objects = replicas.get(match);
   if (!objects) { objects = { projectiles: new Map(), zones: new Map(), minions: new Map(), live: new Set() }; replicas.set(match, objects); }
   match.time = snapshot.time; match.status = snapshot.status;
+  match.classCombat.remote = snapshot.classState ?? null;
   for (const state of snapshot.players) {
     const p = match.players.get(state.id); if (!p) continue;
     p.position = state.position; p.aim = state.aim; p.health.current = state.health; p.mana = state.mana;
-    p.invulnerableFor = state.invulnerableFor; p.moving = state.moving; p.skillBar.restoreCooldowns(state.cooldowns);
+    p.invulnerableFor = state.invulnerableFor; p.moving = state.moving; p.skillBar.restoreCooldowns(state.cooldowns, snapshot.classState?.players.find(entry => entry.id === state.id)?.charges);
   }
   if (match.boss !== null && snapshot.boss !== null) {
     Object.assign(match.boss, { position: snapshot.boss.position, phase: snapshot.boss.phase, slowFor: snapshot.boss.slowFor, charge: snapshot.boss.charge });

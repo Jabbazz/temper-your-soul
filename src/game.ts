@@ -340,7 +340,7 @@ export class Game {
     this.run = new DescentRun({
       mode: this.mode,
       dungeonId: this.mode === 'pilgrimage' ? DUNGEONS[0]!.id : this.dungeon.id,
-      members: [{ id: 'local', loadout: this.character.loadout() }],
+      members: [{ id: 'local', loadout: this.character.loadout(), characterClass: this.character.characterClass }],
       seed: Math.floor(Math.random() * 0x100000000),
       grade: this.grade,
     });
@@ -395,7 +395,7 @@ export class Game {
     const match = new Match({
       rng: new SeededRng(Math.floor(Math.random() * 0x100000000)),
       dungeon,
-      loadout: this.character.loadout(),
+      loadout: this.character.loadout(), characterClass: this.character.characterClass,
     });
     this.attach(match);
     return match;
@@ -652,7 +652,7 @@ export class Game {
         .filter(m => snapshot.players.some(p => p.id === m.id))
         .map(m => {
           const character = deserializeCharacter(m.character)!;
-          return { id: m.id, loadout: character.loadout() };
+          return { id: m.id, loadout: character.loadout(), characterClass: character.characterClass };
         });
       this.match = replicaMatch(dungeon, snapshot.setup, members);
       this.match.viewPlayerId = me;

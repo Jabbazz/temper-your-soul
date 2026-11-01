@@ -116,7 +116,16 @@ export class Hud {
     const recent = this.meter.total(now);
     this.setText(this.bossDamage, recent > 0 ? `−${Math.round(recent)}` : '');
     this.bossHud.classList.toggle('struck', now - this.lastBossHit < 0.12);
-    this.cooldownBars.forEach((bar, slot) => this.setWidth(bar, player.skillBar.cooldownFraction(slot) * 100));
+    this.cooldownBars.forEach((bar, slot) => {
+      this.setWidth(bar, player.skillBar.cooldownFraction(slot) * 100);
+      const skill = player.skillBar.skillAt(slot);
+      const item = bar.parentElement;
+      if (skill?.charges && item) {
+        let badge = item.querySelector<HTMLElement>('.skill-charges');
+        if (!badge) { badge = document.createElement('span'); badge.className = 'skill-charges'; item.append(badge); }
+        this.setText(badge, `${player.skillBar.availableCharges(slot)}/${skill.charges}`);
+      }
+    });
   }
 
   private setText(element: HTMLElement, text: string): void {

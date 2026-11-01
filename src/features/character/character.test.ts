@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EQUIPMENT_SLOTS } from '../items/equipment-slot';
 import { resolveItemSkill } from '../items/item';
 import { familyById } from '../items/item-families';
-import { MAGE_SKILLS } from '../skills/mage-skills';
+import { MAGE_CLASS_SKILLS } from '../classes/mage/skills';
+const MAGE_SKILLS = ['arcane_staff', 'frost_grimoire', 'meteor_mantle', 'astral_boots'].map(id => MAGE_CLASS_SKILLS[id]);
 import { Character } from './character';
 import { deserializeCharacter, MAX_ITEM_NUMBER, serializeCharacter } from './save-format';
 import { browserStorage, CORRUPT_BACKUP_KEY, MemoryStore, SAVE_KEY, SAVE_VERSION, SaveStore, type KeyValueStore } from './save-store';
@@ -62,7 +63,7 @@ describe('Character', () => {
     expect(EQUIPMENT_SLOTS.map((slot) => starter.equippedItem(slot)?.familyId)).toEqual([
       'arcane_staff', 'frost_grimoire', 'meteor_mantle', 'astral_boots',
     ]);
-    expect(starter.loadout()).toEqual([...MAGE_SKILLS]);
+    expect(starter.loadout()).toMatchObject([...MAGE_SKILLS]);
     expect(starter.nextItemNumber).toBe(5);
     expect(starter.records).toEqual({});
   });
@@ -93,18 +94,18 @@ describe('Character', () => {
     const before = { ...character.equipped };
     expect(character.equip('x1')).toBe(false);
     expect(character.equipped).toEqual(before);
-    expect(character.loadout()).toEqual([...MAGE_SKILLS]);
+    expect(character.loadout()).toMatchObject([...MAGE_SKILLS]);
   });
 
   it('unequip svuota lo slot (loadout null) ma non perde l\'oggetto', () => {
     const character = Character.createStarter();
     character.unequip('armor');
     expect(character.equippedItem('armor')).toBeNull();
-    expect(character.loadout()).toEqual([MAGE_SKILLS[0], MAGE_SKILLS[1], null, MAGE_SKILLS[3]]);
+    expect(character.loadout()).toMatchObject([MAGE_SKILLS[0], MAGE_SKILLS[1], null, MAGE_SKILLS[3]]);
     expect(character.inventory).toHaveLength(4);
     const mantle = character.inventory.find((item) => item.familyId === 'meteor_mantle')!;
     expect(character.equip(mantle.uid)).toBe(true);
-    expect(character.loadout()).toEqual([...MAGE_SKILLS]);
+    expect(character.loadout()).toMatchObject([...MAGE_SKILLS]);
   });
 
   it('discard elimina solo oggetti non equipaggiati', () => {
@@ -129,8 +130,8 @@ describe('Character', () => {
     expect(loadout[0]).toEqual(resolveItemSkill(familyById('hunter_bow')!, 'rare'));
     expect(loadout[0]!.id).toBe('hunter_bow');
     expect(loadout[1]!.id).toBe('spirit_talisman');
-    expect(loadout[2]).toEqual(MAGE_SKILLS[2]);
-    expect(loadout[3]).toEqual(MAGE_SKILLS[3]);
+    expect(loadout[2]).toMatchObject(MAGE_SKILLS[2]);
+    expect(loadout[3]).toMatchObject(MAGE_SKILLS[3]);
     const effect = loadout[0]!.effect;
     if (effect.kind !== 'projectile') throw new Error('atteso un proiettile');
     expect(effect.projectile.damage).toBe(21); // 14 x 1,25 = 17,5 -> 18
@@ -379,9 +380,9 @@ describe('formato di salvataggio', () => {
       saveText({ items: [{ uid: 'a', familyId: 'sparita', rarity: 'common' }], equipped: { armor: 'a' } }),
     )!;
     expect(character.inventory).toEqual(Character.createStarter().inventory);
-    expect(character.loadout()).toEqual([...MAGE_SKILLS]);
+    expect(character.loadout()).toMatchObject([...MAGE_SKILLS]);
     expect(character.recordFor('crypt').clears).toBe(2);
-    expect(deserializeCharacter(saveText({ items: [] }))!.loadout()).toEqual([...MAGE_SKILLS]);
+    expect(deserializeCharacter(saveText({ items: [] }))!.loadout()).toMatchObject([...MAGE_SKILLS]);
   });
 });
 

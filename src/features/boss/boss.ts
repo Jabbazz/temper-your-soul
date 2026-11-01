@@ -19,6 +19,7 @@ export class Boss {
   readonly health: Health;
   /** Secondi di rallentamento rimasti. */
   slowFor = 0;
+  rootFor = 0;
   phase: 1 | 2 = 1;
   charge: Charge | null = null;
   /** Azioni programmate (raffiche, onde, teletrasporti): eseguite quando il loro ritardo arriva a zero. */
@@ -51,6 +52,7 @@ export class Boss {
 
   /** Avanza i tempi del boss (rallentamento). */
   tick(dt: number): void {
+    this.rootFor = Math.max(0, this.rootFor - dt);
     this.slowFor = Math.max(0, this.slowFor - dt);
   }
 
@@ -80,6 +82,7 @@ export class Boss {
 
   /** Insegue il giocatore e, da vicino, gli gira attorno. */
   private move(dt: number, target: Vec2): void {
+    if (this.rootFor > 0) return;
     const angle = this.position.angleTo(target);
     const speed = this.isSlowed ? this.stats.slowedSpeed : this.stats.speed;
     const step =

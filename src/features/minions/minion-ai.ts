@@ -40,6 +40,7 @@ export interface MinionContext {
 /** Un passo di comportamento di un servitore vivo. */
 export function stepMinion(minion: Minion, ctx: MinionContext, dt: number): void {
   minion.age += dt;
+  minion.rootFor = Math.max(0, minion.rootFor - dt);
   minion.slowFor = Math.max(0, minion.slowFor - dt);
   minion.shield = Math.max(0, minion.shield - dt * 2);
   if (minion.state === 'reviving') {
@@ -119,6 +120,7 @@ function moveToward(minion: Minion, point: Vec2, speed: number, dt: number, ctx:
 
 /** Sposta il servitore al punto `to`, nell'arena e (se non vola) fuori dai pilastri. */
 function step2(minion: Minion, to: Vec2, ctx: MinionContext): void {
+  if (minion.rootFor > 0) return;
   const margin = ctx.arena.playerMargin;
   minion.position = minion.definition.flying
     ? clampToArena(ctx.arena, to, margin)

@@ -30,6 +30,9 @@ export interface Cue {
  */
 export function cuesForEvent(event: GameEvent, localPlayerId?: string): Cue[] {
   switch (event.type) {
+    case 'status_applied': return [];
+    case 'channel_started': return [{ sound: 'cast_arcane', position: event.position }];
+    case 'guard_blocked': return [{ sound: 'impact', position: event.position }];
     case 'skill_cast':
       return [{ sound: SKILL_SOUNDS[event.visual] ?? KIND_SOUNDS[event.kind], position: event.origin }];
     case 'damage_dealt': {

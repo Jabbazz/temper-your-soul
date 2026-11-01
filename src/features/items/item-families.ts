@@ -1,3 +1,4 @@
+import { CLASS_SKILLS } from '../classes/class-skills';
 import { ARCANE_BOLT, ASTRAL_STEP, FROST_ORB, METEOR } from '../skills/mage-skills';
 import type { EquipmentSlot } from './equipment-slot';
 import type { ItemFamily } from './item-family';
@@ -22,7 +23,7 @@ import {
 /*
  * Catalogo: 9 famiglie storiche e 16 pezzi di set (4 per dungeon). `exclusiveTo` indica l'origine del set;
  * le fonti e le rarità ottenibili sono esclusivamente quelle esplicite in LOOT_TABLES. Id e slot sono stabili.
- * Le quattro famiglie "base" concedono le skill originali del mago (stesse costanti di `mage-skills.ts`).
+ * I modelli storici sotto vengono aggiornati dai registri CLASS_SKILLS: ogni famiglia concede la skill della propria classe.
  */
 const FAMILY_DEFINITIONS: readonly Omit<ItemFamily,'characterClass'>[] = [
   {id:'ossuary_lantern',name:'Lanterna dell’ossario',description:'Una gabbia d’osso che libera luci sepolcrali.',slot:'secondary_hand',skill:NEW_SKILLS.ossuary_lantern,exclusiveTo:'crypt'},
@@ -57,7 +58,13 @@ const FAMILY_DEFINITIONS: readonly Omit<ItemFamily,'characterClass'>[] = [
   { id: 'blizzard_veil', name: 'Velo di bufera', description: 'Una bufera attorno a te che rallenta il boss a lungo.', slot: 'armor', skill: BLIZZARD_BURST, exclusiveTo: 'glacier' },
 ];
 
-export const ITEM_FAMILIES:readonly ItemFamily[]=FAMILY_DEFINITIONS.map(family=>({...family,characterClass:ITEM_CLASSES[family.id]!}));
+export const ITEM_FAMILIES:readonly ItemFamily[]=FAMILY_DEFINITIONS.map(family => {
+  const skill = CLASS_SKILLS[family.id] ?? family.skill;
+  return { ...family, skill, description: skill.description,
+    ...(family.id === 'spirit_talisman' ? { name: 'Scudo degli spiriti' } : {}),
+    ...(family.id === 'spore_fan' ? { name: 'Faretra del predatore' } : {}),
+    characterClass: ITEM_CLASSES[family.id]! };
+});
 
 export function familyById(id: string): ItemFamily | undefined {
   return ITEM_FAMILIES.find((family) => family.id === id);

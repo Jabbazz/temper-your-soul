@@ -1355,3 +1355,13 @@ body.room-fading .room-fade { opacity: 1; }
 #menu-changelog-content small, .release-balance-note { color: #bcaab4; font-size: 11px; }
 #menu-changelog-content ul { margin: 10px 0; padding-left: 18px; }
 #menu-changelog-content li + li { margin-top: 6px; }
+
+/* Cronologia del gioco: ogni versione resta consultabile senza cambiare schermata. */
+#menu-changelog-content .release-entry { border-top: 1px solid #654c59; margin-top: 12px; padding-top: 8px; }
+#menu-changelog-content .release-heading { display: block; padding: 6px 2px; border: 0; border-radius: 0; font-size: 13px; }
+#menu-changelog-content .release-heading::before { content: '▸ '; }
+#menu-changelog-content .release-entry[open] > .release-heading::before { content: '▾ '; }
+#menu-changelog-content .release-date { display: block; margin-top: 4px; color: #bcaab4; font-size: 11px; }
+#menu-changelog-content h3 { margin: 12px 0 4px; font-size: 13px; color: #e8c4aa; }
+
+.skill-charges { position: absolute; right: 4px; top: 2px; font-size: 10px; color: #ffe4a8; background: #241d28; padding: 1px 3px; border-radius: 3px; }

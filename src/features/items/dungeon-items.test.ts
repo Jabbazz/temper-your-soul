@@ -35,15 +35,19 @@ describe('otto nuovi kit dungeon',()=>{
     }
     expect(shapes.size).toBe(4);
   });
-  it('mantello di canne: zona sul giocatore con avviso e rallentamento',()=>{
-    const h=harness('reed_mantle');expect(tryCastSkill(0,h.ctx)).toBe(true);
-    expect(h.zones).toEqual([expect.objectContaining({radius:145,delay:.7,damage:145,slowSeconds:1.1,visual:'reed_burst'})]);
+  it('mantello di canne: evoca il compagno della classe',()=>{
+    const effect = familyById('reed_mantle')!.skill.effect;
+    expect(effect.kind).toBe('summon');
+    if(effect.kind === 'summon') { expect(effect.pet.damage).toBe(22); expect(effect.pet.duration).toBe(20); }
   });
-  it('tre passi distinti, con distanza e protezione proprie',()=>{
-    for(const [id,distance,invulnerability] of [['grave_boots',110,.85],['ember_treads',230,.25],['rime_boots',165,.4]] as const){
+  it('gli stivali guerriero avviano una corsa; quelli del mago teletrasportano e creano una zona immediata',()=>{
+    for(const id of ['grave_boots','ember_treads']) {
       const h=harness(id),start=h.player.position;expect(tryCastSkill(0,h.ctx)).toBe(true);
-      expect(h.player.position.distanceTo(start)).toBeCloseTo(distance,8);expect(h.player.invulnerableFor).toBe(invulnerability);
+      expect(h.player.position).toEqual(start);expect(h.player.rush).not.toBeNull();
     }
+    const h=harness('rime_boots'), start=h.player.position;
+    expect(tryCastSkill(0,h.ctx)).toBe(true);expect(h.player.position.distanceTo(start)).toBe(165);
+    expect(h.zones[0]).toMatchObject({damage:65,delay:0,visual:'mage_blink_burst'});
   });
   it('kit completo nelle due versioni di corpo: icona, spell, strato indossato e ritratto dedicato',()=>{
     expect(DUNGEON_PORTRAIT_IDS.length).toBe(Object.keys(DUNGEON_ITEM_SKILLS).length);

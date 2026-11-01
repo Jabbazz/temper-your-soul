@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DUNGEONS } from '../dungeons/dungeons';
 import { PROJECTILE_LOOKS, ZONE_LOOKS } from '../presentation/visuals';
-import { ARCANE_BOLT, ASTRAL_STEP, FROST_ORB, MAGE_SKILLS, METEOR } from '../skills/mage-skills';
+import { ARCANE_BOLT, ASTRAL_STEP, FROST_ORB, METEOR } from '../skills/mage-skills';
 import type { SkillDefinition } from '../skills/skill-definition';
 import { EQUIPMENT_SLOTS, SLOT_LABELS, slotIndex } from './equipment-slot';
 import { ITEM_FAMILIES, familiesForSlot, familyById } from './item-families';
@@ -28,6 +28,8 @@ function damageOf(skill: SkillDefinition): number {
     case 'melee_arc':
       return effect.damage;
     case 'dash':
+    case 'buff':
+    case 'summon':
       return 0;
   }
 }
@@ -180,11 +182,14 @@ describe('catalogo delle famiglie', () => {
     expect(familyById('nope')).toBeUndefined();
   });
 
-  it('le famiglie base concedono le skill del mago: le stesse costanti di MAGE_SKILLS', () => {
-    expect(familyById('arcane_staff')!.skill).toBe(MAGE_SKILLS[0]);
-    expect(familyById('frost_grimoire')!.skill).toBe(MAGE_SKILLS[1]);
-    expect(familyById('meteor_mantle')!.skill).toBe(MAGE_SKILLS[2]);
-    expect(familyById('astral_boots')!.skill).toBe(MAGE_SKILLS[3]);
+  it('le famiglie del mago conservano gli id storici con le nuove meccaniche elementali', () => {
+    expect(familyById('arcane_staff')!.skill.id).toBe('arcane_bolt');
+    expect(familyById('arcane_staff')!.skill.onHit).toMatchObject({ status: 'burning', chance: 0.15 });
+    expect(familyById('frost_grimoire')!.skill.onHit?.status).toBe('soaked');
+    expect(familyById('meteor_mantle')!.skill.channelSeconds).toBeGreaterThan(0);
+    const boots = familyById('astral_boots')!.skill.effect;
+    expect(boots.kind).toBe('dash');
+    if (boots.kind === 'dash') expect(boots.explosion?.delay).toBe(0);
   });
 
   it('ogni skill ha ricarica > 0, un aspetto non vuoto e testi in italiano non vuoti', () => {
@@ -209,8 +214,13 @@ describe('catalogo delle famiglie', () => {
     }
   });
 
-  it('le skill nuove hanno un aspetto proprio: nessun visual condiviso tra famiglie diverse', () => {
-    expect(new Set(ITEM_FAMILIES.map((family) => family.skill.visual)).size).toBe(ITEM_FAMILIES.length);
+  it('ogni famiglia concede una skill con id univoco e un aspetto registrato per il tipo di effetto', () => {
+    expect(new Set(ITEM_FAMILIES.map(family => family.skill.id)).size).toBe(ITEM_FAMILIES.length);
+    for (const family of ITEM_FAMILIES) {
+      const effect = family.skill.effect;
+      if (effect.kind === 'projectile') expect(PROJECTILE_LOOKS[effect.projectile.visual], family.id).toBeDefined();
+      if (effect.kind === 'ground_blast' && effect.zone.visual) expect(ZONE_LOOKS[effect.zone.visual], family.id).toBeDefined();
+    }
   });
 
   it('nessuna skill generica supera il doppio del riferimento del proprio slot, nemmeno a Leggendaria', () => {
@@ -245,68 +255,21 @@ describe('catalogo delle famiglie', () => {
     expect(storm.projectile.radius).toBeGreaterThan(bolt.projectile.radius);
     expect(storm.projectile.damage).toBeGreaterThan(bolt.projectile.damage);
     expect(familyById('storm_scepter')!.skill.cooldown).toBeGreaterThan(ARCANE_BOLT.cooldown);
-    // Talismano: un ventaglio di 3, ciascuno piu' debole del globo; il globo da solo ha un colpo.
-    const wisps = familyById('spirit_talisman')!.skill.effect;
-    if (wisps.kind !== 'projectile') throw new Error('atteso un proiettile');
-    expect(wisps.count).toBe(3);
-    expect(wisps.projectile.damage).toBeLessThan(100);
+    // Il vecchio talismano ora è lo scudo della classe, senza proiettili magici.
+    const shield = familyById('spirit_talisman')!.skill.effect;
+    expect(shield.kind).toBe('buff');
+    if (shield.kind === 'buff') expect(shield.buff.guard).toBe(true);
   });
 
-  it('le esclusive danno abilita\' che le generiche non hanno', () => {
-    const effectOf = (id: string) => familyById(id)!.skill.effect;
-    const genericKinds = new Set(generic.map((family) => family.skill.effect.kind));
-    expect(genericKinds.has('melee_arc')).toBe(false);
-    expect(effectOf('guardian_blade').kind).toBe('melee_arc');
-
-    // Zona sul lanciatore con rallentamento: nessuna generica ha il rallentamento su una zona.
-    for (const id of ['tomb_shroud', 'blizzard_veil']) {
-      const effect = effectOf(id);
-      if (effect.kind !== 'ground_blast') throw new Error('atteso uno scoppio');
-      expect(effect.center, id).toBe('caster');
-      expect(effect.zone.slowSeconds ?? 0, id).toBeGreaterThan(0);
+  it('oggetti di classe: protezione, compagno e mobilità sono distinti dalle magie', () => {
+    for (const family of ITEM_FAMILIES.filter(family => family.characterClass === 'warrior')) {
+      expect(['melee_arc', 'buff', 'dash']).toContain(family.skill.effect.kind);
     }
-    for (const family of generic) {
-      const effect = family.skill.effect;
-      if (effect.kind === 'ground_blast') expect(effect.zone.slowSeconds, family.id).toBeUndefined();
-    }
-    const blizzard = effectOf('blizzard_veil');
-    if (blizzard.kind !== 'ground_blast') throw new Error('atteso uno scoppio');
-    expect(blizzard.zone.slowSeconds).toBeCloseTo(3, 10);
-
-    const fan = effectOf('spore_fan');
-    if (fan.kind !== 'projectile') throw new Error('atteso un proiettile');
-    expect(fan.count).toBe(5);
-    for (const family of generic) {
-      const effect = family.skill.effect;
-      if (effect.kind === 'projectile') expect(effect.count ?? 1, family.id).toBeLessThanOrEqual(3);
-    }
-
-    const bog = effectOf('bog_boots');
-    if (bog.kind !== 'dash') throw new Error('atteso uno scatto');
-    expect(bog.invulnerability).toBeGreaterThanOrEqual(0.8);
-    for (const family of generic) {
-      const effect = family.skill.effect;
-      if (effect.kind === 'dash') expect(effect.invulnerability, family.id).toBeLessThan(0.6);
-    }
-
-    const plate = effectOf('forge_plate');
-    if (plate.kind !== 'ground_blast') throw new Error('atteso uno scoppio');
-    for (const family of generic) {
-      const effect = family.skill.effect;
-      if (effect.kind === 'ground_blast') expect(plate.zone.radius, family.id).toBeGreaterThan(effect.zone.radius);
-    }
-
-    const lance = effectOf('frost_lance');
-    if (lance.kind !== 'projectile') throw new Error('atteso un proiettile');
-    expect(lance.projectile.slowSeconds ?? 0).toBeGreaterThan(0);
-    expect(PROJECTILE_LOOKS[lance.projectile.visual]!.shape).toBe('shard');
-
-    const hammer = effectOf('forge_hammer');
-    if (hammer.kind !== 'ground_blast') throw new Error('atteso uno scoppio');
-    expect(hammer.center ?? 'aim').toBe('aim');
-    expect(hammer.zone.radius).toBeLessThan(80);
-    expect(familyById('forge_hammer')!.skill.cooldown).toBeCloseTo(1.4, 10);
-    expect(familyById('forge_plate')!.skill.cooldown).toBe(7);
+    expect(familyById('reed_mantle')!.skill.effect.kind).toBe('summon');
+    expect(familyById('wind_boots')!.skill.charges).toBe(2);
+    expect(familyById('spore_fan')!.skill.effect.kind).toBe('buff');
+    expect(familyById('forge_plate')!.skill.effect.kind).toBe('buff');
+    expect(familyById('forge_hammer')!.skill.effect.kind).toBe('melee_arc');
   });
 
   it('il danno al secondo (tutti i colpi a segno) resta nello stesso ordine di grandezza di quello base dello slot', () => {
@@ -317,7 +280,7 @@ describe('catalogo delle famiglie', () => {
     };
     const reference = { primary_hand: dps(ARCANE_BOLT), secondary_hand: dps(FROST_ORB), armor: dps(METEOR) } as const;
     for (const family of ITEM_FAMILIES) {
-      if (family.slot === 'boots') continue;
+      if (family.slot === 'boots' || family.skill.effect.kind === 'buff' || family.skill.effect.kind === 'summon') continue;
       const ratio = dps(family.skill) / reference[family.slot];
       expect(ratio, family.id).toBeGreaterThan(0.25);
       expect(ratio, family.id).toBeLessThan(2.5);
@@ -358,14 +321,11 @@ describe('descrizione delle statistiche', () => {
   it('descrive i valori reali per tipo di effetto', () => {
     expect(describeSkillStats(ARCANE_BOLT).filter(line => !line.startsWith('Mana') && !line.startsWith('Rigenerazione'))).toEqual(['Danno 19', 'Gittata 1100', 'Velocità 440 u/s', 'Raggio proiettile 4', 'Durata 2,5 s', 'Ricarica 0,2 s']);
     expect(describeSkillStats(FROST_ORB)).toContain('Rallenta il boss 2 s');
-    expect(describeSkillStats(ASTRAL_STEP).filter(line => !line.startsWith('Mana') && !line.startsWith('Rigenerazione'))).toEqual(['Distanza 125', 'Invulnerabile 0,55 s', 'Ricarica 3,5 s']);
-    expect(describeSkillStats(familyById('spore_fan')!.skill)).toContain('Colpi: 5');
-    expect(describeSkillStats(familyById('spore_fan')!.skill)).toContain('Apertura 41,25°');
-    expect(describeSkillStats(familyById('tomb_shroud')!.skill).filter(line => !line.startsWith('Mana') && !line.startsWith('Rigenerazione'))).toEqual([
-      'Danno 170', 'Raggio 170', 'Scoppio dopo 0,9 s', 'Attorno a te', 'Rallenta il boss 2,5 s', 'Ricarica 9 s',
-    ]);
+    expect(describeSkillStats(ASTRAL_STEP).filter(line => !line.startsWith('Mana') && !line.startsWith('Rigenerazione'))).toEqual(['Teletrasporto', 'Distanza 125', 'Invulnerabile 0,55 s', 'Ricarica 3,5 s']);
+    expect(describeSkillStats(familyById('spore_fan')!.skill)).toContain('Furto vita 15%');
+    expect(describeSkillStats(familyById('tomb_shroud')!.skill)).toContain('Danno abilità +25%');
     expect(describeSkillStats(METEOR)).toContain('Nel punto mirato');
-    expect(describeSkillStats(familyById('guardian_blade')!.skill)).toEqual(['Danno 55', 'Gittata 95', 'Arco 120°', 'Mana 3', 'Rigenerazione mana +0,1/s', 'Ricarica 0,7 s']);
+    expect(describeSkillStats(familyById('guardian_blade')!.skill)).toEqual(['Cancella i proiettili ordinari nel fendente', 'Provocazione 3 s · raggio 300', 'Danno 36', 'Gittata 100', 'Arco 216°', 'Mana 0', 'Rigenerazione mana +0,1/s', 'Ricarica 0,45 s']);
     // La rarita' cambia i numeri mostrati.
     expect(describeSkillStats(scaleSkill(ARCANE_BOLT, 'legendary'))).toContain('Danno 57');
   });

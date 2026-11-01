@@ -1,3 +1,6 @@
+import { ClassCombat, type EnemyTarget } from '../classes/class-combat';
+import type { HitEffect } from '../classes/skill-mechanics';
+import type { CharacterClass } from '../character/character-class';
 import type { Rng } from '../../core/rng';
 import { Signal } from '../../core/signal';
 import { angleDifference, TAU, Vec2 } from '../../core/vec2';
@@ -16,7 +19,7 @@ import { MINIONS } from '../minions/minion-catalog';
 import type { BossSummons, MinionDefinition } from '../minions/minion-definition';
 import { Player } from '../player/player';
 import type { Loadout } from '../skills/skill-definition';
-import { tryCastSkill, type SkillContext } from '../skills/skill-effects';
+import { stepSkillChannel, tryCastSkill, type SkillContext } from '../skills/skill-effects';
 import type { Encounter } from './encounter';
 
 /** Che cosa vuole fare il giocatore in questo passo. Lo produce l'input (o un test). */
@@ -39,6 +42,7 @@ export type MatchStatus = 'playing' | 'won' | 'lost';
 export interface MatchMember {
   readonly id: string;
   readonly loadout: Loadout;
+  readonly characterClass?: CharacterClass | null;
   readonly health?: number;
   readonly maxHealth?: number;
   readonly mana?: number;
@@ -50,6 +54,7 @@ export interface MatchOptions {
   readonly dungeon: DungeonDefinition;
   /** Le skill del giocatore per slot (derivano dall'equipaggiamento). */
   readonly loadout: Loadout;
+  readonly characterClass?: CharacterClass | null;
   readonly members?: readonly MatchMember[];
   /** La mappa: predefinita quella del dungeon (il duello); le stanze della discesa hanno la propria. */
   readonly arena?: ArenaDefinition;
@@ -83,6 +88,7 @@ type MinionHitVia = 'projectile' | 'zone' | 'arc' | 'environment';
  */
 export class Match {
   /** Eventi della simulazione, per rappresentazione e audio. */
+  readonly classCombat: ClassCombat;
   readonly events = new Signal<[GameEvent]>();
   readonly dungeon: DungeonDefinition;
   readonly arena: ArenaDefinition;
@@ -123,10 +129,10 @@ export class Match {
     this.dungeon = options.dungeon;
     this.arena = options.arena ?? options.dungeon.arena;
     this.rng = options.rng;
-    const members = options.members ?? [{ id: 'local', loadout: options.loadout }];
+    const members = options.members ?? [{ id: 'local', loadout: options.loadout, characterClass: options.characterClass }];
     this.viewPlayerId = members[0]!.id;
     for (const member of members) {
-      const player = new Player(this.arena, member.loadout, member.maxHealth);
+      const player = new Player(this.arena, member.loadout, member.maxHealth, member.characterClass);
       if (member.health !== undefined) player.health.current = Math.max(0, Math.min(player.health.max, member.health));
       if (member.mana !== undefined) player.mana = Math.max(0, Math.min(player.maxMana, member.mana));
       this.players.set(member.id, player);
@@ -134,9 +140,34 @@ export class Match {
     }
     const bossDefinition = options.boss === undefined ? options.dungeon.boss : options.boss;
     this.boss = bossDefinition === null ? null : new Boss(bossDefinition, this.arena);
+    this.classCombat = new ClassCombat({ players: this.players, arena: this.arena, rng: this.rng,
+      enemies: () => this.classTargets(), heal: (id, amount) => this.heal(id, amount), emit: event => this.events.emit(event),
+      enemyProjectile: (spec, position, angle) => {
+        this.spawnProjectile(spec, position, angle);
+        this.sources.set(this.nextId - 1, { kind: 'projectile', name: 'Colpo imparabile' });
+      },
+    });
     this.encounter = options.encounter ?? null;
     this.minionContext = this.createMinionContext();
     this.encounter?.attach(this);
+  }
+
+  /** Adattatori leggeri per le regole di classe: il controller non dipende da Match. */
+  private classTargets(): EnemyTarget[] {
+    const targets: EnemyTarget[] = this.minions.filter(minion => !minion.isDead && !minion.isHidden && minion.hostile).map(minion => ({
+      id: `minion:${minion.id}`, position: minion.position, health: minion.health, radius: minion.hitRadius, kind: 'minion',
+      slow: seconds => { minion.slowFor = Math.max(minion.slowFor, seconds); },
+      root: seconds => { minion.rootFor = Math.max(minion.rootFor, seconds); },
+      hurt: (damage, owner) => this.hitMinion(minion, damage, owner, 'arc'),
+    }));
+    const boss = this.boss;
+    if (boss && !boss.health.isDead) targets.push({ id: 'boss', position: boss.position, health: boss.health, radius: boss.stats.hitRadius,
+      kind: boss.definition.id === this.dungeon.boss.id ? 'boss' : 'lieutenant',
+      slow: seconds => { boss.slowFor = Math.max(boss.slowFor, seconds); },
+      root: seconds => { boss.rootFor = Math.max(boss.rootFor, seconds); },
+      hurt: (damage, owner) => this.hitBoss(damage, owner),
+    });
+    return targets;
   }
 
   /** Il prossimo id di un'entita' (proiettili, zone, servitori): unico nella partita. */
@@ -151,6 +182,15 @@ export class Match {
       spawnZone: (spec, position) => { this.spawnZone(spec, position); this.owners.set(this.nextId - 1, id); },
       strikeArc: (origin, angle, range, arc, damage) => this.strikeArc(origin, angle, range, arc, damage),
       emit: event => this.events.emit({ ...event, playerId: id }),
+      taunt: (radius, duration) => this.classCombat.taunt(id, radius, duration),
+      summon: spec => this.classCombat.summon(id, spec),
+      clearProjectiles: (origin, angle, range, arc) => {
+        for (const shot of this.projectiles) {
+          if (shot.team === 'enemy' && !shot.spec.unblockable && this.inArc(origin, angle, range, arc, shot.position, shot.radius)) {
+            shot.expire(); this.emitProjectileHit(shot, 'obstacle');
+          }
+        }
+      },
     };
   }
 
@@ -168,6 +208,8 @@ export class Match {
     for (const [id, player] of this.players) {
       if (player.health.isDead) continue;
       player.tick(dt);
+      this.actingId = id;
+      stepSkillChannel(dt, this.context(id, player));
       const intent = intents.get(id);
       player.moving = false;
       if (!intent) continue;
@@ -182,6 +224,8 @@ export class Match {
       }
       syncAim();
     }
+    if (this.status !== 'playing') return;
+    this.classCombat.step(dt);
     if (this.status !== 'playing') return;
     const boss = this.boss;
     if (boss !== null && !boss.health.isDead) {
@@ -204,6 +248,8 @@ export class Match {
 
   /** Il giocatore vivo piu' vicino a un punto. */
   nearestPlayer(point: Vec2): Player | undefined {
+    const forced = this.classCombat?.forcedTarget(point);
+    if (forced) return forced;
     let target: Player | undefined;
     let nearest = Infinity;
     for (const p of this.players.values()) {
@@ -453,6 +499,7 @@ export class Match {
   private stepProjectiles(dt: number): void {
     const boss = this.boss;
     for (const projectile of this.projectiles) {
+      if (projectile.isExpired) continue;
       projectile.advance(dt);
       if (pillarAt(this.arena, projectile.position) !== undefined) {
         this.emitProjectileHit(projectile, 'obstacle');
@@ -465,7 +512,7 @@ export class Match {
           if (!p.health.isDead && projectile.position.distanceTo(p.position) < projectile.radius + HIT_RADIUS.player) { victim = p; break; }
         }
         if (victim) {
-          if (this.hurtPlayer(projectile.damage, victim, this.sources.get(projectile.id))) {
+          if (this.hurtPlayer(projectile.damage, victim, this.sources.get(projectile.id), projectile.spec.unblockable)) {
             const slow = this.slowingShots.get(projectile.id);
             if (slow !== undefined) victim.slowFor = Math.max(victim.slowFor, slow);
           }
@@ -476,12 +523,12 @@ export class Match {
         const owner = this.owners.get(projectile.id);
         const minion = this.minionAt(projectile.position, projectile.radius);
         if (minion !== undefined) {
-          this.hitMinion(minion, projectile.damage, owner, 'projectile');
+          this.hitMinion(minion, projectile.damage, owner, 'projectile', projectile.spec.onHit);
           if (projectile.spec.slowSeconds !== undefined) minion.slowFor = Math.max(minion.slowFor, projectile.spec.slowSeconds);
           this.emitProjectileHit(projectile, 'minion');
           projectile.expire();
         } else if (boss !== null && !boss.health.isDead && projectile.position.distanceTo(boss.position) < projectile.radius + boss.stats.hitRadius) {
-          this.hitBoss(projectile.damage, owner);
+          this.hitBoss(projectile.damage, owner, projectile.spec.onHit);
           if (projectile.spec.slowSeconds !== undefined) boss.slowFor = projectile.spec.slowSeconds;
           this.emitProjectileHit(projectile, 'boss');
           projectile.expire();
@@ -523,7 +570,7 @@ export class Match {
         for (const minion of [...this.minions]) {
           if (minion.isDead || minion.isHidden) continue;
           if (zone.position.distanceTo(minion.position) < zone.radius + minion.hitRadius - ZONE_EDGE_FORGIVENESS) {
-            this.hitMinion(minion, zone.spec.damage, owner, 'zone');
+            this.hitMinion(minion, zone.spec.damage, owner, 'zone', zone.spec.onHit);
             if (zone.spec.slowSeconds !== undefined) minion.slowFor = Math.max(minion.slowFor, zone.spec.slowSeconds);
           }
         }
@@ -531,14 +578,14 @@ export class Match {
         if (boss !== null && !boss.health.isDead) {
           const reach = zone.radius + boss.stats.hitRadius - ZONE_EDGE_FORGIVENESS;
           if (zone.position.distanceTo(boss.position) < reach) {
-            this.hitBoss(zone.spec.damage, owner);
+            this.hitBoss(zone.spec.damage, owner, zone.spec.onHit);
             if (zone.spec.slowSeconds !== undefined) boss.slowFor = zone.spec.slowSeconds;
           }
         }
       } else {
         for (const player of this.players.values()) {
           if (zone.position.distanceTo(player.position) < zone.radius + HIT_RADIUS.player - ZONE_EDGE_FORGIVENESS) {
-            if (this.hurtPlayer(zone.spec.damage, player, this.sources.get(zone.id)) && zone.spec.slowSeconds !== undefined) {
+            if (this.hurtPlayer(zone.spec.damage, player, this.sources.get(zone.id), zone.spec.unblockable) && zone.spec.slowSeconds !== undefined) {
               player.slowFor = Math.max(player.slowFor, zone.spec.slowSeconds);
             }
           }
@@ -584,13 +631,17 @@ export class Match {
    * Danno al giocatore: ignorato se e' invulnerabile o la partita e' finita. `source` dice da dove viene. Restituisce
    * vero se il colpo e' andato a segno.
    */
-  private hurtPlayer(amount: number, player: Player = this.player, source?: DamageSource): boolean {
+  private hurtPlayer(amount: number, player: Player = this.player, source?: DamageSource, unblockable = false): boolean {
     if (this.status !== 'playing' || player.health.isDead) return false;
-    const actual = Math.min(player.health.current, amount);
-    if (!player.tryHurt(amount)) return false;
+    const before = player.health.current;
+    const guarded = player.guarding;
+    if (!player.tryHurt(amount, unblockable)) return false;
+    if (guarded) this.events.emit({ type: 'guard_blocked', position: player.position, playerId: [...this.players].find(([, p]) => p === player)?.[0] });
+    const actual = before - player.health.current;
+    if (actual <= 0) return true;
     const id = [...this.players].find(([, p]) => p === player)![0];
     this.report.get(id)!.damageReceived += actual;
-    this.events.emit({ type: 'damage_dealt', target: 'player', amount, position: player.position, playerId: id, ...(source && source.name ? { source } : {}) });
+    this.events.emit({ type: 'damage_dealt', target: 'player', amount: actual, position: player.position, playerId: id, ...(source && source.name ? { source } : {}) });
     if (player.health.isDead && this.encounter?.onPlayerDown?.(this, id)) return true;
     if ([...this.players.values()].every(p => p.health.isDead)) this.end(false);
     return true;
@@ -607,13 +658,15 @@ export class Match {
     return healed;
   }
 
-  private hitBoss(amount: number, owner = this.actingId): void {
+  private hitBoss(amount: number, owner = this.actingId, hit?: HitEffect): void {
     const boss = this.boss;
     if (this.status !== 'playing' || boss === null || boss.health.isDead) return;
-    const actual = boss.health.takeDamage(amount);
+    const resolved = amount * this.classCombat.damageMultiplier('boss');
+    const actual = boss.health.takeDamage(resolved);
+    if (actual > 0) { this.classCombat.onDamage(owner, actual); this.classCombat.applyHit('boss', owner, hit); }
     const stats = this.report.get(owner);
     if (stats) stats.damageDealt += actual;
-    this.events.emit({ type: 'damage_dealt', target: 'boss', amount, position: boss.position, playerId: owner });
+    this.events.emit({ type: 'damage_dealt', target: 'boss', amount: resolved, position: boss.position, playerId: owner });
     if (boss.health.isDead) {
       this.events.emit({ type: 'boss_defeated', position: boss.position });
       // Con il boss cadono anche i suoi servitori.
@@ -623,7 +676,7 @@ export class Match {
     }
   }
 
-  private hitMinion(minion: Minion, amount: number, owner: string = this.actingId, via: MinionHitVia = 'projectile'): void {
+  private hitMinion(minion: Minion, amount: number, owner: string = this.actingId, via: MinionHitVia = 'projectile', hit?: HitEffect): void {
     if (this.status !== 'playing' || minion.isDead || minion.isHidden) return;
     wakeIfDormant(minion, this.minionContext);
     if (minion.warded) {
@@ -631,14 +684,15 @@ export class Match {
       if (via === 'projectile') return;
       minion.warded = false;
     }
-    let damage = amount;
+    let damage = amount * this.classCombat.damageMultiplier(`minion:${minion.id}`);
     if (via === 'projectile' && minion.shield > 0) {
-      const absorbed = Math.min(minion.shield, damage);
+      const absorbed = Math.min(minion.shield, damage * (1 - (hit?.penetration ?? 0)));
       minion.shield -= absorbed;
       damage -= absorbed;
       if (damage <= 0) return;
     }
     const actual = minion.health.takeDamage(damage);
+    if (actual > 0) { this.classCombat.onDamage(owner, actual); this.classCombat.applyHit(`minion:${minion.id}`, owner, hit); }
     const stats = this.report.get(owner);
     if (stats) stats.damageDealt += actual;
     this.events.emit({ type: 'damage_dealt', target: 'minion', amount: damage, position: minion.position, minionId: minion.id, playerId: owner });
