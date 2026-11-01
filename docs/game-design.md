@@ -1,5 +1,9 @@
 # Temper your soul: design del gioco
 
+## Versione e note nel menu (1 novembre 2026)
+
+La versione del gioco è letta da `package.json` e mostrata solo nel menu principale, in piccolo al centro in basso (`v0.02.00`). Il pulsante Changelog in basso a sinistra apre le note dell’ultimo aggiornamento, incluse nella build. Le note precedenti restano in `src/release-notes.ts`; i cambiamenti numerici riportano etichetta, valori prima/dopo e unità. La [procedura di versioning](versioning.md) è obbligatoria per gli agenti a ogni PR o commit diretto a main autorizzato. Nessuna modifica a danni o progressione in questo incremento; versioni di rete e salvataggi indipendenti. Prova visiva a carico dell’utente.
+
 ## Aspetto del personaggio e oggetti indossati
 
 Direzione artistica scelta dall'utente: **A — Fantasy compatto** (distinta dal tema UI C — Reliquiario). La tavola generata e un riferimento artistico, non un atlante utilizzabile direttamente. Prima traduzione modulare: basi a tre quarti in lino e cuoio, colori caldi, materiali ombreggiati, capelli a ciocche, mantelli aperti e spallacci con sagome differenti. L'approvazione della tavola non costituisce approvazione della resa del prototipo nel gioco.

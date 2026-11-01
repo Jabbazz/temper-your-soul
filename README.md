@@ -29,6 +29,14 @@ Quando due persone lavorano contemporaneamente, preferire rami distinti e modifi
 
 ## Avvio locale
 
+### Versione e note di aggiornamento
+
+Il menu mostra **v0.02.00** al centro in basso e **Changelog** in basso a sinistra, consultabile senza uscire dal menu. Versione e note sono incluse nella build; la fonte del numero è `package.json`. Gli agenti devono aggiornarle per ogni PR o commit diretto a main autorizzato, riportando anche i valori prima → dopo per il bilanciamento: [procedura completa](docs/versioning.md). Le note precedenti restano nello storico. Nessuna modifica ai valori di combattimento in questo incremento.
+
+Verifica dell’incremento versioning: 557 test in 43 file, tipi e build superati; aspetto del menu ancora da confermare dall’utente.
+
+Convenzione **vA.BB.CC**: da `v0.02.00` il nuovo feature parte a `v0.02.01`, poi ogni commit successivo passa a `.02`, `.03` e così via. Il merge in main incrementa BB e azzera CC (`v0.03.00`); i nuovi feature partono da quel main a `v0.03.01`. Anche un commit diretto autorizzato a main incrementa BB e azzera CC. Il primo commit del feature registra l’incremento di creazione, senza contarlo due volte; apertura della PR e push senza nuovi commit non aumentano il numero. La cifra A cambia solo su decisione esplicita. Dettagli su branch paralleli e note nella [procedura](docs/versioning.md).
+
 Richiede **Node.js 22** e npm. Le versioni degli strumenti sono fissate nel lockfile: TypeScript 5.6.3, Vite 5.4.11 e Vitest 2.1.8. Non aggiornare le dipendenze incidentalmente a un’altra modifica.
 
 ```bash
@@ -224,7 +232,7 @@ Per un nuovo oggetto servono: id stabile, famiglia e classe, skill/statistiche/c
 
 ## Verifiche e prossimi passi
 
-`npm run verify` deve uscire con codice 0. I **555 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
+`npm run verify` deve uscire con codice 0. I **557 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
 
 Priorità per chi riprende il lavoro:
 

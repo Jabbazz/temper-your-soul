@@ -2,6 +2,9 @@
 
 ## Priorità corrente e TODO
 
+- [x] Versione nel menu e changelog dell’ultimo aggiornamento, con storico nel codice e procedura obbligatoria per gli agenti su PR/commit main. Valori di bilanciamento prima → dopo.
+- [ ] Conferma utente di posizione, leggibilità e apertura del changelog nel menu, anche su finestre strette. Nessuna prova visiva automatizzata eseguita.
+
 - [ ] **Sprite e ritratti: lavoro sospeso su richiesta dell’utente.** Alla ripresa rivedere manualmente vestibilità delle armature, scale delle armi, prese, giunzioni delle gambe e profondità degli strati. Evitare rigenerazioni successive per ogni incremento di gioco; prima fissare basi, misure e criteri di accettazione. Le revisioni precedenti sotto restano storico, non approvazione finale.
 - [x] Creazione con nome, sesso e classe, conferma unica e identità non modificabile dallo zaino.
 - [x] Set bianco novizio per ciascuna classe, escluso dai drop; GS per pezzo e totale equipaggiato.
