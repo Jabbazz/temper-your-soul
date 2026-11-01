@@ -2,9 +2,9 @@ import type { AtlasRect } from './portrait-layout';
 import type { Point } from './portrait-rig';
 
 /** Strati indossabili vettoriali con dettagli a griglia fine; non sono icone inventario ingrandite. */
-export function dungeonPortraitSvg(id:string,gx:number,gy:number):{markup:string;crop:AtlasRect;grip:Point}{
+export function dungeonPortraitSvg(id:string,gx:number,gy:number):{markup:string;rearMarkup?:string;crop:AtlasRect;grip:Point}{
   const path=(d:string,fill:string,stroke='#24222a',width=.45)=>`<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" stroke-linejoin="round"/>`;
-  let markup='',crop:AtlasRect=[0,0,64,64];
+  let markup='',rearMarkup:string|undefined,crop:AtlasRect=[0,0,64,64];
   if(id==='thorn_bow'){
     crop=[gx-10,gy-29,25,48];
     markup=path(`M${gx-6} ${gy-28} Q${gx+13} ${gy-20} ${gx+1} ${gy-4} L${gx} ${gy+4} Q${gx+12} ${gy+15} ${gx-6} ${gy+18}`,'none','#243825',3.3);
@@ -34,15 +34,21 @@ export function dungeonPortraitSvg(id:string,gx:number,gy:number):{markup:string
     markup+=path(`M${gx-1} ${gy+2} h2 v4 h-2z`,'#bacad1');
   }else if(id==='reed_mantle'){
     crop=[12,24,40,32];
-    markup=path('M24 25 L29 24 32 29 36 24 41 26 45 51 39 54 35 48 32 38 28 50 21 55 19 49Z','#354b36');
-    markup+=path('M25 26 L29 26 31 31 28 46 23 52 23 36Z','#6a8450');
-    markup+=path('M36 26 L40 28 42 49 39 51 35 41 34 31Z','#8c9c60');
-    for(let i=0;i<12;i++){
-      const x=22+(i%4)*6,y=29+Math.floor(i/4)*8;
-      markup+=path(`M${x} ${y} l3 -1 1 7 -3 4 -1 -4z`,i%2?'#87995b':'#546f41','#a5b77b',.18);
+    // Dietro il corpo: la cappa si vede solo dove sporge da braccia e gambe.
+    rearMarkup=path('M23 26 L41 26 L46 39 L48 50 L43 53 L39 50 L36 54 L32 51 L28 54 L25 50 L21 53 L16 50 L18 39Z','#354b36');
+    rearMarkup+=path('M24 27 L40 27 L45 39 L46.5 49 L43 51 L39 48.5 L36 52 L32 49.5 L28 52 L25 48.5 L21 51 L17.5 49 L19 39Z','#546f41');
+    for(let i=0;i<24;i++){
+      const x=18+(i%8)*3.8,y=32+Math.floor(i/8)*6;
+      rearMarkup+=path(`M${x} ${y} l1.6 -.8 .8 5 -1.6 2.6 -.8 -2.6z`,i%3?'#6a8450':'#87995b','#a5b77b',.14);
     }
-    markup+=path('M25 28 L30 30 34 30 39 28 M26 38 Q32 40 39 38','none','#c5b47c',.65);
-    markup+=path('M31 29 l2 -1 2 2 -2 3 -2 -1z','#dac784');
+    // Davanti: solo due lembi sul petto, così tunica, cintura e braccia restano visibili.
+    markup=path('M25 26.5 L29 25 L31.3 29.5 L29.2 36 L26.6 38.2 L25 33Z','#6a8450','#354b36',.5);
+    markup+=path('M39 26.5 L35 25 L32.7 29.5 L34.8 36 L37.4 38.2 L39 33Z','#8c9c60','#354b36',.5);
+    for(const [x,y,flip] of [[26.3,27.5,1],[26.2,32,1],[37.7,27.5,-1],[37.8,32,-1]] as const){
+      markup+=path(`M${x} ${y} l${1.5*flip} -.6 ${.6*flip} 3.6 ${-1.4*flip} 1.8 ${-.7*flip} -1.8z`,flip>0?'#87995b':'#a5b77b','#546f41',.14);
+    }
+    markup+=path('M29.2 28.4 Q32 29.6 34.8 28.4','none','#c5b47c',.55);
+    markup+=path('M31 28.8 l1 -.8 1 .8 -.2 1.8 -.8 .8 -.8 -.8z','#dac784','#5a4a2c',.25);
   }else{
     crop=[22,46,26,14];
     const colors=id==='grave_boots'?['#65675e','#e0d8b9','#9caf8f']:id==='ember_treads'?['#62453e','#d1aa78','#f99b47']:['#496c82','#c5e9ee','#8bc8e5'];
@@ -55,5 +61,5 @@ export function dungeonPortraitSvg(id:string,gx:number,gy:number):{markup:string
       if(id==='rime_boots')markup+=path(`M${x} 49 l-2 -4 3 2 2 -2 1 4z`,'#a6deec','#e2f5ee',.3);
     }
   }
-  return {markup,crop,grip:[(gx-crop[0])/crop[2],(gy-crop[1])/crop[3]]};
+  return {markup,...(rearMarkup?{rearMarkup}:{}),crop,grip:[(gx-crop[0])/crop[2],(gy-crop[1])/crop[3]]};
 }

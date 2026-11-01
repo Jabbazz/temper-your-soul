@@ -17,6 +17,26 @@ export interface ReleaseNotes {
 /** Prima voce = aggiornamento corrente; conservare le precedenti per lo storico. Vedere docs/versioning.md. */
 export const RELEASES: readonly ReleaseNotes[] = [
   {
+    version: '0.2.2', date: '2026-11-01',
+    changes: [
+      'Ritratti di Guerriero e Mago: i pantaloni ricadono sugli stivali, con il fronte dello stivale sopra; interno e bordo posteriore non si vedono più.',
+      'Dita davanti alle armi e palmo coperto dall\'arma, su tutte le classi.',
+      'Manto della meteora, egida di brace e corazza della fornace: fodere e stendardi laterali passano dietro le gambe. Sudario e velo restano interi davanti.',
+      'Sprite di combattimento femminili ridisegnati: sagoma propria, viso più fine, coda alta che segue il passo e fascia sul braccio, nello stesso stile di quelli maschili.',
+    ],
+    balanceChanges: [],
+  },
+  {
+    version: '0.2.1', date: '2026-11-01',
+    changes: [
+      'Ritratti dell\'arciere: il mantello delle canne si divide in cappa dietro il corpo e due lembi sul petto, così tunica, cintura e braccia restano visibili.',
+      'Stivali del vento sotto i pantaloni, con piume e fronte del gambale sopra: interno e bordo posteriore non si vedono più.',
+      'Arco del cacciatore: corda dietro il corpo, impugnatura più sottile e palmo dietro il legno, con le dita davanti.',
+      'Sprite di combattimento: meno lembi del mantello delle canne sul busto. Nessuna nuova immagine generata.',
+    ],
+    balanceChanges: [],
+  },
+  {
     version: '0.2.0', date: '2026-11-01',
     changes: [
       'Versione del gioco visibile in basso al centro e testo introduttivo del menu aggiornato.',

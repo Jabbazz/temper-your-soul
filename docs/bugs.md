@@ -1,5 +1,24 @@
 # Bug e problemi rilevati
 
+## Equipaggiamento dell'arciere: parti che dovevano restare nascoste
+
+Segnalazione dell'utente (1 novembre 2026): stivali e armatura non si adattavano al corpo e mostravano le parti posteriori. Rilevati nell'anteprima, su entrambi i corpi:
+
+- **Mantello delle canne:** un unico livello sopra il corpo copriva busto e braccia. Ora è diviso in cappa dietro il corpo e due lembi sul petto. Negli sprite di combattimento i lembi sono ridotti a due.
+- **Stivali del vento:** interno e bordo posteriore erano sopra i pantaloni. Sulle pose dell'arciere la base è ora tagliata lungo gli orli (`cuff`, `cuffClipPath`) e lo stivale passa sotto la gamba.
+- **Scheggia bianca accanto allo stivale sinistro:** il ritaglio includeva la piuma dello stivale vicino. Ritagli corretti, con gli stessi punti di aggancio.
+- **Parte bassa del mantello rimpicciolita:** l'SVG conservava le proporzioni anche quando veniva stirato. Aggiunto `preserveAspectRatio="none"`; gli altri oggetti SVG mantengono già le proporzioni e non cambiano.
+- **Corda dell'arco del cacciatore sopra il busto:** davanti al corpo resta solo il legno (`WEAPON_FRONT_OUTLINES`), la corda passa dietro. Arco anche inclinato attorno alla presa (`WEAPON_ROTATIONS`, valore provvisorio).
+- **Mano sull'arco:** sopra l'arma tornava un'ellisse di dita che non chiudeva la presa. Sulle pose dell'arciere restano davanti solo le dita, ritagliate lungo il contorno (`primaryFingers`). Provato anche un indice disegnato nel codice davanti al legno: scartato dall'utente, resta quello del disegno originale. Il palmo sta dietro l'impugnatura, assottigliata fra i due anelli (`WEAPON_GRIP_SLICES`, scala provvisoria).
+- **Gambale dello stivale frontale:** era spostato rispetto alla gamba, con l'orlo sporgente da un lato. Caviglia registrata sull'asse del polpaccio; la punta ruota di conseguenza.
+- **Piume e fronte degli stivali del vento:** con lo stivale sotto la gamba restavano nascosti. Ora sono livelli a parte sopra i pantaloni (`overPants` in `BOOT_PARTS`); interno e bordo posteriore restano sotto.
+
+Stessa gestione estesa a Guerriero e Mago, su richiesta dell'utente: orli (`cuff`) e dita (`primaryFingers`) misurati su tutte le pose; stivali illustrati e disegnati nel codice sotto i pantaloni, con il fronte sopra (`overPants`); armi davanti al palmo fin poco sotto la presa (`weaponRearCut`, valore provvisorio); parte bassa di manto della meteora, egida di brace e corazza della fornace divisa fra davanti e dietro le gambe (`ARMOR_LOWER_FRONT`). Sudario e velo restano interi davanti, perché sono vesti continue. Da rivedere: gli stivali disegnati nel codice (tombali, di brace, di brina) restano chiari e squadrati rispetto agli altri.
+
+Sprite di combattimento femminili ridisegnati su richiesta dell'utente (`drawHeroine`): prima erano la base maschile ristretta. Ora hanno sagoma propria, coda alta che segue il passo, fascia sul braccio e contorni doppi che reggono il passaggio a 48×48; l'equipaggiamento mantiene agganci e adattamento (`bodyWidth`). Controllati nell'anteprima, non ancora in partita.
+
+Da fare: la corda dell'arco di spine passa ancora vicino al busto e la parte superiore del corpo degli sprite resta affollata a 48×48. Controllati test e fotogrammi dell'anteprima; **conferma manuale dell'utente ancora da ricevere**.
+
 Posa e profondità: il martello copriva parte del viso, soprattutto a riposo. Riorientate le armi lunghe verso l'esterno e separate le estremità inferiori dietro il corpo. La versione femminile risultava sostanzialmente uguale salvo i capelli: ora ha fisionomia e corporatura proprie, con adattamenti di tutti gli strati. Controlli automatici e fotogrammi eseguiti; conferma manuale da ricevere.
 
 Ritratti illustrati A: asset separati per basi, cinque armature maschili/femminili, armi e stivali; ritagli registrati e controllati su entrambe le figure. Il montaggio resta da provare a mano su tutte le combinazioni, in particolare prese delle armi e giunzioni degli stivali. Gli asset generati non costituiscono un atlante anatomico perfetto: eventuali piccoli disallineamenti richiedono correzioni della registrazione, non delle regole di gioco.

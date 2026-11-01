@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARMOR_ANCHORS, fitArmor } from './portrait-armor';
+import { ARMOR_ANCHORS, ARMOR_LOWER_FRONT, fitArmor } from './portrait-armor';
 import { PORTRAIT_CROPS } from './portrait-layout';
 import { CLASS_POSES, PORTRAIT_FRAME, posePoint, type Point } from './portrait-rig';
 
@@ -23,6 +23,13 @@ describe('vestibilità delle armature illustrate',()=>{
       const upperBottomX=upper!.rect[0]+Math.tan(upper!.skew)*upper!.rect[3]*800/640;
       expect(upperBottomX).toBeCloseTo(lower!.rect[0],10);
       expect(lower!.rect[2]).toBe(upper!.rect[2]);
+    }
+  });
+  it('la parte bassa davanti parte dalla cintura e resta dentro il ritaglio',()=>{
+    for(const [family,outline] of Object.entries(ARMOR_LOWER_FRONT)){
+      expect(ARMOR_ANCHORS[family],family).toBeTruthy();
+      for(const [x,y] of outline)expect(x>=0&&x<=1&&y>=0&&y<=1,family).toBe(true);
+      expect(outline.some(p=>p[1]===0),family).toBe(true);
     }
   });
   it('le tuniche lunghe arrivano alle caviglie, le corazze lasciano visibili gli stivali',()=>{

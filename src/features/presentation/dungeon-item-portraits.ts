@@ -16,9 +16,11 @@ function makeArt(item:Item,body:BodyType){
   if(art.slot==='armor')drawWearableBack(painter,appearance,WEARABLES,a);
   drawWearable(painter,appearance,art.slot,art,a,'back');drawWearable(painter,appearance,art.slot,art,a,'front');
   const hand=art.slot==='primary_hand'?a.primary:a.secondary;
-  const {markup,crop,grip}=dungeonPortraitSvg(item.familyId,hand.x+12,hand.y+4);
+  const {markup,rearMarkup,crop,grip}=dungeonPortraitSvg(item.familyId,hand.x+12,hand.y+4);
   const pixels:CharacterPixels={width:64,height:64,pixels:painter.pixels};
-  return {texture:{width:64,height:64,url:'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64">${markup}</svg>`)},crop,grip,pixels};
+  // preserveAspectRatio: busto e gonna del mantello stirano l'immagine in modo diverso e devono restare allineati ai ritagli.
+  const svg=(content:string)=>({width:64,height:64,url:'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64" preserveAspectRatio="none">${content}</svg>`)});
+  return {texture:svg(markup),...(rearMarkup?{rearTexture:svg(rearMarkup)}:{}),crop,grip,pixels};
 }
 export function dungeonItemPortrait(item:Item,body:BodyType):ReturnType<typeof makeArt>|null {
   if(!DUNGEON_PORTRAIT_IDS.includes(item.familyId))return null;
