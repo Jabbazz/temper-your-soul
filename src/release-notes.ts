@@ -158,6 +158,22 @@ const INTEGER_DAMAGE_PREVIEW: ReleaseNotes = {
   };
 
 export const RELEASES: readonly ReleaseNotes[] = [
+  { version: '0.5.0', date: '2026-11-01', changes: [
+    'Corretti gli effetti personali fermi a terra: fendente e parata seguono il proprietario, buff disegnati una sola volta. Vecchi archi, cerchi e barriere esclusi quando gli atlanti sono pronti. Fendente ritagliato nel raggio e arco autorevoli.',
+    'Corretta la preda intoccabile nella Caccia della palude: le prede iniziano esposte, conservando fuga ed evocazione. I nemici ordinari mantengono il comportamento originale.',
+    'Animazioni PixelLab locali per fendenti, parata, rigenerazione, scatti, proiettili elementali, esplosioni, evocazione e buff delle tre classi.',
+    'Particelle accelerate con WebGL, con ripiego automatico su Canvas 2D. I proiettili nemici restano sopra gli effetti dei giocatori.',
+    '22 nuove icone equipaggiamento generate con il budget residuo. Gli ultimi tre stivali conservano il disegno precedente; ripiego disponibile per immagini mancanti.',
+    'Crediti e provenienza PixelLab registrati; nessuna modifica a danni, ricariche, salvataggi o sprite dei personaggi.',
+  ], balanceChanges: [] },
+  { version: '0.4.1', date: '2026-11-01', changes: [
+    'Corretti gli effetti personali fermi a terra: fendente e parata seguono il proprietario, buff disegnati una sola volta. Vecchi archi, cerchi e barriere esclusi quando gli atlanti sono pronti. Fendente ritagliato nel raggio e arco autorevoli.',
+    'Corretta la preda intoccabile nella Caccia della palude: le prede iniziano esposte, conservando fuga ed evocazione. I nemici ordinari mantengono il comportamento originale.',
+    'Animazioni PixelLab locali per fendenti, parata, rigenerazione, scatti, proiettili elementali, esplosioni, evocazione e buff delle tre classi.',
+    'Particelle accelerate con WebGL, con ripiego automatico su Canvas 2D. I proiettili nemici restano sopra gli effetti dei giocatori.',
+    '22 nuove icone equipaggiamento generate con il budget residuo. Gli ultimi tre stivali conservano il disegno precedente; ripiego disponibile per immagini mancanti.',
+    'Crediti e provenienza PixelLab registrati; nessuna modifica a danni, ricariche, salvataggi o sprite dei personaggi.',
+  ], balanceChanges: [] },
   { ...INTEGER_DAMAGE_PREVIEW, version: '0.4.0', date: '2026-11-01' },
   INTEGER_DAMAGE_PREVIEW,
   { ...CLASS_ROLES_PREVIEW, version: '0.3.0', date: '2026-11-01' },

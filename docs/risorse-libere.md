@@ -236,3 +236,7 @@ Con il sì dell'utente, dai file ufficiali di Google Fonts (CSS API per i WOFF2 
 | Pixelify Sans | Stefie Justprince | SIL OFL 1.1 | `pixelify-sans-latin.woff2` (variabile) | 12 KB | no: la B si legge come una G; resta solo nella cartella temporanea |
 
 Le tre licenze OFL scaricate pesano circa 4 KB ciascuna; nel progetto ci sono le due dei caratteri usati.
+
+## Eccezione autorizzata: PixelLab (1 novembre 2026)
+
+Il proprietario ha richiesto esplicitamente VFX delle skill e poi icone oggetto generati con PixelLab, entro 39 generazioni. Gli output sono registrati come `PixelLab-output`, con i termini del servizio e senza dichiararli CC0. Nessuna generazione di personaggi, boss o mob in questo incremento. Vedere [dettagli e provenienza](vfx-pixellab.md).

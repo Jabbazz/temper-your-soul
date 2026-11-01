@@ -1,6 +1,8 @@
+import { GENERATED_ITEM_ICONS } from './vfx/assets';
 import type { Palette, SpriteFrame } from './sprites';
 
 export interface ItemSprite {
+  readonly image?: string;
   readonly pixels: SpriteFrame;
   readonly palette: Palette;
 }
@@ -20,7 +22,7 @@ export const BACKPACK_SPRITE = art([
   '...osmmmmmmso', '....oooooooo',
 ], '#93623e', '#ce9860', '#88bbb0');
 
-export const ITEM_SPRITES: Readonly<Record<string, ItemSprite>> = {
+const LEGACY_ITEM_SPRITES: Readonly<Record<string, ItemSprite>> = {
   ossuary_lantern:art(['......ggg','.....g...g','.....ggggg','....ogggggo','....omwwmmo','....omwwmmo','....omwwmmo','....ogggggo','.....ohmho','......ooo'], '#6b7765','#d6dec2','#9be5b2'),
   grave_boots:art(['...oooo..oooo','...ohho..ohho','...ommo..ommo','...ohho..ohho','...osso..osso','...ommoo.ommoo','..ohmmmoohmmmo','..oggggooggggo','...oooo..oooo'], '#7a7772','#e2dbc0','#a9bba5'),
   thorn_bow:art(['.........gg','........gm','...a....mg','....a..gm','.....a.mg','......gg','.....gmg','....mg.a','...gm...a','..gm.....a','...gg'], '#54753c','#ceda89','#a07551'),
@@ -47,3 +49,7 @@ export const ITEM_SPRITES: Readonly<Record<string, ItemSprite>> = {
   frost_lance: art(['...........w', '..........awa', '.........ahwa', '.........amo', '........ogo', '.......ogo', '......ogo', '.....ogo', '....ogo', '...ogo', '..ogo', '.ogo', '..o'], '#5091bc', '#b5ecf5', '#77d5f5'),
   blizzard_veil: art(['.....aa..aa', '....ahhaahha', '...ahmmhhmmha', '..ahmmhmmhmmha', '..ammwhmmhwmma', '...ammwhwmmma', '...ammmwmmmma', '...ammwhwmmma', '..ammwhmmhwmma', '..ammmmmmmmmma', '...aamammamaa', '.....a.aa.a'], '#477298', '#a0d9e9', '#d8f6fa'),
 };
+
+export const ITEM_SPRITES: Readonly<Record<string, ItemSprite>> = Object.fromEntries(
+  Object.entries(LEGACY_ITEM_SPRITES).map(([id, sprite]) => [id, { ...sprite, image: GENERATED_ITEM_ICONS[id] }]),
+);

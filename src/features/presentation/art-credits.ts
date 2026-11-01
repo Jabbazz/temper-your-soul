@@ -1,12 +1,15 @@
+import { AUDIO_LICENSES } from '../audio/audio-credits';
 /*
  * Crediti della grafica di terzi usata dal gioco. Regole (docs/risorse-libere.md): licenze CC0, pubblico dominio o CC BY,
- * mai grafica generata da IA; la licenza si legge sulla pagina della fonte e, se c'e', nel file dentro il pacchetto.
+ * eccezione autorizzata il 2026-11-01: VFX e icone oggetto generati con PixelLab; la licenza si legge sulla pagina della fonte e, se c'e', nel file dentro il pacchetto.
  * Le licenze CC BY chiedono di citare autore e licenza e di dire che l'opera e' stata modificata: il pannello dei
  * crediti mostra autore e licenza, qui sotto ci sono le modifiche.
  */
 
 /** Licenze ammesse per la grafica (stessi nomi di quelle dell'audio, per mostrarle allo stesso modo). */
-export type ArtLicense = 'CC0-1.0' | 'CC-BY-3.0' | 'CC-BY-4.0';
+export type ArtLicense = 'CC0-1.0' | 'CC-BY-3.0' | 'CC-BY-4.0' | 'PixelLab-output';
+export const VFX_CREDIT_IDS = ['pixellab-vfx-items'] as const;
+export const ART_LICENSES = { ...AUDIO_LICENSES, 'PixelLab-output': { name: 'Output PixelLab · termini del servizio', url: 'https://www.pixellab.ai/termsofservice', requiresAttribution: false } };
 
 export interface ArtCredit {
   /** Titolo come sulla pagina della fonte. */
@@ -31,6 +34,12 @@ const TILE_EDIT = 'tile scelti ritagliati in un foglio per dungeon e ricolorati 
 
 /** Crediti per id (`<fonte>-<opera>`), consultati e scaricati il 1 novembre 2026. */
 export const ART_CREDITS: Readonly<Record<string, ArtCredit>> = {
+  'pixellab-vfx-items': {
+    title: 'VFX delle classi e icone equipaggiamento', author: 'Temper your soul · generato con PixelLab',
+    source: 'https://www.pixellab.ai/termsofservice', license: 'PixelLab-output', retrieved: '2026-11-01',
+    use: 'animazioni delle skill e icone oggetto locali',
+    changes: 'prompt originali, selezione degli atlanti, ottimizzazione PNG e composizione con particelle WebGL',
+  },
   'oga-animated-statue': {
     title: 'Animated Statue',
     author: 'Calciumtrice',

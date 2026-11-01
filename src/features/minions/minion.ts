@@ -101,8 +101,11 @@ export class Minion {
     this.parentId = options.parentId ?? null;
     this.hostile = options.hostile ?? true;
     this.prey = options.prey === true;
-    if (definition.dormant !== undefined) this.state = 'dormant';
-    if (definition.burrow !== undefined) this.state = 'burrowed';
+    // La Caccia sostituisce il comportamento nativo con fuga/evocazione: non eseguirebbe risveglio o emersione.
+    if (!this.prey) {
+      if (definition.dormant !== undefined) this.state = 'dormant';
+      if (definition.burrow !== undefined) this.state = 'burrowed';
+    }
   }
 
   get isDead(): boolean {

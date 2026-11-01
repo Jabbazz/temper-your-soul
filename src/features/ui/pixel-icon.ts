@@ -8,6 +8,8 @@ export function renderPixelIcon(sprite: ItemSprite): SVGSVGElement {
   svg.setAttribute('class', 'pixel-icon');
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('shape-rendering', 'crispEdges');
+  const fallback = document.createElementNS(ns, 'g');
+  svg.append(fallback);
   sprite.pixels.forEach((row, y) => [...row].forEach((pixel, x) => {
     if (pixel === '.') return;
     const rect = document.createElementNS(ns, 'rect');
@@ -16,7 +18,16 @@ export function renderPixelIcon(sprite: ItemSprite): SVGSVGElement {
     rect.setAttribute('width', '1');
     rect.setAttribute('height', '1');
     rect.setAttribute('fill', sprite.palette[pixel]);
-    svg.append(rect);
+    fallback.append(rect);
   }));
+  if (sprite.image) {
+    const image = document.createElementNS(ns, 'image');
+    image.setAttribute('href', sprite.image);
+    image.setAttribute('width', '16'); image.setAttribute('height', '16');
+    image.style.imageRendering = 'pixelated';
+    image.addEventListener('load', () => fallback.setAttribute('display', 'none'));
+    image.addEventListener('error', () => image.remove());
+    svg.append(image);
+  }
   return svg;
 }

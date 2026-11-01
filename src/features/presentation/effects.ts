@@ -1,3 +1,4 @@
+import { SpriteEffects, replacesLegacy } from './vfx/sprite-effects';
 import type { Camera } from '../../core/camera';
 import { cosmeticRng, type Rng } from '../../core/rng';
 import { TAU, Vec2 } from '../../core/vec2';
@@ -188,6 +189,7 @@ const SPARK_LIFE = 0.14;
  * dei suoi oggetti, ma non influiscono mai sulle regole. Usa una sorgente casuale propria (estetica, non riproducibile).
  */
 export class Effects {
+  readonly spriteVfx = new SpriteEffects();
   particles: Particle[] = [];
   waves: Wave[] = [];
   texts: FloatingText[] = [];
@@ -228,6 +230,7 @@ export class Effects {
   constructor(private readonly rng: Rng = cosmeticRng) {}
 
   clear(): void {
+    this.spriteVfx.clear();
     this.particles = [];
     this.waves = [];
     this.texts = [];
@@ -261,6 +264,8 @@ export class Effects {
    * suoi colpi subiti accendono la vignetta rossa e scuotono lo schermo.
    */
   handle(event: GameEvent, localPlayerId?: string): void {
+    this.spriteVfx.handle(event);
+    if (replacesLegacy(event)) return;
     switch (event.type) {
       case 'status_applied':
         this.wave(event.position, 22, '#d7c3a1', 0.3);
@@ -410,6 +415,7 @@ export class Effects {
 
   /** Avanza gli effetti di `dt` secondi e genera quelli che dipendono dallo stato (scie, carica, aure del boss). */
   update(dt: number, match: Match, camera: Camera): void {
+    this.spriteVfx.update(dt);
     this.updateTrails(dt, match.projectiles, camera);
     const { boss } = match;
     if (boss !== null) {

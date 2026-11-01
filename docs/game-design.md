@@ -560,3 +560,7 @@ Regole nuove, proposte a Jabbaz: valgono solo in otto stanze nuove, due per dung
     - pozzi, ponti e ripari.
 - **Cosa resta nel codice:** luce, crepe di lava, riflessi, neve, funghi, nebbia e grate.
 - **Cache del pavimento.** Tutti e quattro i temi tengono il pavimento fermo nella cache a tasselli (`FloorCache`); si ridipinge una volta sola quando arriva il foglio dei tile. Finché il foglio non è caricato, o senza browser nei test, si disegna come prima.
+
+### Direzione VFX · 1 novembre 2026
+
+PixelLab scelto dal proprietario per effetti e icone: guerriero oro/rame, mago colori elementali, arciere salvia con artigli cremisi. Particelle additive WebGL con fallback Canvas 2D. Resta aperta la taratura estetica di opacità/dimensioni nelle stanze affollate; nessuna variazione delle regole di combattimento. [Dettagli](vfx-pixellab.md).

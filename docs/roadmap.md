@@ -323,3 +323,7 @@ Il compito e il diario sono in `docs/compito-grafica.md`, le regole nuove da con
 - [ ] Prova manuale dell'utente: le otto stanze con pozzi e ripari, i tileset nei quattro dungeon, le vene, in singolo e in cooperativa.
 - [ ] Decisioni di Jabbaz sulle regole proposte (pozzi, ripari, vene, movimento attorno ai massicci).
 - [x] Un solo stile per l'interfaccia: titoli in Grenze Gotisch, HUD in Silkscreen (a 8 e 16 pixel), testi nel carattere di sistema.
+
+### Incremento locale: VFX di classe con PixelLab
+
+Atlanti locali, particelle WebGL con fallback e icone secondo budget autorizzato. Copertura e verifiche in [vfx-pixellab.md](vfx-pixellab.md); approvazione manuale di leggibilità e prestazioni ancora da fare. Revisione di mob, boss e personaggi rimandata.

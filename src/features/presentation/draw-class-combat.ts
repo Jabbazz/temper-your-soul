@@ -1,3 +1,4 @@
+import { isVfxReady } from './vfx/assets';
 import type { Match } from '../match/match';
 import { STATUS_EFFECTS } from '../combat/status-effects/status-catalog';
 import { canvasFont } from './fonts';
@@ -21,7 +22,8 @@ export function drawClassCombat(ctx: CanvasRenderingContext2D, match: Match, clo
   for (const entry of state.players) {
     const player = match.players.get(entry.id);
     if (!player || player.health.isDead) continue;
-    if (entry.guard || entry.buff || entry.channel > 0) {
+    const replacement = entry.guard ? 'warrior-guard' : player.characterClass === 'warrior' ? 'warrior-fortify' : player.characterClass === 'archer' ? 'archer-predator' : 'mage-earth-aura';
+    if ((entry.guard || entry.buff || entry.channel > 0) && !isVfxReady(replacement)) {
       ctx.strokeStyle = entry.guard ? '#ffe0a0' : entry.channel > 0 ? '#d8a5fa' : '#b4d6a6';
       ctx.lineWidth = entry.guard ? 3 : 1.5;
       ctx.beginPath(); ctx.ellipse(player.position.x, player.position.y - (entry.guard ? 12 : 0), 22, entry.guard ? 29 : 10, 0, 0, Math.PI * 2); ctx.stroke();
@@ -32,6 +34,7 @@ export function drawClassCombat(ctx: CanvasRenderingContext2D, match: Match, clo
     }
   }
   for (const taunt of state.taunts) {
+    if (isVfxReady('warrior-cleave')) continue;
     const player = match.players.get(taunt.owner);
     if (!player || player.health.isDead) continue;
     ctx.strokeStyle = '#e3b87544'; ctx.lineWidth = 1; ctx.setLineDash([6, 10]);

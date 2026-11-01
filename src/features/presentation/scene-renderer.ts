@@ -1,3 +1,4 @@
+import { drawPersistentVfx } from './vfx/sprite-effects';
 import { drawClassCombat } from './draw-class-combat';
 import type { CharacterAppearance } from '../character/appearance';
 import type { Camera } from '../../core/camera';
@@ -108,6 +109,8 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const zone of match.zones) drawPendingZone(ctx, zone, match.time);
   drawTelegraphs(ctx, effects.telegraphs, match.minions);
 
+  drawPersistentVfx(ctx, match, match.time);
+
   // Le figure si disegnano dall'alto in basso: chi sta piu' in basso e' piu' vicino e copre chi sta dietro.
   const figures: { y: number; draw: () => void }[] = [];
   for (const minion of match.minions) {
@@ -163,6 +166,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const projectile of match.projectiles) {
     if (projectile.team !== 'enemy') drawProjectile(ctx, projectile, effects.trailOf(projectile), camera, match.time);
   }
+  effects.spriteVfx.draw(ctx, match);
   drawParticles(ctx, effects);
   for (const projectile of match.projectiles) {
     if (projectile.team === 'enemy') drawProjectile(ctx, projectile, effects.trailOf(projectile), camera, match.time, theme.projectileRim);

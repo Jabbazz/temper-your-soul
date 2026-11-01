@@ -1,5 +1,5 @@
 import { AUDIO_CREDITS, AUDIO_LICENSES } from '../audio/audio-credits';
-import { ART_CREDITS } from '../presentation/art-credits';
+import { ART_CREDITS, ART_LICENSES } from '../presentation/art-credits';
 import { FONT_CREDITS, FONT_LICENSE_NAME } from './font-credits';
 import type { AudioPlayer } from '../audio/audio-player';
 import { VOLUME_CONTROLS, type VolumeControl } from '../audio/audio-settings';
@@ -111,7 +111,7 @@ export class AudioPanel {
       creditList(Object.values(AUDIO_CREDITS), (credit) => AUDIO_LICENSES[credit.license].name),
       el('small', '', 'Registrazioni tagliate e convertite per il gioco.'),
       el('p', 'credits-heading', 'Grafica'),
-      creditList(Object.values(ART_CREDITS), (credit) => AUDIO_LICENSES[credit.license].name),
+      creditList(Object.values(ART_CREDITS), (credit) => ART_LICENSES[credit.license].name),
       el('small', '', 'Sprite e tile ritagliati e ricolorati per il gioco.'),
       el('p', 'credits-heading', 'Caratteri'),
       creditList(Object.values(FONT_CREDITS), () => FONT_LICENSE_NAME),

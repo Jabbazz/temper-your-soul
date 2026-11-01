@@ -303,3 +303,7 @@ Versione main di questo incremento: **v0.03.00** (package `0.3.0`). Punti aperti
 Danni interi per difetto dopo tutti i modificatori: niente arrotondamento soltanto grafico. HP, eventi, numeri e report usano lo stesso intero effettivo; rimosso l’arrotondamento anticipato dalla rarità. Rigenerazione e furto vita conservano le frazioni internamente e recuperano HP interi. Verifica: 605 test, tipi e build; conferma giocata ancora necessaria. Nessun cambiamento a drop, XP o salvataggi; gli altri punti aperti restano nella roadmap.
 
 Versione main della correzione dei danni: **v0.04.00** (package `0.4.0`), con cronologia precedente conservata. Restano aperte le prove giocate e la taratura dei boss e dei piccoli danni periodici.
+
+## VFX delle classi · versione 0.5.0
+
+Animazioni PixelLab locali e particelle WebGL con ripiego Canvas 2D; nuove icone con il budget residuo. Autorizzazione specifica del proprietario del 1 novembre 2026. Dettagli, copertura e prove manuali ancora necessarie: [VFX PixelLab](docs/vfx-pixellab.md). Studio animato con Vite: `/vfx-preview.html`.

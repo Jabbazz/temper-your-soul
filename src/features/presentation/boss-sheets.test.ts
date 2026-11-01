@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Camera } from '../../core/camera';
 import { Vec2 } from '../../core/vec2';
 import { createQuietMatch, STEP } from '../../testing';
-import { AUDIO_LICENSES } from '../audio/audio-credits';
 import { DUNGEONS } from '../dungeons/dungeons';
-import { ART_CREDITS } from './art-credits';
+import { ART_CREDITS, ART_LICENSES, VFX_CREDIT_IDS } from './art-credits';
 import { BOSS_SHEETS, DEATH_ANIMATION_SHARE, sheetFrame, type BossSheet, type SheetState } from './boss-art';
 import { Effects, FEEDBACK } from './effects';
 import { ActorPoses } from './poses';
@@ -79,14 +78,14 @@ describe('fogli di sprite dei boss', () => {
   });
 
   it('ogni foglio ha i crediti, con una licenza ammessa; nessun credito resta senza uso', () => {
-    const used = new Set([...Object.values(BOSS_SHEETS).flatMap((sheet) => sheet.credits), ...Object.values(TILE_CREDITS).flat()]);
+    const used = new Set([...VFX_CREDIT_IDS, ...Object.values(BOSS_SHEETS).flatMap((sheet) => sheet.credits), ...Object.values(TILE_CREDITS).flat()]);
     for (const [id, sheet] of Object.entries(BOSS_SHEETS)) {
       expect(sheet.credits.length, id).toBeGreaterThan(0);
       for (const credit of sheet.credits) expect(ART_CREDITS[credit], `${id}: ${credit}`).toBeDefined();
     }
     for (const [id, credit] of Object.entries(ART_CREDITS)) {
       expect(used.has(id), id).toBe(true);
-      expect(AUDIO_LICENSES[credit.license], id).toBeDefined();
+      expect(ART_LICENSES[credit.license], id).toBeDefined();
       expect(credit.source, id).toMatch(/^https:\/\//);
       expect(credit.changes.length, id).toBeGreaterThan(0);
     }

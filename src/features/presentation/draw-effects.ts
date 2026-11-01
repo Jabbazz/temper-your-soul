@@ -1,6 +1,7 @@
+import { drawWebGLParticles } from './vfx/particle-webgl';
 import type { Camera } from '../../core/camera';
 import { clamp, TAU, Vec2 } from '../../core/vec2';
-import { FEEDBACK, type Effects } from './effects';
+import { FEEDBACK, type Effects, type Particle } from './effects';
 import { canvasFont } from './fonts';
 
 export function drawText(
@@ -120,9 +121,14 @@ export function drawGlowEffects(ctx: CanvasRenderingContext2D, effects: Effects)
 
 /** Particelle (scie, scoppi), a luce additiva. Si disegnano sotto i proiettili nemici, che non devono sbiadire. */
 export function drawParticles(ctx: CanvasRenderingContext2D, effects: Effects): void {
+  if (!drawWebGLParticles(ctx, effects.particles)) drawCanvasParticles(ctx, effects.particles);
+}
+
+/** Ripiego senza GPU, usato anche nello studio per confrontare i due percorsi. */
+export function drawCanvasParticles(ctx: CanvasRenderingContext2D, particles: readonly Particle[]): void {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  for (const f of effects.particles) {
+  for (const f of particles) {
     const alpha = clamp(f.remaining / f.total, 0, 1);
     const size = Math.max(1, f.size * Math.sqrt(alpha));
     ctx.fillStyle = f.color;

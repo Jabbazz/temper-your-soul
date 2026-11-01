@@ -1,3 +1,5 @@
+import { drawVfx } from './vfx/assets';
+import { drawProjectileVfx } from './vfx/sprite-effects';
 import { clamp, TAU } from '../../core/vec2';
 import type { Camera } from '../../core/camera';
 import type { Charge } from '../boss/boss';
@@ -103,9 +105,12 @@ export function drawFallingSpell(ctx: CanvasRenderingContext2D, zone: DangerZone
   if (zone.remaining <= 0) return;
   const u = zone.progress;
   if (zone.team === 'player') {
+    // Solo la meteora cade dall’alto; la marea conserva il segnale a terra.
+    if (zone.spec.visual !== undefined && zone.spec.visual !== 'meteor') return;
     const h = (1 - u) * 190;
     const x = zone.position.x - h * 0.35;
     const y = zone.position.y - h;
+    if (drawVfx(ctx, 'mage-fireball', x, y, 150 + u * 25, zone.spec.delay - zone.remaining, Math.atan2(1, 0.35), 0.9)) return;
     ctx.save();
     ctx.strokeStyle = '#b798ff';
     ctx.lineWidth = 9;
@@ -207,6 +212,7 @@ export function drawProjectile(
   rimWidth: number = PROJECTILE_STYLE.enemyRimWidth,
 ): void {
   if (!camera.isVisible(projectile.position, 80)) return;
+  if (drawProjectileVfx(ctx, projectile, time)) return;
   const look = projectileLook(projectile.spec.visual);
   const r = projectile.radius;
   const enemy = projectile.team === 'enemy';
