@@ -8,12 +8,14 @@ import { Projectile } from '../combat/projectile';
 import { DUNGEONS, dungeonById } from '../dungeons/dungeons';
 import { Match, MINION_LIMITS, type PlayerIntent } from '../match/match';
 import { LIEUTENANTS } from '../run/lieutenants';
+import { VEIN_LIEUTENANTS } from '../run/vein-lieutenants';
+import type { BossDefinition } from '../boss/boss-definition';
 import { roomArena, ROOM_TEMPLATES } from '../run/room-templates';
 import { MAGE_SKILLS } from '../skills/mage-skills';
 import { createBossHarness, eventsOfType, recordEvents, STEP } from '../../testing';
 import { ELITES } from './elites';
 import type { Minion } from './minion';
-import { DUNGEON_MINIONS, MINIONS } from './minion-catalog';
+import { DUNGEON_MINIONS, MINIONS, VEIN_MINIONS } from './minion-catalog';
 import { minionTier } from './minion-definition';
 
 const idle: PlayerIntent = { move: Vec2.ZERO, aimOffset: new Vec2(100, 0), skills: [false, false, false, false] };
@@ -50,9 +52,11 @@ function hold(match: Match, seconds: number): void {
 }
 
 describe('catalogo dei servitori', () => {
-  it('trentadue servitori in quattro dungeon, id unici, prefisso del tema nell\'aspetto', () => {
+  it('i servitori delle tre vene dei quattro dungeon: id unici, prefisso del tema nell\'aspetto', () => {
     const all = Object.values(DUNGEON_MINIONS).flat();
-    expect(all.length).toBe(33);
+    // 33 della vena A, 55 delle vene B e C (fase 7 dello studio sulla grafica).
+    expect(Object.values(VEIN_MINIONS).flatMap((veins) => veins.a).length).toBe(33);
+    expect(all.length).toBe(33 + 55);
     expect(new Set(all.map((m) => m.id)).size).toBe(all.length);
     for (const [dungeon, list] of Object.entries(DUNGEON_MINIONS)) {
       for (const minion of list) expect(minion.visual.startsWith(`${dungeon}_`), minion.id).toBe(true);
@@ -73,6 +77,15 @@ describe('catalogo dei servitori', () => {
       if (minion.shot && minion.shot.windup !== undefined) expect(minion.shot.windup, minion.id).toBeGreaterThanOrEqual(0.4);
       if (minion.charge) expect(minion.charge.windup, minion.id).toBeGreaterThanOrEqual(0.4);
       if (minion.blink) expect(minion.blink.windup, minion.id).toBeGreaterThanOrEqual(0.4);
+      if (minion.ambush) {
+        expect(minion.ambush.windup, minion.id).toBeGreaterThanOrEqual(0.4);
+        // L'agguato chiude la sua posa nel passo dell'inseguitore: con altri comportamenti non scatterebbe.
+        expect(minion.behavior, minion.id).toBe('chaser');
+        expect(minion.charge, minion.id).toBeUndefined();
+      }
+      for (const ring of [minion.charge?.arrivalRing, minion.leap?.arrivalRing, minion.burrow?.arrivalRing]) {
+        if (ring !== undefined) expect(ring.projectile.damage, minion.id).toBeLessThanOrEqual(15);
+      }
       expect(minion.contactDamage).toBeLessThanOrEqual(20);
     }
   });
@@ -308,7 +321,12 @@ describe('comportamenti', () => {
   });
 });
 
-describe.each(Object.entries(LIEUTENANTS))('luogotenente %s', (dungeonId, lieutenant) => {
+const ALL_LIEUTENANTS: [string, BossDefinition][] = [
+  ...Object.entries(LIEUTENANTS),
+  ...Object.entries(VEIN_LIEUTENANTS).flatMap(([dungeonId, veins]) => Object.values(veins).map((lieutenant): [string, BossDefinition] => [dungeonId, lieutenant])),
+];
+
+describe.each(ALL_LIEUTENANTS)('luogotenente %s', (dungeonId, lieutenant) => {
   const dungeon = dungeonById(dungeonId)!;
   const template = ROOM_TEMPLATES[dungeonId]!.find((room) => room.use === 'calm')!;
   const arena = roomArena(template, dungeon.arena.theme);

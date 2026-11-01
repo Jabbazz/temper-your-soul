@@ -423,3 +423,140 @@ Rimosso `Math.round` dal danno della rarità. Esempio: Dardo con set Raro, livel
 Vita corrente e massima intere (il massimo viene arrotondato per difetto dopo la somma dei bonus). Per preservare rigenerazione e furto vita, `Health.heal` accumula internamente le frazioni fino a maturare HP interi: 5 HP/s recuperano ancora 5 HP in un secondo a 60 Hz. Le frazioni non vengono accumulate a vita piena. Anche la guarigione effettiva del report è intera. Nessun nuovo formato di salvataggio o rete.
 
 Verifica: 605 test, tipi e build; regressioni su difesa, rarità/potenza/vulnerabilità, scudo e penetrazione, DoT, overkill e cure a piccoli passi. La rimozione temporanea del difetto fa fallire il test della pipeline, poi viene ripristinata. Taratura di piccoli DoT che diventano 0 e conferma giocata restano aperte.
+
+## Grafica: fasi 1–4 dello studio (ramo `feature/grafica-fasi`, da approvare)
+
+Seguono la fase 0, con lo stesso vincolo: solo aspetto e chiarezza, nessun numero di bilanciamento toccato. Il compito e lo stato delle fasi sono in `docs/compito-grafica.md`.
+
+- **Luce** (`presentation/lights.ts`).
+    - Le luci si raccolgono mentre si disegna l'ambiente: torce, bracieri, crepe, rune, funghi, cristalli, porte aperte e premi.
+    - Le figure aggiungono la loro: giocatori, boss, colpi, servitori luminosi.
+    - La mappa, a mezza risoluzione, parte dal buio del tema (`ArenaTheme.ambient`) e si fonde in *soft-light* solo sul pavimento e sui muri. Figure, telegrafi e proiettili restano a piena luce: la leggibilità del combattimento non dipende dalla luce.
+- **Muri a tre quarti** (`themes/wall.ts`).
+    - Il muro in alto ha una faccia alta fin dove arrivano i piedi del giocatore, con il motivo del tema e un'ombra a bande.
+    - La cima del muro in basso si ridisegna davanti alle figure.
+    - I decori in rilievo si appendono alla faccia, lontano dalle porte (`faceSpots`).
+- **Tracce dello scontro**: bruciature delle esplosioni e resti dei servitori. Al più 60, durano 26 s, solo disegno.
+- **Minimappa e mappa della discesa**: N nasconde la minimappa, Tab tenuto mostra le tappe. Leggono la vista della stanza e della discesa: in cooperativa niente dati di rete in più.
+- **Massicci** (`ArenaDefinition.solids`): rettangoli che fermano chiunque cammini e assorbono i proiettili di entrambe le squadre, come i pilastri.
+    - Otto stanze nuove, due per dungeon. Cripta: Sala a gomito, Crocevia. Palude: Strettoia, Argini. Fucina: Crocevia delle colate, Magazzino. Ghiacciaio: Gola, Seracchi.
+    - Le stanze di prima non cambiano.
+    - Il disegno ha cima a lastre, bordo e faccia come il muro del tema.
+    - La rete non cambia: l'id della stanza porta con sé la geometria.
+- **Atmosfera della stanza** (`presentation/room-mood.ts`).
+    - La grata dell'ingresso cala alle spalle 0,5 s dopo l'arrivo, con un rimbalzo e due sbuffi di polvere del tema.
+    - Le grate delle uscite salgono in 0,9 s quando la stanza è libera, poi la luce si scalda in 1,6 s.
+    - L'ultima tappa ha l'ambiente più scuro del 32% e un po' di vignettatura in più.
+    - Legge solo la vista della stanza e il tempo reale.
+
+### Decisioni da confermare con Jabbaz (fasi 1–4)
+
+- **Movimento nelle stanze con i massicci.** Senza una regola, un servitore a terra dietro un blocco restava incastrato e un tiratore sparava contro la pietra. Proposta attuale, solo dove ci sono massicci:
+    - chi cammina gira attorno al blocco da un angolo all'altro (`detourAround`);
+    - chi spara aspetta di vedere il bersaglio;
+    - chi tiene la distanza si sposta finché non lo vede;
+    - le cariche vanno dritte e si fermano contro il blocco;
+    - lo scatto del giocatore si ferma davanti al blocco, mentre i pilastri si attraversano come prima.
+- **Tab per la mappa.** In partita il Tab apre la mappa e non sposta il focus; nei menu resta al browser.
+
+## Vene di servitori (fase 7 dello studio sulla grafica, ramo `feature/grafica-fasi`, da approvare)
+
+Tre «vene» di servitori per dungeon: la A è quella di sempre, la B e la C vengono dalle schede dello studio.
+
+| Dungeon | Vena A | Vena B | Vena C |
+| --- | --- | --- | --- |
+| Cripta | Navata | Catacombe | Cantoria |
+| Palude | Torbiera | Sommersi | Colonia |
+| Fucina | Officina | Armeria | Miniera |
+| Ghiacciaio | Scuola del Custode | Tana del gelo | Osservatorio |
+
+Ogni vena ha folla, minacce, un pesante e un nido o un sostegno per l'Assedio. Fa eccezione la vena A della fucina: lì l'Assedio usa i pesanti, come prima.
+
+- **Composizione** (`run/room-bestiary.ts`, `VEIN_BESTIARY`):
+    - vita sulla scala della cripta, costo nel regista e prima tappa utile dalle schede;
+    - valori provvisori.
+- **Come si usano** (`run/veins.ts`):
+    - ogni discesa estrae dal seme due vene fra quelle sbloccate, una d'ingresso e una profonda;
+    - la d'ingresso vale fino alla tappa prima del luogotenente, la profonda dal luogotenente in poi;
+    - la tappa prima del luogotenente ospita un tipo di folla o di minaccia della profonda, e la tappa dopo l'Assedio un tipo della d'ingresso;
+    - il 3% degli Scontri dalla terza tappa è un'Incursione, cioè una stanza tutta della terza vena, con uno stendardo viola;
+    - il Pellegrinaggio usa una vena per dungeon.
+- **Sblocchi:**
+    - la A sempre;
+    - la B arrivando al luogotenente (tappa 4);
+    - la C con la prima vittoria.
+
+  Si leggono dai record delle discese che il gioco salva già: nessun salvataggio nuovo. La prima discesa usa solo la vena A, quindi le tarature di oggi restano valide.
+- **Luogotenente:** con una vena profonda B o C è quello della vena (fase 8, `run/vein-lieutenants.ts`): otto luogotenenti nuovi, che in furia chiamano la folla della loro vena. Con la vena A resta quello di sempre.
+- **Cooperativa:**
+    - protocollo 8;
+    - il server usa le vene sbloccate dal capo gruppo;
+    - i servitori viaggiano per id e la grafica è nel codice, quindi i client non scaricano nulla.
+- **Comportamenti nuovi** (`minions/minion-ai.ts`), tutti opzioni dei dati:
+    - `shot.series`: altre raffiche dopo la prima, senza nuova posa, ruotate di `turn`;
+    - `ring.mirror`: un secondo anello che ruota al contrario;
+    - `arrivalRing` su carica, salto e scavatore;
+    - `lob.shape`: `ring` (il centro resta libero), `cross` (dal centro verso fuori) e `cone` (ondate verso il bersaglio);
+    - `aura.kind`: `haste` (intervalli ×0,7 per 3 s) e `repair` (+15% della vita ogni 5 s);
+    - `ambush`: un segnale dietro il bersaglio, poi il servitore ricompare lì e morde a ventaglio;
+    - `charge.bounces`: la carica riparte di sponda dai muri della stanza.
+
+### Decisioni da confermare con Jabbaz (vene)
+
+- **La struttura:** due vene per discesa, gli ospiti, l'Incursione al 3%.
+- **Gli sblocchi:** la B al luogotenente, la C con la prima vittoria. In alternativa si possono legare alla progressione, che è sua.
+- **I valori dei 55 servitori:** vita, danni, velocità, costi e tappe sono quelli delle schede, mai provati a mano.
+- **Gli otto luogotenenti delle vene:** schemi e vita provvisori, sulla scala dei luogotenenti di sempre.
+
+## Pozzi, ponti e ripari (fase 5 dello studio grafico, ramo `feature/grafica-fasi-2`, da approvare)
+
+Regole nuove, proposte a Jabbaz: valgono solo in otto stanze nuove, due per dungeon, e le stanze di prima non cambiano. I valori sono in tabelle con nome e sono provvisori.
+
+| Dungeon | Pozzi e ponti | Ripari |
+| --- | --- | --- |
+| Cripta | Crollo: un crollo da muro a muro con due passerelle di assi | Navata dei banchi: dodici panche |
+| Palude | Acque profonde: una pozza nera tagliata da una passerella, due pozze contro i muri | Groviglio: sette grovigli di radici e due pozze |
+| Fucina | Fiume di lava con due ponti di ferro | Deposito: sette file di casse attorno a una pozza di lava |
+| Ghiacciaio | Crepacci: due crepacci con i ponti di neve alle estremità opposte | Blocchi di ghiaccio: sette blocchi attorno a una spaccatura |
+
+- **Pozzi** (`ArenaDefinition.chasms`).
+    - Chi cammina non ci entra: si ferma sul bordo, come contro un massiccio. Vale per giocatori, servitori a terra, corse del Guerriero e dell'Arciere, cariche.
+    - Colpi, zone e servitori che volano ci passano sopra; il pozzo non sbarra la vista.
+    - Lo scatto del Mago (un balzo) li supera se atterra sul pavimento. Se finirebbe dentro, si ferma sulla riva da cui parte. Le corse di Guerriero e Arciere sono a terra e si fermano sul bordo.
+    - Salti, teletrasporti e uscite degli scavatori finiscono sempre sul pavimento.
+    - Nessuno cade e nessuno prende danno: il pozzo è solo un ostacolo per chi cammina.
+- **Ponti** (`ArenaDefinition.bridges`): sono il pavimento fra due tratti di pozzo, disegnato come un ponte. Larghi 128–160 unità.
+- **Ripari** (`ArenaDefinition.covers`, `COVER_RULES` in `match.ts`).
+    - Ognuno ha 160 punti di vita e ferma chi cammina e i colpi di entrambe le squadre. Ogni colpo che lo raggiunge gli toglie il suo danno.
+    - A zero si rompe: non ferma più nulla e lascia schegge a terra.
+    - È basso: non sbarra la vista. I tiratori quindi mirano anche a chi ci sta dietro e il riparo si consuma.
+    - Non lo rompono i colpi ravvicinati, le zone e il morso del lupo: solo i proiettili.
+- **Percorsi** (`arena/nav-field.ts`).
+    - Nelle stanze con massicci, ripari o pozzi i servitori a terra seguono un campo di flusso: celle da 40 unità, uno per giocatore, ricalcolato ogni 6 passi.
+    - Ogni servitore segue il campo del proprio bersaglio, anche quando lo provoca il Guerriero.
+    - Così trovano i ponti anche quando il pozzo attraversa tutta la stanza, e non restano agli angoli delle panche.
+    - Nelle stanze aperte nulla cambia.
+- **Il lupo dell'Arciere** compare, aspetta e salta solo sul pavimento: non salta su un nemico che vola sopra un pozzo o un riparo.
+- **Cooperativa:** protocollo 8. La vita dei ripari viaggia nell'istantanea solo quando cambia; pozzi e ponti arrivano con l'id della stanza.
+- **Disegno** (`presentation/draw-hazards.ts`): pozzi a tile con ciò che ci si muove dentro (polvere, acqua nera, lava che illumina, nebbia), ponti con ringhiere, ripari che si incrinano sotto i due terzi della vita e si scheggiano sotto un terzo. Nella minimappa i pozzi sono neri, i ponti marroni, i ripari più chiari dei massicci.
+
+### Decisioni da confermare con Jabbaz (fase 5)
+
+- **Se volerle.** In alternativa le otto stanze si tolgono da `ROOM_TEMPLATES`: il resto del codice non cambia.
+- **Cadere nei pozzi.** Oggi non si cade. Si potrebbe cadere con un danno e tornare sulla riva, come in Gungeon.
+- **Lo scatto sopra i pozzi.** Oggi solo il Mago, perché il suo scatto è un salto. Le corse di Guerriero e Arciere si fermano sul bordo.
+- **I ripari.** Da decidere la vita, se li rompono anche colpi ravvicinati e zone, e se la vista deve fermarsi.
+- **Il numero di nemici.** Il regista non sa che una stanza con i pozzi ha meno pavimento. Lo studio proponeva di scalare budget e tetto sull'area calpestabile; è bilanciamento, quindi resta a Jabbaz.
+
+## Tileset (fase 6 dello studio grafico, ramo `feature/grafica-fasi-2`, da approvare)
+
+- **Fonti.** Tile CC0 di 0x72 (DungeonTileset II), Night Blade (Eman Quest) e Kevin's Mom's House (dungeon_, tundra_), scaricati con il sì dell'utente. Crediti in `art-credits.ts`, nel gioco e in `src/assets/art/tiles/LEGGIMI.md`.
+- **Preparazione.** `tools/arte/prepara_tile.py` ricolora ogni tile con le rampe del tema. Nel gioco entrano solo i colori delle rampe, e i test li confrontano con i colpi nemici come gli altri colori a terra. Un foglio per dungeon, 3 KB ciascuno.
+- **Scala.** Un tile da 16 pixel copre 32 unità: 2 unità per pixel, come le lastre della cripta.
+- **Dove si usano:**
+    - pavimenti di cripta, fucina e ghiacciaio, e la grana del fango della palude;
+    - la faccia del muro della cripta;
+    - la cima dei massicci;
+    - pozzi, ponti e ripari.
+- **Cosa resta nel codice:** luce, crepe di lava, riflessi, neve, funghi, nebbia e grate.
+- **Cache del pavimento.** Tutti e quattro i temi tengono il pavimento fermo nella cache a tasselli (`FloorCache`); si ridipinge una volta sola quando arriva il foglio dei tile. Finché il foglio non è caricato, o senza browser nei test, si disegna come prima.

@@ -7,11 +7,21 @@ export const FLOOR_CACHE = { chunkSize: 256, maxChunks: 32 } as const;
 type PaintFloor = (ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera) => void;
 
 export class FloorCache {
-  private readonly arenas = new WeakMap<ArenaDefinition, Map<string, HTMLCanvasElement>>();
+  private readonly arenas = new WeakMap<ArenaDefinition, { version: string; chunks: Map<string, HTMLCanvasElement> }>();
   constructor(private readonly paint: PaintFloor) {}
-  draw(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
-    let chunks = this.arenas.get(arena);
-    if (!chunks) { chunks = new Map(); this.arenas.set(arena, chunks); }
+  /**
+   * Disegna il pavimento visibile dai tasselli in cache. `version` dice con che cosa sono dipinti (per esempio i tile
+   * dopo il caricamento del foglio): se cambia, i tasselli vecchi si buttano e si ridipingono.
+   */
+  draw(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, version = ''): void {
+    // Senza DOM (i test dei temi) non ci sono canvas da tenere: si dipinge direttamente la vista.
+    if (typeof document === 'undefined') {
+      this.paint(ctx, arena, camera);
+      return;
+    }
+    let entry = this.arenas.get(arena);
+    if (!entry || entry.version !== version) { entry = { version, chunks: new Map() }; this.arenas.set(arena, entry); }
+    const chunks = entry.chunks;
     const size = FLOOR_CACHE.chunkSize;
     // Copre anche l'arrotondamento e la scossa senza lasciare bordi scoperti.
     const x0 = Math.floor((camera.position.x - 16) / size), y0 = Math.floor((camera.position.y - 16) / size);

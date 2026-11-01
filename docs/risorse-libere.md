@@ -209,3 +209,30 @@ Limiti noti:
 - il colosso e' stato ricolorato da un golem blu: in calma e' scuro, da provare sul pavimento della fornace.
 
 Restano nella cartella temporanea, non usati: scheletri, ratti, pipistrelli e piante di Calciumtrice, i nemici di Redshrike, gli altri nemici di Enemy Galore e di Monsters Creatures Fantasy. Sono il materiale per ridisegnare i servitori in un passo successivo, se la prova dei boss piace.
+
+## Tileset della fase 6: scaricati il 1° novembre 2026
+
+Con il sì dell'utente («Scarica i file e fai i test per fase 5 e 6»), in una cartella temporanea fuori dal progetto. Licenze lette sulla pagina di ciascun pacchetto; nei pacchetti non ci sono file di licenza.
+
+| Pacchetto | Autore | Fonte | Licenza | Peso | Usato |
+| --- | --- | --- | --- | --- | --- |
+| DungeonTileset II v1.7 | 0x72 | itch.io | CC0, «No generative AI was used» | 406 KB | sì: pavimenti, muri, cime, casse |
+| 16x16 Dungeon Tileset v5 | 0x72 | itch.io | CC0, senza IA | 150 KB | no |
+| 16x16 Dark Dungeon | kosinaz | itch.io | CC0, senza IA | 23 KB | no |
+| swamp_, cave_, tundra_, dungeon_ | Kevin's Mom's House | itch.io | CC0 (scritto nella descrizione), senza IA | 41–72 KB ciascuno | sì: panche (dungeon_), blocchi di ghiaccio (tundra_) |
+| 16x16 Puny Dungeon | Shade | OpenGameArt (la pagina itch.io non esiste più) | CC0 | 122 KB | no |
+| Forest and Dungeon Tilesets from Eman Quest | Night Blade | OpenGameArt | CC0 | 27 KB | sì: pozzi, lava, assi, terra, radici |
+
+Con DungeonTileset II sono arrivati anche due PNG minuscoli della stessa pagina (`pumpkin_dude.png`, `doc.png`), cancellati subito. Nel repository entrano solo i quattro fogli ricolorati (circa 12 KB): vedi `src/assets/art/tiles/LEGGIMI.md`.
+
+## Caratteri dell'interfaccia: scaricati il 1° novembre 2026
+
+Con il sì dell'utente, dai file ufficiali di Google Fonts (CSS API per i WOFF2 del sottoinsieme latino, repository `google/fonts` per licenze e metadati).
+
+| Carattere | Autore | Licenza | File | Peso | Usato |
+| --- | --- | --- | --- | --- | --- |
+| Grenze Gotisch | Omnibus-Type | SIL OFL 1.1 | `grenze-gotisch-latin.woff2` (variabile) | 42 KB | sì, titoli |
+| Silkscreen | Jason Kottke | SIL OFL 1.1 | `silkscreen-400-latin.woff2`, `silkscreen-700-latin.woff2` | 16 KB | sì, numeri ed etichette dell'HUD (solo a 8 e 16 pixel) |
+| Pixelify Sans | Stefie Justprince | SIL OFL 1.1 | `pixelify-sans-latin.woff2` (variabile) | 12 KB | no: la B si legge come una G; resta solo nella cartella temporanea |
+
+Le tre licenze OFL scaricate pesano circa 4 KB ciascuna; nel progetto ci sono le due dei caratteri usati.

@@ -2,7 +2,7 @@
 
 Gioco d’azione 2D per browser in **TypeScript strict**, Canvas 2D e DOM, senza motore di gioco né dipendenze runtime nel browser (server cooperativo Node con WebSocket). I principi sono ispirati ad Ashen Realm: le abilità dipendono dall’equipaggiamento. Il prototipo originale si chiamava Emberfall; il nome del gioco attuale è **Temper your soul**.
 
-**Stato al 1 novembre 2026:** prototipo TypeScript con quattro dungeon, tre classi, profili locali multipli, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, GS, audio e cooperativa autorevole fino a quattro giocatori. La revisione locale della PR #4 mantiene mappe, 32 servitori a tema con élite, luogotenenti/pre-boss, Bestiario e scelta delle direzioni lungo otto tappe. **Nessuna ricompensa intermedia**: niente XP, oggetti, braci, cure a fine stanza, sigilli, tempre o Altare. Le skill restano quelle dell’equipaggiamento; solo il boss finale assegna gli XP e il bottino già previsti (25% di possibilità di un oggetto). La progressione tra stanze verrà progettata in un secondo momento. Salvataggio v7 compatibile con v6, protocollo cooperativo 5. La qualità visiva e il bilanciamento richiedono ancora prove manuali; il permadeath non è implementato.
+**Stato al 1 novembre 2026:** prototipo TypeScript con quattro dungeon, tre classi, profili locali multipli, livelli/XP, mana, 25 famiglie di oggetti, vincoli di classe, GS, audio e cooperativa autorevole fino a quattro giocatori. La revisione locale della PR #4 mantiene mappe, 32 servitori a tema con élite, luogotenenti/pre-boss, Bestiario e scelta delle direzioni lungo otto tappe. **Nessuna ricompensa intermedia**: niente XP, oggetti, braci, cure a fine stanza, sigilli, tempre o Altare. Le skill restano quelle dell’equipaggiamento; solo il boss finale assegna gli XP e il bottino già previsti (25% di possibilità di un oggetto). La progressione tra stanze verrà progettata in un secondo momento. Salvataggio v7 compatibile con v6, protocollo cooperativo 5. La qualità visiva e il bilanciamento richiedono ancora prove manuali; il permadeath non è implementato. Sul ramo `feature/grafica-fasi-2` (non ancora committato): fasi 1–4 dello studio grafico (luce, muri a tre quarti, minimappa e mappa della discesa, stanze con massicci, grate e atmosfera), fasi 7 e 8 (vene B e C: 55 servitori nuovi, sette comportamenti, otto luogotenenti, vene nella discesa) fasi 5 e 6 (pozzi, ponti e ripari distruttibili in otto stanze nuove, campo di flusso per i servitori, tileset CC0 ricolorati per tema) e protocollo cooperativo 8; vedi `docs/compito-grafica.md`.
 
 ## Prima di lavorare: istruzioni per collaboratori e agenti AI
 
@@ -206,6 +206,8 @@ Verifica storica prima dell’integrazione: **484 test**, tipi client/server e b
 | R | Ricomincia l’incontro durante una partita |
 | M | Audio attivo/disattivo |
 | F | Schermo intero |
+| Tab tenuto | Mappa della discesa (solo in partita) |
+| N | Minimappa della stanza sì/no |
 
 I tasti di gioco non intercettano la digitazione nei campi della creazione. Le scorciatoie del browser con Ctrl/Meta/Alt restano disponibili.
 
@@ -246,7 +248,7 @@ Per un nuovo oggetto servono: id stabile, famiglia e classe, skill/statistiche/c
 
 ## Verifiche e prossimi passi
 
-`npm run verify` deve uscire con codice 0. I **605 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
+`npm run verify` deve uscire con codice 0. I **713 test attuali** coprono simulazione, contenuti, classi, salvataggi, profili, GS, raggiungibilità delle soglie e probabilità; il conteggio va aggiornato quando cambia. La suite è headless e **non certifica** DOM, aspetto, bilanciamento o sensazione di gioco. Sono stati eseguiti anche controlli browser isolati desktop/390 px; gli script temporanei locali non costituiscono una suite browser versionata.
 
 Priorità per chi riprende il lavoro:
 

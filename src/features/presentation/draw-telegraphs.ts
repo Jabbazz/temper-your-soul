@@ -11,6 +11,9 @@ import { minionArt } from './minion-art';
 
 const ELITE_RING = '#ffd889';
 
+/** Colore dell'onda delle aure: scudo azzurro, fervore oro, riparazione ciano. */
+const AURA_COLORS = { shield: '#bfefff', haste: '#ffd27a', repair: '#9fe8ff' } as const;
+
 /** Disegna i segnali sotto i personaggi. `minions` serve a far seguire al bagliore della raffica chi la prepara. */
 export function drawTelegraphs(ctx: CanvasRenderingContext2D, telegraphs: readonly Telegraph[], minions: readonly Minion[]): void {
   for (const telegraph of telegraphs) {
@@ -124,7 +127,7 @@ function drawAura(ctx: CanvasRenderingContext2D, telegraph: Telegraph, u: number
   const radius = (telegraph.radius ?? 150) * (0.4 + u * 0.6);
   ctx.save();
   ctx.globalAlpha = 1 - u;
-  ctx.strokeStyle = '#bfefff';
+  ctx.strokeStyle = AURA_COLORS[telegraph.aura ?? 'shield'];
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(telegraph.position.x, telegraph.position.y, radius, 0, TAU);

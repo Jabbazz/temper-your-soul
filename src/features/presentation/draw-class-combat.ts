@@ -1,5 +1,6 @@
 import type { Match } from '../match/match';
 import { STATUS_EFFECTS } from '../combat/status-effects/status-catalog';
+import { canvasFont } from './fonts';
 
 const STATUS_COLORS: Readonly<Record<string, string>> = {
   burning: '#ff995d', soaked: '#79d9fa', rooted: '#d5b47c', exposed: '#a6e1b3', bleeding: '#f47785',
@@ -15,7 +16,7 @@ export function drawClassCombat(ctx: CanvasRenderingContext2D, match: Match, clo
     WOLF.forEach((row, y) => [...row].forEach((pixel, x) => {
       if (pixel === 'x') { ctx.fillStyle = y < 4 ? '#d7dfd0' : '#8faaa1'; ctx.fillRect(pet.position.x - 12 + x * 2, pet.position.y - 18 + y * 2, 2, 2); }
     }));
-    ctx.fillStyle = '#d2b77e'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Lupo', pet.position.x, pet.position.y - 24);
+    ctx.fillStyle = '#d2b77e'; ctx.font = canvasFont(8, 'pixel'); ctx.textAlign = 'center'; ctx.fillText('Lupo', pet.position.x, pet.position.y - 24);
   }
   for (const entry of state.players) {
     const player = match.players.get(entry.id);
@@ -26,7 +27,7 @@ export function drawClassCombat(ctx: CanvasRenderingContext2D, match: Match, clo
       ctx.beginPath(); ctx.ellipse(player.position.x, player.position.y - (entry.guard ? 12 : 0), 22, entry.guard ? 29 : 10, 0, 0, Math.PI * 2); ctx.stroke();
     }
     if (entry.channel > 0) {
-      ctx.fillStyle = '#e6c2ff'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#e6c2ff'; ctx.font = canvasFont(10, 'text'); ctx.textAlign = 'center';
       ctx.fillText(`Canalizza ${entry.channel.toFixed(1)} s`, player.position.x, player.position.y - 48);
     }
   }
@@ -45,7 +46,7 @@ export function drawClassCombat(ctx: CanvasRenderingContext2D, match: Match, clo
     if (!target || target.health.isDead) continue;
     statuses.forEach((status, index) => {
       const known = STATUS_EFFECTS[status as keyof typeof STATUS_EFFECTS];
-      ctx.fillStyle = STATUS_COLORS[status] ?? '#eee3c3'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = STATUS_COLORS[status] ?? '#eee3c3'; ctx.font = canvasFont(9, 'text'); ctx.textAlign = 'center';
       ctx.fillText(known?.name ?? status, target.position.x, target.position.y - 55 - index * 12);
     });
   }

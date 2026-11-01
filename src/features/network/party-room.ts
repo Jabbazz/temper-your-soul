@@ -9,6 +9,7 @@ import { rollLoot } from '../loot/roll-loot';
 import type { ItemRoll } from '../items/item';
 import { Match, spreadPlayers, type PlayerIntent } from '../match/match';
 import { DescentRun } from '../run/descent';
+import { veinUnlocks } from '../run/veins';
 import { NETWORK, PARTY_MODES, snapshotOf, type PartyMode, type PartyState, type BattleSnapshot } from './protocol';
 
 const MODE_NAMES: Readonly<Record<PartyMode, string>> = { descent: 'la discesa', duel: 'il duello', pilgrimage: 'il Pellegrinaggio' };
@@ -94,6 +95,8 @@ export class PartyRoom {
         members: [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout(), characterClass: character.characterClass })),
         seed,
         grade: this.grade,
+        // Le vene di servitori sono quelle sbloccate dal capo gruppo.
+        veins: veinUnlocks(this.characters.get(this.leaderId) ?? [...this.characters.values()][0]!, this.mode === 'pilgrimage' ? DUNGEONS.map((d) => d.id) : [dungeon.id]),
       });
       this.match = this.run.match;
     }

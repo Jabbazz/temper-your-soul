@@ -36,6 +36,8 @@ export interface SnapshotFrame {
   e?: GameEvent[]; result?: Pick<BattleSnapshot, 'report' | 'rewards'>;
   mb?: MinionBirth[]; m?: MinionFrame[]; mh?: [number, number][]; mr?: number[];
   rv?: RoomView; nv?: RunView;
+  /** Vita dei ripari, solo quando cambia (protocollo 8). */
+  cv?: number[];
 }
 
 /** Arrotondamento solo della rappresentazione: errore massimo 0,005 unità, mai applicato alla simulazione. */
@@ -54,12 +56,13 @@ export class SnapshotEncoder {
   private zoneTypes = new Map<string, number>();
   private room = '';
   private run = '';
+  private covers = '';
   private readonly keys = new WeakMap<object, string>();
   encode(snapshot: BattleSnapshot): SnapshotFrame {
     const initial = snapshot.id !== this.battle;
     if (initial) {
       this.battle = snapshot.id; this.sequence = 0; this.shots.clear(); this.zones.clear(); this.minions.clear();
-      this.projectileTypes.clear(); this.zoneTypes.clear(); this.room = ''; this.run = '';
+      this.projectileTypes.clear(); this.zoneTypes.clear(); this.room = ''; this.run = ''; this.covers = '';
     }
     const frame: SnapshotFrame = {
       cs: snapshot.classState,
@@ -100,6 +103,10 @@ export class SnapshotEncoder {
     if (snapshot.run !== null) {
       const run = JSON.stringify(snapshot.run);
       if (run !== this.run) { this.run = run; frame.nv = snapshot.run; }
+    }
+    if (snapshot.covers !== undefined) {
+      const covers = snapshot.covers.join(',');
+      if (covers !== this.covers) { this.covers = covers; frame.cv = [...snapshot.covers]; }
     }
     if (snapshot.status !== 'playing') frame.result = { report: snapshot.report, rewards: snapshot.rewards };
     return frame;
@@ -150,10 +157,11 @@ export class SnapshotDecoder {
   private readonly minions = new Map<number, MinionSnapshot>();
   private room: RoomView | null = null;
   private run: RunView | null = null;
+  private covers: number[] | null = null;
   decode(frame: SnapshotFrame): BattleSnapshot {
     if (frame.start) {
       [this.battle, this.dungeon, this.ids, this.setup] = frame.start; this.sequence = -1;
-      this.projectileTypes.length = 0; this.zoneTypes.length = 0; this.shots.clear(); this.zones.clear(); this.minions.clear();
+      this.projectileTypes.length = 0; this.zoneTypes.length = 0; this.shots.clear(); this.zones.clear(); this.minions.clear(); this.covers = null;
       // Stanza e discesa restano finche' non arrivano quelle nuove (la discesa prosegue fra una stanza e l'altra).
     }
     if (!this.battle || frame.q !== this.sequence + 1) throw new Error('Sequenza di rete interrotta. Rientra nel party.');
@@ -173,6 +181,7 @@ export class SnapshotDecoder {
     this.decodeMinions(frame);
     if (frame.rv) this.room = frame.rv;
     if (frame.nv) this.run = frame.nv;
+    if (frame.cv) this.covers = frame.cv;
     const projectiles: BattleSnapshot['projectiles'] = [], zones: BattleSnapshot['zones'] = [];
     for (const shot of this.shots.values()) {
       const elapsed = frame.t - shot.time;
@@ -194,6 +203,7 @@ export class SnapshotDecoder {
       projectiles, zones, report: frame.result?.report ?? {}, rewards: frame.result?.rewards ?? {}, events: (frame.e ?? []).map(reviveEvent),
       minions: [...this.minions.values()].map((minion) => ({ ...minion })),
       room: this.room, run: this.run,
+      ...(this.covers === null ? {} : { covers: [...this.covers] }),
     };
   }
 

@@ -7,10 +7,11 @@ import { bossFx } from './boss-fx';
 import { minionArt } from './minion-art';
 import type { Player } from '../player/player';
 import { bossArt, bossSheet, sheetFrame, type BossSheet } from './boss-art';
-import { sheetImage, sheetVariant } from './boss-art/sheet-images';
+import { sheetImage, sheetSilhouette, sheetVariant } from './boss-art/sheet-images';
 import type { ActorPoses } from './poses';
 import { PLAYER_CAST_POSE } from './poses';
 import { drawSprite, type Palette, type SpriteFrame } from './sprites';
+import { canvasFont } from './fonts';
 
 /** Un raster per fotogramma/equipaggiamento, liberato insieme all'art dalla cache.
  * Evita migliaia di cambi di colore/fillRect per ogni giocatore e fotogramma. */
@@ -74,6 +75,16 @@ export interface BossLook {
   readonly transform?: number | null;
   /** Tempo reale, per la pulsazione dell'aura. */
   readonly clock: number;
+  /** Bordo chiaro attorno alla sagoma (#rrggbbaa, il colore del tema come per i servitori); assente = senza bordo. */
+  readonly rim?: string;
+}
+
+/** Le quattro direzioni del bordo chiaro, di un'unita' del mondo. */
+const RIM_OFFSETS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+
+/** L'opacita' di un colore #rrggbbaa (1 se non ce l'ha). */
+function rimAlpha(rim: string): number {
+  return rim.length >= 9 ? parseInt(rim.slice(7, 9), 16) / 255 : 1;
 }
 
 const NO_LOOK: BossLook = { flash: 0, offset: Vec2.ZERO, death: null, clock: 0 };
@@ -118,6 +129,14 @@ function drawSheetBoss(
   const death = look.death;
   if (death !== null && death > SHEET_DEATH.fadeFrom) ctx.globalAlpha = (1 - death) / (1 - SHEET_DEATH.fadeFrom);
   const source = boss.isSlowed && death === null ? sheetVariant(layout.url, image, 'frost') : image;
+  if (look.rim !== undefined && death === null) {
+    // Bordo chiaro: la sagoma tinta, spostata di un'unita' nelle quattro direzioni, sotto la figura.
+    const base = ctx.globalAlpha;
+    ctx.globalAlpha = base * rimAlpha(look.rim);
+    const silhouette = sheetSilhouette(layout.url, image, look.rim);
+    for (const [ox, oy] of RIM_OFFSETS) ctx.drawImage(silhouette, sx, sy, width, height, dx + ox, dy + oy, width * scale, height * scale);
+    ctx.globalAlpha = base;
+  }
   ctx.drawImage(source, sx, sy, width, height, dx, dy, width * scale, height * scale);
   // Lampo bianco: il colpo subito o il colpo finale, poi l'animazione di morte si vede pulita.
   const flash = death !== null ? Math.max(0, 1 - death / SHEET_DEATH.flash) : look.flash;
@@ -126,6 +145,22 @@ function drawSheetBoss(
     ctx.drawImage(sheetVariant(layout.url, image, 'white'), sx, sy, width, height, dx, dy, width * scale, height * scale);
   }
   ctx.restore();
+}
+
+/** La stessa tavolozza tutta di un colore: la sagoma per il bordo chiaro dei boss a matrici. */
+const rimCache = new WeakMap<Palette, Map<string, Palette>>();
+function rimPalette(palette: Palette, color: string): Palette {
+  let byColor = rimCache.get(palette);
+  if (!byColor) {
+    byColor = new Map();
+    rimCache.set(palette, byColor);
+  }
+  let rim = byColor.get(color);
+  if (!rim) {
+    rim = Object.fromEntries(Object.keys(palette).map((key) => [key, color]));
+    byColor.set(color, rim);
+  }
+  return rim;
 }
 
 /** La stessa tavolozza, tutta bianca: per il lampo del colpo. */
@@ -181,6 +216,12 @@ export function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, player: Play
   ctx.translate(x, y);
   ctx.scale(facingLeft ? -1 : 1, 1);
   if (look.death !== null) ctx.globalAlpha = 1 - look.death * 0.85;
+  if (look.rim !== undefined && look.death === null) {
+    ctx.globalAlpha = rimAlpha(look.rim);
+    const rim = rimPalette(palette, look.rim.slice(0, 7));
+    for (const [ox, oy] of RIM_OFFSETS) drawSprite(ctx, sprite, ox, bob + oy, art.scale, rim);
+    ctx.globalAlpha = 1;
+  }
   drawSprite(ctx, sprite, 0, bob, art.scale, palette);
   if (casting) art.drawCastFx?.(ctx, boss.isEnraged);
   const flash = look.death !== null ? 0.35 + look.death * 0.65 : look.flash;
@@ -381,7 +422,7 @@ export function drawMinion(ctx: CanvasRenderingContext2D, minion: Minion, time: 
   }
   if (minion.elite !== null || prey) {
     ctx.save();
-    ctx.font = '8px sans-serif';
+    ctx.font = canvasFont(8, 'pixel');
     ctx.textAlign = 'center';
     ctx.fillStyle = prey ? '#ffd889' : ELITE_COLORS[minion.elite!.id] ?? '#ffd889';
     ctx.fillText(prey ? 'PREDA' : minion.elite!.name.toUpperCase(), Math.round(x), Math.round(y - half - 10 - lift));

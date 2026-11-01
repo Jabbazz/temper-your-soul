@@ -18,6 +18,7 @@ import { Match, type MatchStatus, type PlayerIntent } from '../match/match';
 import type { RunView } from '../run/descent';
 import type { RoomView } from '../run/encounter';
 import { LIEUTENANTS } from '../run/lieutenants';
+import { VEIN_LIEUTENANTS } from '../run/vein-lieutenants';
 import { roomArena, roomTemplateById } from '../run/room-templates';
 import type { Loadout } from '../skills/skill-definition';
 import type { SnapshotFrame } from './snapshot-codec';
@@ -26,7 +27,7 @@ import type { SnapshotFrame } from './snapshot-codec';
  * Valori di rete provvisori: simulazione 60 Hz, snapshot e input 30 Hz. Protocollo 7: skill e stati di classe; classe nel setup; la discesa (stanze, porte, premi,
  * tempre) e i servitori compatti (tipo alla nascita, poi posizione e stato).
  */
-export const NETWORK = { protocolVersion: 7, capacity: 4, step: 1 / 60, snapshotSteps: 2, inputMs: 1000 / 30, staleInputMs: 350, maxBufferedBytes: 512_000 } as const;
+export const NETWORK = { protocolVersion: 8, capacity: 4, step: 1 / 60, snapshotSteps: 2, inputMs: 1000 / 30, staleInputMs: 350, maxBufferedBytes: 512_000 } as const;
 
 /** Come il party entra nel dungeon: la Discesa, il Duello con il solo boss, il Pellegrinaggio dei quattro dungeon. */
 export type PartyMode = 'descent' | 'duel' | 'pilgrimage';
@@ -76,6 +77,8 @@ export interface BattleSnapshot {
   /** La stanza e la discesa (protocollo 4); null nel duello. */
   room: RoomView | null;
   run: RunView | null;
+  /** Vita dei ripari della stanza per indice (protocollo 8); assente nelle stanze senza ripari. */
+  covers?: number[];
 }
 export type ClientMessage =
   | { type: 'enter'; code?: string; character: string; protocol: number }
@@ -98,9 +101,12 @@ export type ServerMessage =
 /** Gli stati dei servitori in ordine stabile: in rete viaggia l'indice. */
 export const MINION_STATES: readonly MinionState[] = ['idle', 'windup', 'dash', 'airborne', 'recover', 'dormant', 'burrowed', 'emerging', 'exposed', 'reviving'];
 
+/** Tutti i luogotenenti: quelli di sempre e quelli delle vene B e C. */
+const ALL_LIEUTENANTS: readonly BossDefinition[] = [...Object.values(LIEUTENANTS), ...Object.values(VEIN_LIEUTENANTS).flatMap((veins) => Object.values(veins))];
+
 /** Un boss o un luogotenente per id. */
 export function bossById(id: string): BossDefinition | undefined {
-  return DUNGEONS.find((dungeon) => dungeon.boss.id === id)?.boss ?? Object.values(LIEUTENANTS).find((lieutenant) => lieutenant.id === id);
+  return DUNGEONS.find((dungeon) => dungeon.boss.id === id)?.boss ?? ALL_LIEUTENANTS.find((lieutenant) => lieutenant.id === id);
 }
 
 /** La preparazione di una partita (per la rete): stanza modello o arena, boss, vita massima di ciascuno. */
@@ -167,6 +173,7 @@ export function snapshotOf(
     })),
     report: Object.fromEntries(match.report), rewards, events,
     room: extra.room ?? null, run: extra.run ?? null,
+    ...(match.covers.length > 0 ? { covers: match.covers.map((cover) => cover.health) } : {}),
   };
 }
 
@@ -217,6 +224,13 @@ export function applySnapshot(match: Match, snapshot: BattleSnapshot): void {
     objects.live.add(m.id); match.minions.push(minion);
   }
   for (const id of objects.minions.keys()) if (!objects.live.has(id)) objects.minions.delete(id);
+  // Ripari: la vita arriva dal server; un riparo rotto esce dai massicci anche qui (l'evento arriva gia' dal server).
+  (snapshot.covers ?? []).forEach((health, index) => {
+    const cover = match.covers[index];
+    if (cover === undefined) return;
+    if (health <= 0) match.breakCover(index, false);
+    else cover.health = health;
+  });
 }
 
 /** Input non fidato: nessuna posizione, statistica o skill arbitraria accettata dalla rete. */

@@ -78,6 +78,11 @@ export function cuesForEvent(event: GameEvent, localPlayerId?: string): Cue[] {
       return [{ sound: 'boss_teleport', position: event.position }];
     case 'minion_woke':
       return [{ sound: 'impact', position: event.position }];
+    // Ripari (fase 5): il colpo che li raggiunge suona gia' come impatto; quando si rompono, un tonfo.
+    case 'cover_hit':
+      return [];
+    case 'cover_broken':
+      return [{ sound: 'boss_slam', position: event.position }];
     // Segnali che si vedono: annunci, scudi, rinascite (troppo frequenti per avere un suono).
     case 'minion_incoming':
     case 'minion_revived':

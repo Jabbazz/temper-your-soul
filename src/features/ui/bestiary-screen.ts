@@ -1,16 +1,21 @@
 import type { Character } from '../character/character';
 import { DUNGEONS } from '../dungeons/dungeons';
-import { DUNGEON_MINIONS } from '../minions/minion-catalog';
+import { VEIN_MINIONS, type VeinId } from '../minions/minion-catalog';
+import type { MinionDefinition } from '../minions/minion-definition';
 import { bossArt } from '../presentation/boss-art';
 import { minionArt } from '../presentation/minion-art';
 import { drawSprite } from '../presentation/sprites';
 import { LIEUTENANT_LORE, MINION_LORE } from '../run/bestiary-lore';
 import { LIEUTENANTS } from '../run/lieutenants';
+import { VEIN_LIEUTENANTS } from '../run/vein-lieutenants';
+import type { BossDefinition } from '../boss/boss-definition';
+import { veinName } from '../run/veins';
 import { el, requireElement } from './dom';
 
 /**
- * Il bestiario: una pagina per servitore, divisa per dungeon. Si apre con la prima uccisione; prima si vede solo la
- * sagoma. Ogni pagina dice ruolo, schema del boss che insegna, uccisioni e un'iscrizione.
+ * Il bestiario: una pagina per servitore, divisa per dungeon e per vena («Catacombe 4/7»). Si apre con la prima
+ * uccisione; prima si vede solo la sagoma. Ogni pagina dice ruolo, schema del boss che insegna, uccisioni e
+ * un'iscrizione.
  */
 export class BestiaryScreen {
   private readonly list = requireElement('bestiary-list');
@@ -26,48 +31,58 @@ export class BestiaryScreen {
     for (const dungeon of DUNGEONS) {
       const section = el('section', 'bestiary-section');
       section.append(el('h3', '', dungeon.name));
-      const grid = el('div', 'bestiary-grid');
-      for (const minion of DUNGEON_MINIONS[dungeon.id] ?? []) {
-        total++;
-        const kills = character.bestiary[minion.id] ?? 0;
-        const lore = MINION_LORE[minion.id];
-        const open = kills > 0;
-        if (open) known++;
-        const card = el('article', open ? 'bestiary-card' : 'bestiary-card locked');
-        card.append(thumbnail(minion.visual, open));
-        card.append(el('strong', '', open ? minion.name : '???'));
-        if (open && lore) {
-          card.append(
-            el('span', 'bestiary-role', `${lore.role} · insegna: ${lore.teaches}`),
-            el('p', '', lore.text),
-            el('small', '', `Abbattuti: ${kills}`),
-          );
-        } else card.append(el('small', '', 'Abbattine uno per aprire la pagina.'));
-        grid.append(card);
+      const veins = VEIN_MINIONS[dungeon.id];
+      for (const vein of ['a', 'b', 'c'] as const satisfies readonly VeinId[]) {
+        const minions = veins?.[vein] ?? [];
+        if (minions.length === 0) continue;
+        const grid = el('div', 'bestiary-grid');
+        const cards = minions.map((minion) => minionCard(minion, character.bestiary[minion.id] ?? 0));
+        // Il luogotenente della vena: quello di sempre per la A, il suo per la B e la C.
+        const lieutenant = vein === 'a' ? LIEUTENANTS[dungeon.id] : VEIN_LIEUTENANTS[dungeon.id]?.[vein];
+        if (lieutenant !== undefined) cards.push(lieutenantCard(lieutenant, character.bestiary[lieutenant.id] ?? 0));
+        const opened = cards.filter((card) => !card.classList.contains('locked')).length;
+        grid.append(...cards);
+        total += cards.length;
+        known += opened;
+        section.append(el('h4', 'bestiary-vein', `${veinName(dungeon.id, vein)} ${opened}/${cards.length}`), grid);
       }
-      const lieutenant = LIEUTENANTS[dungeon.id];
-      if (lieutenant !== undefined) {
-        total++;
-        const kills = character.bestiary[lieutenant.id] ?? 0;
-        const lore = LIEUTENANT_LORE[lieutenant.id];
-        const open = kills > 0;
-        if (open) known++;
-        const card = el('article', open ? 'bestiary-card bestiary-lieutenant' : 'bestiary-card bestiary-lieutenant locked');
-        card.append(lieutenantThumbnail(lieutenant.art, open), el('strong', '', open ? lieutenant.name : '???'));
-        if (open && lore) {
-          card.append(
-            el('span', 'bestiary-role', `${lore.role} · insegna: ${lore.teaches}`),
-            el('p', '', lore.text),
-            el('small', '', `Abbattuti: ${kills}`),
-          );
-        } else card.append(el('small', '', 'Il luogotenente di metà discesa.'));
-        grid.append(card);
-      }
-      section.append(grid);
       sections.push(section);
     }
     this.list.replaceChildren(el('p', 'bestiary-count', `Pagine aperte: ${known} di ${total}`), ...sections);
   }
+}
+
+/** La pagina di un luogotenente: come quella di un servitore, con la sua posa d'attacco. */
+function lieutenantCard(lieutenant: BossDefinition, kills: number): HTMLElement {
+  const lore = LIEUTENANT_LORE[lieutenant.id];
+  const open = kills > 0;
+  const card = el('article', open ? 'bestiary-card bestiary-lieutenant' : 'bestiary-card bestiary-lieutenant locked');
+  card.append(lieutenantThumbnail(lieutenant.art, open), el('strong', '', open ? lieutenant.name : '???'));
+  if (open && lore) {
+    card.append(
+      el('span', 'bestiary-role', `${lore.role} · insegna: ${lore.teaches}`),
+      el('p', '', lore.text),
+      el('small', '', `Abbattuti: ${kills}`),
+    );
+  } else card.append(el('small', '', 'Il luogotenente di metà discesa.'));
+  return card;
+}
+
+/** La pagina di un servitore: aperta con la prima uccisione, altrimenti solo la sagoma. */
+function minionCard(minion: MinionDefinition, kills: number): HTMLElement {
+  const lore = MINION_LORE[minion.id];
+  const open = kills > 0;
+  const card = el('article', open ? 'bestiary-card' : 'bestiary-card locked');
+  card.append(thumbnail(minion.visual, open));
+  card.append(el('strong', '', open ? minion.name : '???'));
+  if (open && lore) {
+    card.append(
+      el('span', 'bestiary-role', `${lore.role} · insegna: ${lore.teaches}`),
+      el('p', '', lore.text),
+      el('small', '', `Abbattuti: ${kills}`),
+    );
+  } else card.append(el('small', '', 'Abbattine uno per aprire la pagina.'));
+  return card;
 }
 
 /** Miniatura del servitore (sagoma scura se la pagina e' chiusa). */

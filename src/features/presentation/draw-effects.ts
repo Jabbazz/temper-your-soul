@@ -1,6 +1,7 @@
 import type { Camera } from '../../core/camera';
-import { clamp, TAU, type Vec2 } from '../../core/vec2';
+import { clamp, TAU, Vec2 } from '../../core/vec2';
 import { FEEDBACK, type Effects } from './effects';
+import { canvasFont } from './fonts';
 
 export function drawText(
   ctx: CanvasRenderingContext2D,
@@ -12,9 +13,66 @@ export function drawText(
   align: CanvasTextAlign = 'left',
 ): void {
   ctx.fillStyle = color;
-  ctx.font = `${size}px monospace`;
+  ctx.font = canvasFont(size, 'pixel');
   ctx.textAlign = align;
   ctx.fillText(s, x, y);
+}
+
+/** Valore in [0, 1) da un seme e un indice: la forma di una traccia resta la stessa per tutta la sua vita. */
+function decalNoise(seed: number, index: number): number {
+  const s = Math.sin(seed * 9301 + index * 49.297) * 233280;
+  return s - Math.floor(s);
+}
+
+/**
+ * Le tracce dello scontro sul pavimento (sotto la luce, quindi illuminate come il resto dell'ambiente): bruciature
+ * scure con un filo del colore della zona, resti a macchie del colore del servitore. Svaniscono nell'ultimo terzo.
+ */
+export function drawDecals(ctx: CanvasRenderingContext2D, effects: Effects, camera: Camera): void {
+  if (effects.decals.length === 0) return;
+  ctx.save();
+  for (const decal of effects.decals) {
+    if (!camera.isVisible(new Vec2(decal.x, decal.y), decal.radius + 8)) continue;
+    const fade = clamp(decal.remaining / (decal.total / 3), 0, 1);
+    if (decal.kind === 'scorch') {
+      ctx.globalAlpha = 0.32 * fade;
+      ctx.fillStyle = '#050307';
+      ctx.beginPath();
+      ctx.ellipse(decal.x, decal.y, decal.radius, decal.radius * 0.8, decal.seed * TAU, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 0.22 * fade;
+      ctx.fillStyle = '#050307';
+      ctx.beginPath();
+      ctx.ellipse(decal.x, decal.y, decal.radius * 0.55, decal.radius * 0.45, decal.seed * TAU, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 0.18 * fade;
+      ctx.strokeStyle = decal.color;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * TAU + decal.seed * 7;
+        const reach = decal.radius * (0.6 + decalNoise(decal.seed, i) * 0.45);
+        ctx.beginPath();
+        ctx.moveTo(decal.x + Math.cos(a) * decal.radius * 0.25, decal.y + Math.sin(a) * decal.radius * 0.2);
+        ctx.lineTo(decal.x + Math.cos(a) * reach, decal.y + Math.sin(a) * reach * 0.8);
+        ctx.stroke();
+      }
+    } else {
+      ctx.globalAlpha = 0.28 * fade;
+      ctx.fillStyle = '#050307';
+      ctx.beginPath();
+      ctx.ellipse(decal.x, decal.y + 3, decal.radius, decal.radius * 0.45, 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 0.65 * fade;
+      ctx.fillStyle = decal.color;
+      for (let i = 0; i < 5; i++) {
+        const a = decalNoise(decal.seed, i) * TAU;
+        const d = decalNoise(decal.seed, i + 7) * decal.radius * 0.9;
+        const size = 2 + Math.floor(decalNoise(decal.seed, i + 13) * 3);
+        ctx.fillRect(Math.round(decal.x + Math.cos(a) * d), Math.round(decal.y + Math.sin(a) * d * 0.5), size, size);
+      }
+    }
+  }
+  ctx.restore();
 }
 
 /** Onde, fendenti e scintille d'impatto, a luce additiva. */
@@ -79,6 +137,9 @@ export function drawParticles(ctx: CanvasRenderingContext2D, effects: Effects): 
 /** Durata del "pop" iniziale dei testi (si ingrandiscono e tornano alla misura normale). */
 const TEXT_POP = 0.12;
 
+/** Un testo fatto solo di cifre (e del segno): i numeri del danno e delle cure. */
+const NUMERIC = /^[−+-]?\d+$/;
+
 /**
  * Numeri del danno e nomi degli attacchi: grassetto con contorno scuro (leggibili su ogni pavimento), un piccolo "pop"
  * all'apparizione e dissolvenza nell'ultimo terzo della vita.
@@ -91,7 +152,8 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, effects: Effect
     const age = t.total - t.remaining;
     const pop = age < TEXT_POP ? 1 + 0.45 * (1 - age / TEXT_POP) : 1;
     ctx.globalAlpha = clamp(t.remaining / (t.total / 3), 0, 1);
-    ctx.font = `bold ${Math.round(t.size * pop)}px monospace`;
+    // I numeri in Silkscreen come l'HUD; nomi degli attacchi e scritte nel carattere di sistema, piu' leggibile.
+    ctx.font = canvasFont(Math.round(t.size * pop), NUMERIC.test(t.text) ? 'pixel' : 'text', 'bold');
     if (t.outline) {
       ctx.strokeStyle = '#120d16';
       ctx.lineWidth = 3;

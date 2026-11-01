@@ -1,12 +1,13 @@
 # Strumenti per la grafica
 
-Script usati per il primo lotto grafico (1 novembre 2026), conservati per rifare o estendere il lavoro. Regole e fonti in `docs/risorse-libere.md`, procedura nella skill `.claude/skills/tys-risorse-libere`.
+Script usati per il primo lotto grafico e per i tile della fase 6 (1 novembre 2026), conservati per rifare o estendere il lavoro. Regole e fonti in `docs/risorse-libere.md`, procedura nella skill `.claude/skills/tys-risorse-libere`.
 
 Requisiti: Python 3 e Pillow (`pip install --user pillow`). Si esegue con `python -I`, su file scaricati in una **cartella temporanea fuori dal progetto**: nel repository finiscono solo i fogli preparati in `src/assets/art/boss/` e la loro geometria.
 
 | Script | Cosa fa |
 | --- | --- |
 | `prepara_boss.py <scaricati> <radice_progetto>` | Per ogni boss ritaglia le animazioni scelte, le ricolora con la tavolozza del gioco (calma e furia), aggiunge il contorno dove manca e scrive un PNG a celle uguali, una riga per animazione. Scrive poi `src/features/presentation/boss-art/boss-sheet-layout.ts` (cella, punto dei piedi, righe e fotogrammi): quel file non va modificato a mano |
+| `prepara_tile.py <scaricati> <radice_progetto>` | Per ogni dungeon ritaglia i tile scelti (pavimento, faccia del muro, cima dei massicci, pozzi, ponti, ripari), li riporta a 16 pixel e li ricolora con le rampe del tema. Scrive un PNG per tema in `src/assets/art/tiles/` e la geometria in `src/features/presentation/themes/tile-atlas.ts`, che non va modificato a mano. Cerca i file scaricati per nome in tutta la cartella: vedi `src/assets/art/tiles/LEGGIMI.md` |
 
 La cartella dei file scaricati deve contenere gli archivi estratti con i nomi originali:
 

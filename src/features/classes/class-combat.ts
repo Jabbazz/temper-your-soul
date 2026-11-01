@@ -2,7 +2,7 @@ import { BOSS_SPECIAL, CLASS_COMBAT } from './combat-tuning';
 import { BODY_RADIUS } from '../combat/collision';
 import { Vec2 } from '../../core/vec2';
 import type { Rng } from '../../core/rng';
-import { moveBody, pillarBetween, type ArenaDefinition } from '../arena/arena';
+import { blockerAt, clampToArena, detourAround, moveBody, pushOutOfPillars, sightBlocked, type ArenaDefinition } from '../arena/arena';
 import type { Health } from '../combat/health';
 import type { GameEvent } from '../combat/events';
 import type { ProjectileSpec } from '../combat/projectile';
@@ -69,7 +69,13 @@ export class ClassCombat {
   summon(owner: string, spec: PetSpec): void {
     const player = this.ctx.players.get(owner);
     if (!player) return;
-    this.pets.set(owner, { owner, spec, position: player.position.add(new Vec2(-32, 24)), remaining: spec.duration, attackIn: 0, target: null });
+    this.pets.set(owner, { owner, spec, position: this.petGround(player.position.add(new Vec2(-32, 24))), remaining: spec.duration, attackIn: 0, target: null });
+  }
+
+  /** Il punto del pavimento piu' vicino per il lupo (raggio 8): mai dentro un pilastro, un massiccio, un riparo o un pozzo. */
+  private petGround(point: Vec2): Vec2 {
+    const arena = this.ctx.arena;
+    return pushOutOfPillars(arena, clampToArena(arena, point, arena.playerMargin), 8);
   }
 
   applyHit(targetId: string, owner: string, hit?: HitEffect): void {
@@ -122,7 +128,7 @@ export class ClassCombat {
       if (moved.distanceTo(player.position) < travel / steps * 0.3) { rush.remaining = 0; break; }
       player.position = moved;
       for (const target of targets) {
-        if (!target.health.isDead && rush.damage > 0 && !rush.hit.has(target.id) && moved.distanceTo(target.position) < target.radius + CLASS_COMBAT.rushHitMargin && !pillarBetween(this.ctx.arena, moved, target.position)) {
+        if (!target.health.isDead && rush.damage > 0 && !rush.hit.has(target.id) && moved.distanceTo(target.position) < target.radius + CLASS_COMBAT.rushHitMargin && !sightBlocked(this.ctx.arena, moved, target.position)) {
           rush.hit.add(target.id); target.hurt(rush.damage, owner);
         }
       }
@@ -143,13 +149,15 @@ export class ClassCombat {
         .sort((a, b) => a.position.distanceTo(pet.position) - b.position.distanceTo(pet.position))[0];
       const target = marked ?? previous ?? (pet.target !== null ? nearby : undefined);
       if (target) pet.target = target.id;
-      const destination = target?.position ?? player.position.add(new Vec2(-32, 24));
-      const offset = destination.sub(pet.position), distance = offset.length();
-      if (distance > 12) {
+      // La meta sta sempre sul pavimento: un pipistrello sopra un pozzo si aspetta sulla riva.
+      const destination = this.petGround(target?.position ?? player.position.add(new Vec2(-32, 24)));
+      // Nelle stanze con i massicci il lupo li aggira da un angolo all'altro, come i servitori a terra.
+      const offset = detourAround(this.ctx.arena, pet.position, destination, 8).sub(pet.position), distance = offset.length();
+      if (destination.distanceTo(pet.position) > 12 && distance > 0) {
         const next = pet.position.add(offset.mul(Math.min(distance, pet.spec.speed * dt) / distance));
         pet.position = moveBody(this.ctx.arena, pet.position, next, 8, this.ctx.arena.playerMargin);
       }
-      if (target && pet.attackIn <= 0 && pet.position.distanceTo(target.position) <= target.radius + CLASS_COMBAT.petHitMargin && !pillarBetween(this.ctx.arena, pet.position, target.position)) {
+      if (target && pet.attackIn <= 0 && pet.position.distanceTo(target.position) <= target.radius + CLASS_COMBAT.petHitMargin && !sightBlocked(this.ctx.arena, pet.position, target.position)) {
         const before = target.health.current;
         target.hurt(pet.spec.damage, owner); pet.attackIn = pet.spec.interval;
         if (target.health.current < before) this.applyHit(target.id, owner, {
@@ -161,7 +169,8 @@ export class ClassCombat {
         if (target.health.isDead) {
           const next = enemies.find(enemy => enemy.id !== target.id && !enemy.health.isDead && enemy.position.distanceTo(pet.position) <= pet.spec.leapRange);
           pet.target = next?.id ?? null;
-          if (next && !pillarBetween(this.ctx.arena, pet.position, next.position)) pet.position = next.position;
+          // Il salto atterra solo sul pavimento: niente balzi su chi vola sopra un pozzo o un riparo.
+          if (next && !sightBlocked(this.ctx.arena, pet.position, next.position) && blockerAt(this.ctx.arena, next.position, 8) === undefined) pet.position = next.position;
         }
       }
     }

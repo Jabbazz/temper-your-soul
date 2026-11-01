@@ -4,7 +4,8 @@ import type { CharacterClass } from '../character/character-class';
 import type { Rng } from '../../core/rng';
 import { Signal } from '../../core/signal';
 import { angleDifference, TAU, Vec2 } from '../../core/vec2';
-import { clampToArena, isOutsideProjectileBounds, moveBody, pillarAt, pillarBetween, pushOutOfPillars, type ArenaDefinition } from '../arena/arena';
+import { blockerBetween, clampToArena, detourAround, isOutsideProjectileBounds, moveBody, pillarAt, pushOutOfPillars, sightBlocked, solidAt, type ArenaDefinition, type Solid } from '../arena/arena';
+import { NAV_FIELD, NavField, NavGrid } from '../arena/nav-field';
 import { Boss } from '../boss/boss';
 import type { BossContext } from '../boss/boss-context';
 import type { BossDefinition } from '../boss/boss-definition';
@@ -75,6 +76,41 @@ export const MINION_LIMITS = {
 /** Chi infligge i danni dell'ambiente (zone dei servitori che feriscono altri servitori): non e' un giocatore. */
 export const ENVIRONMENT_ID = 'ambiente';
 
+/**
+ * Ripari distruttibili delle stanze (fase 5 dello studio grafico, proposta per Jabbaz). Valori provvisori: la vita di un
+ * riparo, consumata dal danno dei colpi di entrambe le squadre che lo raggiungono.
+ */
+export const COVER_RULES = { health: 160 } as const;
+
+/** Un riparo della stanza: il suo rettangolo nella mappa della partita e la vita che gli resta (0 = rotto). */
+export interface CoverState {
+  readonly index: number;
+  readonly solid: Solid;
+  health: number;
+  readonly maxHealth: number;
+}
+
+/**
+ * Le mappe di partita con i ripari e i loro massicci vivi. Una partita costruita con una di queste mappe (la copia di
+ * disegno della cooperativa, `NetworkView`) condivide gli stessi ripari: quelli rotti spariscono per tutte e due, anche
+ * quando sono gia' rotti tutti.
+ */
+const LIVE_SOLIDS = new WeakMap<ArenaDefinition, Solid[]>();
+
+/**
+ * La mappa di una partita con i ripari: una copia con i ripari aggiunti ai massicci, cosi' fermano corpi e colpi con
+ * le stesse regole. I ripari rotti escono da `solids`. La stanza modello non cambia mai.
+ */
+function withCovers(arena: ArenaDefinition): { arena: ArenaDefinition; solids: Solid[] | null } {
+  const shared = LIVE_SOLIDS.get(arena);
+  if (shared !== undefined) return { arena, solids: shared };
+  if ((arena.covers ?? []).length === 0) return { arena, solids: null };
+  const solids: Solid[] = [...(arena.solids ?? []), ...arena.covers!.map((cover, index) => ({ x: cover.x, y: cover.y, width: cover.width, height: cover.height, cover: index }))];
+  const copy: ArenaDefinition = { ...arena, solids };
+  LIVE_SOLIDS.set(copy, solids);
+  return { arena: copy, solids };
+}
+
 /** Fonte dei danni di contatto con il boss. */
 const CONTACT_SOURCE: DamageSource = { kind: 'contact', name: 'Contatto con il boss' };
 
@@ -121,13 +157,32 @@ export class Match {
   status: MatchStatus = 'playing';
   /** Secondi di partita trascorsi (si fermano alla fine). */
   time = 0;
+  /** Ripari distruttibili della stanza (vuoto altrove). */
+  readonly covers: CoverState[] = [];
+  /** I massicci della mappa di questa partita, se ha ripari: i ripari rotti ne escono. */
+  private readonly liveSolids: Solid[] | null;
+  /**
+   * Le celle percorribili delle stanze con massicci, ripari o pozzi, un campo di flusso per giocatore vivo e quanti
+   * passi mancano al prossimo ricalcolo delle distanze.
+   */
+  private readonly navGrid: NavGrid | null;
+  private readonly navFields = new Map<string, NavField>();
+  private navCountdown = 0;
 
   private nextId = 1;
   private readonly minionContext: MinionContext;
 
   constructor(options: MatchOptions) {
     this.dungeon = options.dungeon;
-    this.arena = options.arena ?? options.dungeon.arena;
+    const map = withCovers(options.arena ?? options.dungeon.arena);
+    this.arena = map.arena;
+    this.liveSolids = map.solids;
+    for (const [index, cover] of (this.arena.covers ?? []).entries()) {
+      const solid = this.liveSolids?.find((candidate) => candidate.cover === index);
+      this.covers.push({ index, solid: solid ?? { ...cover, cover: index }, health: solid === undefined ? 0 : COVER_RULES.health, maxHealth: COVER_RULES.health });
+    }
+    const shaped = (this.arena.solids ?? []).length + (this.arena.chasms ?? []).length > 0;
+    this.navGrid = shaped ? new NavGrid(this.arena) : null;
     this.rng = options.rng;
     const members = options.members ?? [{ id: 'local', loadout: options.loadout, characterClass: options.characterClass }];
     this.viewPlayerId = members[0]!.id;
@@ -240,10 +295,89 @@ export class Match {
     this.encounter?.step(dt, this);
     if (this.status !== 'playing') return;
     this.runDelayed();
+    this.refreshNav();
     this.stepMinions(dt);
     this.stepProjectiles(dt);
     this.stepZones(dt);
     this.minions = this.minions.filter((minion) => !minion.isDead);
+  }
+
+  /**
+   * Ricalcola i campi di flusso (uno per giocatore vivo) ogni `NAV_FIELD.refreshSteps` passi, solo nelle stanze con
+   * massicci, ripari o pozzi.
+   */
+  private refreshNav(): void {
+    const grid = this.navGrid;
+    if (grid === null) return;
+    if (this.navCountdown <= 0) {
+      for (const [id, player] of this.players) {
+        if (player.health.isDead) {
+          this.navFields.delete(id);
+          continue;
+        }
+        let field = this.navFields.get(id);
+        if (field === undefined) {
+          field = new NavField(grid);
+          this.navFields.set(id, field);
+        }
+        field.update([player.position]);
+      }
+      this.navCountdown = NAV_FIELD.refreshSteps;
+    }
+    this.navCountdown--;
+  }
+
+  /**
+   * Dove dirigersi a piedi verso `to`: la strada libera, il campo di flusso del giocatore a cui si va (il piu' vicino a
+   * `to`, cioe' il bersaglio del servitore anche quando lo provoca il Guerriero) o l'angolo dell'ostacolo.
+   */
+  private route(from: Vec2, to: Vec2, bodyRadius: number): Vec2 {
+    if (this.navGrid !== null && blockerBetween(this.arena, from, to) !== undefined) {
+      let field: NavField | undefined;
+      let nearest = 160;
+      for (const [id, player] of this.players) {
+        if (player.health.isDead) continue;
+        const distance = player.position.distanceTo(to);
+        if (distance < nearest) {
+          nearest = distance;
+          field = this.navFields.get(id);
+        }
+      }
+      const next = field?.next(from) ?? null;
+      if (next !== null) return next;
+    }
+    return detourAround(this.arena, from, to, bodyRadius);
+  }
+
+  /**
+   * Un colpo raggiunge un riparo: perde vita pari al danno e a zero si rompe. Vale per i colpi di entrambe le squadre;
+   * il danno ai ripari non conta nel resoconto della partita.
+   */
+  private hitCover(index: number, damage: number, position: Vec2): void {
+    const cover = this.covers[index];
+    if (cover === undefined || cover.health <= 0) return;
+    // Come per la vita (`Health.takeDamage`): il danno finale si arrotonda per difetto.
+    cover.health = Math.max(0, cover.health - Math.floor(Math.max(0, damage)));
+    this.events.emit({ type: 'cover_hit', position, cover: index, left: cover.health / cover.maxHealth });
+    if (cover.health <= 0) this.breakCover(index, true);
+  }
+
+  /**
+   * Il riparo si rompe ed esce dai massicci della mappa: non ferma piu' corpi e colpi. `announce` falso sul client
+   * della cooperativa, dove l'evento arriva gia' dal server.
+   */
+  breakCover(index: number, announce: boolean): void {
+    const cover = this.covers[index];
+    if (cover === undefined) return;
+    cover.health = 0;
+    const at = this.liveSolids?.indexOf(cover.solid) ?? -1;
+    if (at < 0) return;
+    this.liveSolids!.splice(at, 1);
+    // Le celle del riparo tornano libere: i campi di flusso si ricalcolano al prossimo passo.
+    this.navGrid?.rebuild();
+    this.navCountdown = 0;
+    const { solid } = cover;
+    if (announce) this.events.emit({ type: 'cover_broken', position: new Vec2(solid.x + solid.width / 2, solid.y + solid.height / 2), cover: index });
   }
 
   /** Il giocatore vivo piu' vicino a un punto. */
@@ -406,6 +540,7 @@ export class Match {
       rng: this.rng,
       get minions() { return self.minions; },
       nearestPlayer: (point) => this.nearestPlayer(point),
+      route: (from, to, bodyRadius) => this.route(from, to, bodyRadius),
       spawnProjectile: (spec, position, angle, minion) => {
         if (this.minionShots.size >= MINION_LIMITS.projectiles) return false;
         this.spawnProjectile(spec, position, angle);
@@ -486,7 +621,7 @@ export class Match {
     // lui resta colpibile dove sporge.
     if (distance > hitRadius) {
       const nearestEdge = origin.add(offset.mul((distance - hitRadius) / distance));
-      if (pillarBetween(this.arena, origin, nearestEdge) !== undefined) return false;
+      if (sightBlocked(this.arena, origin, nearestEdge)) return false;
     }
     return true;
   }
@@ -501,7 +636,9 @@ export class Match {
     for (const projectile of this.projectiles) {
       if (projectile.isExpired) continue;
       projectile.advance(dt);
-      if (pillarAt(this.arena, projectile.position) !== undefined) {
+      const solid = solidAt(this.arena, projectile.position);
+      if (pillarAt(this.arena, projectile.position) !== undefined || solid !== undefined) {
+        if (solid?.cover !== undefined) this.hitCover(solid.cover, projectile.damage, projectile.position);
         this.emitProjectileHit(projectile, 'obstacle');
         projectile.expire();
         continue;

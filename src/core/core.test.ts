@@ -142,6 +142,9 @@ describe('Input', () => {
     expect(blocksBrowserDefault('Escape', false)).toBe(true);
     expect(blocksBrowserDefault('Enter', false)).toBe(false);
     expect(blocksBrowserDefault('Tab', false)).toBe(false);
+    // In partita il Tab tiene aperta la mappa della discesa.
+    expect(blocksBrowserDefault('Tab', false, true)).toBe(true);
+    expect(blocksBrowserDefault('Tab', true, true)).toBe(true);
   });
 
   it('releaseAll azzera tasti tenuti e pressioni registrate', () => {

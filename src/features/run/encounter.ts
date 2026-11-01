@@ -56,6 +56,8 @@ export interface RoomSetup {
   readonly grade: number;
   /** Servitori gia' visti nella discesa. */
   readonly seen: ReadonlySet<string>;
+  /** I servitori della stanza (la sua vena, con l'eventuale ospite); senza, quelli di sempre del dungeon. */
+  readonly bestiary?: readonly BestiaryEntry[];
 }
 
 /** Cio' che la stanza ha dato: la discesa lo raccoglie quando il gruppo attraversa una porta. */
@@ -147,7 +149,7 @@ export class RoomEncounter implements Encounter {
 
   attach(match: Match): void {
     const { option, dungeonId } = this.setup;
-    const bestiary = ROOM_BESTIARY[dungeonId] ?? [];
+    const bestiary = this.setup.bestiary ?? ROOM_BESTIARY[dungeonId] ?? [];
     const combat = ROOM_COMBAT[option.kind];
     if (combat.waves > 0 && combat.budget > 0) {
       const players = this.setup.members.size;

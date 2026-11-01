@@ -2,8 +2,11 @@ import type { Camera } from '../../../core/camera';
 import { TAU, Vec2 } from '../../../core/vec2';
 import type { ArenaDefinition, Pillar } from '../../arena/arena';
 import { drawLight } from '../lights';
-import { isClearSpot, wallSpots } from './decor';
+import { faceSpots, isClearSpot, wallSpots } from './decor';
 import type { ArenaTheme } from './theme';
+import { drawBottomWallLip, drawTopWallFace, wallFaceHeight, type WallFaceStyle } from './wall';
+import { FloorCache } from '../floor-cache';
+import { drawTile, pickVariant, tileColors, tileSheet, tileVariants, TILE_SIZE } from './tiles';
 
 /**
  * Decorazione della fucina (solo aspetto). Valori provvisori: pavimento di basalto nero-bruno con crepe di lava che
@@ -34,9 +37,12 @@ const FORGE_DECOR = {
     ] as const,
   },
   /** Luce dei bracieri e bagliore delle crepe. */
-  brazierLight: { color: '#ff7a2a', radius: 140 },
-  crackLight: { color: '#ff5a1a', radius: 46 },
+  brazierLight: { color: '#ff7a2a', radius: 220 },
+  crackLight: { color: '#ff5a1a', radius: 70 },
 };
+
+/** Faccia del muro in alto: lastre di ferro ribattute. */
+const FORGE_WALL_FACE: WallFaceStyle = { face: '#2a2420', dark: '#120e0c', light: '#5e544c', pattern: 'plates' };
 
 const anvilCache = new WeakMap<ArenaDefinition, readonly Vec2[]>();
 
@@ -132,6 +138,24 @@ function drawBrazier(ctx: CanvasRenderingContext2D, x: number, y: number, clock:
   ctx.fillRect(x - 2, y - 24 + Math.sin(clock * 13 + x * 0.3) * 2, 4, 8);
 }
 
+/** Bocca di forno nella faccia del muro: una grata scura con la brace che pulsa dietro. */
+function drawFurnaceMouth(ctx: CanvasRenderingContext2D, x: number, y: number, clock: number): void {
+  const pulse = 0.6 + 0.4 * Math.sin(clock * 1.7 + x * 0.05);
+  drawLight(ctx, x, y + 6, FORGE_DECOR.brazierLight.color, 170, 0.45 + 0.25 * pulse);
+  ctx.fillStyle = COLORS.void;
+  ctx.fillRect(x - 11, y - 7, 22, 14);
+  ctx.fillStyle = COLORS.lavaDark;
+  ctx.fillRect(x - 9, y - 1, 18, 6);
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = COLORS.lava;
+  ctx.fillRect(x - 8, y + 1, 16, 3);
+  ctx.fillStyle = COLORS.lavaCore;
+  ctx.fillRect(x - 4, y + 2, 8, 2);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = COLORS.ironLight;
+  for (const bx of [-6, -1, 4]) ctx.fillRect(x + bx, y - 7, 2, 14);
+}
+
 function drawAnvil(ctx: CanvasRenderingContext2D, x: number, y: number, clock: number): void {
   ctx.fillStyle = '#0c090880';
   ctx.fillRect(x - 36, y + 10, 76, 12);
@@ -151,7 +175,14 @@ function drawAnvil(ctx: CanvasRenderingContext2D, x: number, y: number, clock: n
   ctx.fillRect(x - 24, y - 18, 40, 4);
 }
 
-function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+/** Lato delle zone di basalto piu' scuro, quando il pavimento e' fatto di tile. */
+const DARK_ZONE = 192;
+
+/**
+ * La parte ferma del pavimento, dipinta una volta nei tasselli della cache: basalto (lastre nel codice, o i tile di 0x72
+ * ricolorati quando il foglio e' caricato), il muro perimetrale con la sua faccia e i rivetti.
+ */
+function drawStaticFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
   const { x: camX, y: camY } = camera.position;
   const { tileSize } = FORGE_DECOR;
 
@@ -159,38 +190,34 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
   ctx.fillStyle = COLORS.void;
   ctx.fillRect(camX - 4, camY - 4, camera.width + 8, camera.height + 8);
 
-  const x0 = Math.max(0, Math.floor(camX / tileSize) * tileSize);
-  const y0 = Math.max(0, Math.floor(camY / tileSize) * tileSize);
-  const x1 = Math.min(arena.width, camX + camera.width + tileSize);
-  const y1 = Math.min(arena.height, camY + camera.height + tileSize);
-  for (let y = y0; y < y1; y += tileSize) {
-    for (let x = x0; x < x1; x += tileSize) {
-      const h = hash(x, y);
-      ctx.fillStyle = COLORS.basalt[Math.floor(h * 3)]!;
-      ctx.fillRect(x, y, tileSize, tileSize);
-      ctx.fillStyle = COLORS.grout;
-      ctx.fillRect(x, y, tileSize, 2);
-      ctx.fillRect(x, y, 2, tileSize);
-      if (h > 0.5 && h < 0.62) {
-        ctx.fillStyle = COLORS.fleck;
-        ctx.fillRect(x + 12, y + 14, 14, 3);
-        ctx.fillRect(x + 38, y + 40, 3, 10);
+  const sheet = tileSheet('forge');
+  if (sheet !== null) {
+    const x0 = Math.max(0, Math.floor(camX / TILE_SIZE) * TILE_SIZE);
+    const y0 = Math.max(0, Math.floor(camY / TILE_SIZE) * TILE_SIZE);
+    for (let y = y0; y < Math.min(arena.height, camY + camera.height + TILE_SIZE); y += TILE_SIZE) {
+      for (let x = x0; x < Math.min(arena.width, camX + camera.width + TILE_SIZE); x += TILE_SIZE) {
+        const zone = hash(Math.floor(x / DARK_ZONE) + 311, Math.floor(y / DARK_ZONE));
+        const tile = pickVariant(tileVariants('forge', zone < 0.3 ? 'floorDark' : 'floor'), hash(x + 7, y));
+        if (tile !== undefined) drawTile(ctx, sheet, tile, x, y);
       }
-      if (h > FORGE_DECOR.crackThreshold) drawCrack(ctx, x, y, h, clock);
     }
-  }
-
-  // Bagliore delle crepe (dopo tutte le lastre, cosi' nessuna lo copre) e scintille che salgono dalle crepe piu'
-  // calde e si spengono prima di arrivare in cima.
-  const crackLight = FORGE_DECOR.crackLight;
-  for (let y = y0; y < y1; y += tileSize) {
-    for (let x = x0; x < x1; x += tileSize) {
-      const h = hash(x, y);
-      if (h > FORGE_DECOR.crackThreshold) drawLight(ctx, x + tileSize / 2, y + tileSize / 2, crackLight.color, crackLight.radius, 0.35 + 0.2 * Math.sin(clock * 2 + h * 40));
-      if (h <= FORGE_DECOR.sparkThreshold) continue;
-      const t = (clock * 0.5 + h * 20) % 1;
-      ctx.fillStyle = `rgba(255, 193, 90, ${1 - t})`;
-      ctx.fillRect(x + tileSize / 2 + Math.sin(clock * 3 + h * 50) * 8, y + tileSize - t * 90, 3, 3);
+  } else {
+    const x0 = Math.max(0, Math.floor(camX / tileSize) * tileSize);
+    const y0 = Math.max(0, Math.floor(camY / tileSize) * tileSize);
+    for (let y = y0; y < Math.min(arena.height, camY + camera.height + tileSize); y += tileSize) {
+      for (let x = x0; x < Math.min(arena.width, camX + camera.width + tileSize); x += tileSize) {
+        const h = hash(x, y);
+        ctx.fillStyle = COLORS.basalt[Math.floor(h * 3)]!;
+        ctx.fillRect(x, y, tileSize, tileSize);
+        ctx.fillStyle = COLORS.grout;
+        ctx.fillRect(x, y, tileSize, 2);
+        ctx.fillRect(x, y, 2, tileSize);
+        if (h > 0.5 && h < 0.62) {
+          ctx.fillStyle = COLORS.fleck;
+          ctx.fillRect(x + 12, y + 14, 14, 3);
+          ctx.fillRect(x + 38, y + 40, 3, 10);
+        }
+      }
     }
   }
 
@@ -200,26 +227,74 @@ function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera
   const right = Math.min(arena.width, camX + camera.width + 4);
   const top = Math.max(0, camY - 4);
   const bottom = Math.min(arena.height, camY + camera.height + 4);
-  const glow = 0.55 + 0.25 * Math.sin(clock * 1.3);
   ctx.fillStyle = COLORS.wall;
   if (camY < wall) ctx.fillRect(left, 0, right - left, wall);
   if (camY + camera.height > arena.height - wall) ctx.fillRect(left, arena.height - wall, right - left, wall);
   if (camX < wall) ctx.fillRect(0, top, wall, bottom - top);
   if (camX + camera.width > arena.width - wall) ctx.fillRect(arena.width - wall, top, wall, bottom - top);
-  // Bordo interno rovente e rivetti.
-  ctx.fillStyle = `rgba(255, 106, 31, ${glow})`;
-  if (camY < wall + 4) ctx.fillRect(left, wall, right - left, 3);
-  if (camY + camera.height > arena.height - wall - 4) ctx.fillRect(left, arena.height - wall - 3, right - left, 3);
-  if (camX < wall + 4) ctx.fillRect(wall, top, 3, bottom - top);
-  if (camX + camera.width > arena.width - wall - 4) ctx.fillRect(arena.width - wall - 3, top, 3, bottom - top);
+  drawTopWallFace(ctx, arena, camera, FORGE_WALL_FACE);
   ctx.fillStyle = COLORS.rivet;
   for (let x = Math.ceil(left / 96) * 96; x < right; x += 96) {
     if (camY < wall) ctx.fillRect(x, 12, 6, 6);
     if (camY + camera.height > arena.height - wall) ctx.fillRect(x, arena.height - 18, 6, 6);
   }
+}
+
+const floorCache = new FloorCache(drawStaticFloor);
+
+function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
+  const { x: camX, y: camY } = camera.position;
+  const { tileSize } = FORGE_DECOR;
+  floorCache.draw(ctx, arena, camera, tileSheet('forge') === null ? '' : 'tiles');
+
+  // Crepe di lava che pulsano, solo nelle lastre libere dal muro (il muro e la sua faccia stanno nella cache, sotto).
+  const wall = arena.wallThickness;
+  const face = wallFaceHeight(arena);
+  const x0 = Math.max(0, Math.floor(camX / tileSize) * tileSize);
+  const y0 = Math.max(0, Math.floor(camY / tileSize) * tileSize);
+  const x1 = Math.min(arena.width, camX + camera.width + tileSize);
+  const y1 = Math.min(arena.height, camY + camera.height + tileSize);
+  const inside = (x: number, y: number): boolean => x >= wall && y >= wall + face && x + tileSize <= arena.width - wall && y + tileSize <= arena.height - wall;
+  for (let y = y0; y < y1; y += tileSize) {
+    for (let x = x0; x < x1; x += tileSize) {
+      const h = hash(x, y);
+      if (h > FORGE_DECOR.crackThreshold && inside(x, y)) drawCrack(ctx, x, y, h, clock);
+    }
+  }
+
+  // Bagliore delle crepe (dopo tutte le lastre, cosi' nessuna lo copre) e scintille che salgono dalle crepe piu'
+  // calde e si spengono prima di arrivare in cima.
+  const crackLight = FORGE_DECOR.crackLight;
+  for (let y = y0; y < y1; y += tileSize) {
+    for (let x = x0; x < x1; x += tileSize) {
+      const h = hash(x, y);
+      if (!inside(x, y)) continue;
+      if (h > FORGE_DECOR.crackThreshold) drawLight(ctx, x + tileSize / 2, y + tileSize / 2, crackLight.color, crackLight.radius, 0.35 + 0.2 * Math.sin(clock * 2 + h * 40));
+      if (h <= FORGE_DECOR.sparkThreshold) continue;
+      const t = (clock * 0.5 + h * 20) % 1;
+      ctx.fillStyle = `rgba(255, 193, 90, ${1 - t})`;
+      ctx.fillRect(x + tileSize / 2 + Math.sin(clock * 3 + h * 50) * 8, y + tileSize - t * 90, 3, 3);
+    }
+  }
+
+  // Il bordo interno rovente: in alto alla base della faccia, poi sugli altri muri.
+  const left = Math.max(0, camX - 4);
+  const right = Math.min(arena.width, camX + camera.width + 4);
+  const top = Math.max(0, camY - 4);
+  const bottom = Math.min(arena.height, camY + camera.height + 4);
+  const glow = 0.55 + 0.25 * Math.sin(clock * 1.3);
+  ctx.fillStyle = `rgba(255, 106, 31, ${glow})`;
+  if (camY < wall + face + 4) ctx.fillRect(Math.max(left, wall), wall + face - 3, Math.min(right, arena.width - wall) - Math.max(left, wall), 3);
+  if (camY + camera.height > arena.height - wall - 4) ctx.fillRect(left, arena.height - wall - 3, right - left, 3);
+  if (camX < wall + 4) ctx.fillRect(wall, top, 3, bottom - top);
+  if (camX + camera.width > arena.width - wall - 4) ctx.fillRect(arena.width - wall - 3, top, 3, bottom - top);
 
   const { braziers } = FORGE_DECOR;
-  for (const brazier of wallSpots(arena, braziers.inset, braziers.spacing, 40)) {
+  // Sul muro in alto, bocche di forno nella faccia; sugli altri muri, bracieri a terra.
+  for (const vent of faceSpots(arena, wall + face * 0.5, 210)) {
+    if (camera.isVisible(vent, 160)) drawFurnaceMouth(ctx, vent.x, vent.y, clock);
+  }
+  for (const brazier of wallSpots(arena, braziers.inset, braziers.spacing, 40, false)) {
     if (camera.isVisible(brazier, FORGE_DECOR.brazierLight.radius)) drawBrazier(ctx, brazier.x, brazier.y, clock);
   }
   for (const anvil of anvilsOf(arena)) {
@@ -255,7 +330,8 @@ function drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camer
   ctx.beginPath();
   ctx.arc(x, y, r * 0.68, 0, TAU);
   ctx.fill();
-  // Il calore che filtra dalle fessure della cima.
+  // Il calore che filtra dalle fessure della cima (e un poco di luce attorno).
+  drawLight(ctx, x, y, '#ff6a1f', r * 2.4, 0.3 + 0.15 * Math.sin(clock * 2 + x * 0.01));
   ctx.strokeStyle = `rgba(255, 106, 31, ${0.45 + 0.3 * Math.sin(clock * 2 + x * 0.01)})`;
   ctx.lineWidth = 2;
   for (let i = 0; i < 4; i++) {
@@ -273,7 +349,13 @@ function drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camer
 export const forgeTheme: ArenaTheme = {
   drawFloor,
   drawPillar,
+  drawForeground: (ctx, arena, camera, _clock, ambient) => drawBottomWallLip(ctx, arena, camera, COLORS.wall, COLORS.wallEdge, ambient),
+  ambient: '#33241f',
+  block: { cap: COLORS.wall, edge: COLORS.wallEdge, face: FORGE_WALL_FACE, tiles: 'forge' },
   silhouette: '#ffe8d673',
   vignette: '#050302',
-  groundColors: [...COLORS.basalt, COLORS.lava, COLORS.lavaCore, COLORS.lavaDark],
+  groundColors: [
+    ...COLORS.basalt, COLORS.lava, COLORS.lavaCore, COLORS.lavaDark,
+    ...tileColors('forge', 'floor'), ...tileColors('forge', 'floorDark'), ...tileColors('forge', 'chasm'), ...tileColors('forge', 'bridgeEW'),
+  ],
 };

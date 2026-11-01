@@ -213,6 +213,43 @@ describe('Arciere: compagno, sanguinamento e mobilità', () => {
     expect(pet.position).toEqual(next.position);
   });
 
+  it('nelle stanze con i massicci il lupo non salta attraverso un blocco', () => {
+    const match = new Match({ dungeon: CRYPT, rng: { next: () => 0 }, members: [member('archer')], loadout: [],
+      arena: { ...CRYPT.arena, pillars: [], solids: [{ x: 570, y: 380, width: 30, height: 240 }], playerSpawn: new Vec2(500, 700), bossSpawn: new Vec2(700, 900) },
+      boss: null });
+    const definition = Object.values(MINIONS).find(minion => !minion.dormant && !minion.burrow)!;
+    const first = match.spawnMinion(definition, new Vec2(550, 500), { maxHealth: 10 });
+    const next = match.spawnMinion(definition, new Vec2(620, 500), { maxHealth: 100 });
+    cast(match, 'archer', 2);
+    const pet = match.classCombat.pets.get('archer')!; pet.position = first.position;
+    match.classCombat.applyHit(`minion:${first.id}`, 'archer', { mark: true });
+    match.classCombat.step(0);
+    expect(first.health.isDead).toBe(true);
+    expect(pet.position.x).toBeLessThan(570);
+    expect(next.health.current).toBe(100);
+  });
+
+  it('nelle stanze con i massicci il lupo aggira il blocco per raggiungere il bersaglio', () => {
+    const solid = { x: 580, y: 380, width: 40, height: 240 };
+    const match = new Match({ dungeon: CRYPT, rng: { next: () => 0 }, members: [member('archer')], loadout: [],
+      arena: { ...CRYPT.arena, pillars: [], solids: [solid], playerSpawn: new Vec2(400, 500), bossSpawn: new Vec2(700, 900) },
+      boss: null });
+    const definition = Object.values(MINIONS).find(minion => !minion.dormant && !minion.burrow && !minion.flying)!;
+    const target = match.spawnMinion(definition, new Vec2(700, 500), { maxHealth: 10000 });
+    cast(match, 'archer', 2);
+    const pet = match.classCombat.pets.get('archer')!; pet.position = new Vec2(520, 500); pet.target = `minion:${target.id}`;
+    let reached = false;
+    for (let i = 0; i < 240 && !reached; i++) {
+      target.position = new Vec2(700, 500);
+      match.classCombat.step(STEP);
+      // Il corpo del lupo (raggio 8) tocca al piu' il blocco, senza entrarci.
+      const nearest = new Vec2(Math.min(Math.max(pet.position.x, solid.x), solid.x + solid.width), Math.min(Math.max(pet.position.y, solid.y), solid.y + solid.height));
+      expect(nearest.distanceTo(pet.position), `${pet.position.x},${pet.position.y}`).toBeGreaterThan(7.9);
+      reached = target.health.current < 10000;
+    }
+    expect(reached).toBe(true);
+  });
+
   it('la penetrazione danneggia anche un bersaglio protetto da scudo numerico', () => {
     const match = fixture('archer'); const definition = Object.values(MINIONS).find(minion => !minion.dormant && !minion.burrow)!;
     const minion = match.spawnMinion(definition, new Vec2(530, 493), { maxHealth: 100 }); minion.shield = 100;

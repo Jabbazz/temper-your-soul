@@ -15,7 +15,9 @@ export type Action =
   | 'restart'
   | 'toggle_audio'
   | 'toggle_performance'
-  | 'toggle_fullscreen';
+  | 'toggle_fullscreen'
+  | 'show_map'
+  | 'toggle_minimap';
 
 /** Le azioni delle skill, nell'ordine degli slot. */
 export const SKILL_ACTIONS: readonly Action[] = ['skill_1', 'skill_2', 'skill_3', 'skill_4'];
@@ -38,6 +40,9 @@ const BINDINGS: Record<string, Action> = {
   KeyM: 'toggle_audio',
   KeyF: 'toggle_fullscreen',
   F2: 'toggle_performance',
+  /** Tenuto premuto: la mappa della discesa. */
+  Tab: 'show_map',
+  KeyN: 'toggle_minimap',
 };
 
 /** Vero se la pressione e' una scorciatoia del browser (Ctrl+R, Ctrl+F, Alt+...): il gioco la lascia al browser. */
@@ -47,9 +52,11 @@ export function isBrowserShortcut(event: { ctrlKey: boolean; metaKey: boolean; a
 
 /**
  * Vero se il gioco deve impedire il comportamento del browser per il tasto `code`: i tasti legati sempre, lo Spazio
- * (che farebbe scorrere la pagina) solo se il focus non e' su un pulsante, altrimenti non lo attiverebbe.
+ * (che farebbe scorrere la pagina) solo se il focus non e' su un pulsante, altrimenti non lo attiverebbe. Il Tab
+ * apre la mappa solo in partita (`inMatch`): nei menu resta al browser, che ci sposta il focus tra i pulsanti.
  */
-export function blocksBrowserDefault(code: string, onButton: boolean): boolean {
+export function blocksBrowserDefault(code: string, onButton: boolean, inMatch = false): boolean {
+  if (code === 'Tab') return inMatch;
   if (code in BINDINGS) return true;
   return code === 'Space' && !onButton;
 }
@@ -64,6 +71,8 @@ export class Input {
   readonly actionPressed = new Signal<[Action]>();
   /** Posizione del puntatore normalizzata sul canvas: (0, 0) angolo alto a sinistra, (1, 1) angolo basso a destra. */
   pointer: Vec2 = new Vec2(0.5, 0.43);
+  /** Vero durante una partita: il Tab apre la mappa invece di spostare il focus (lo imposta il gioco). */
+  inMatch = false;
 
   private held = new Set<string>();
   /** Azioni premute dall'ultima lettura: una pressione piu' breve di un passo di simulazione non va persa. */
@@ -125,7 +134,7 @@ export class Input {
       if (isBrowserShortcut(event)) return;
       // I nomi e i controlli dei menu devono ricevere i propri tasti, anche WASD, F, M e Spazio.
       if(event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
-      if (blocksBrowserDefault(event.code, isButtonTarget(event.target))) event.preventDefault();
+      if (blocksBrowserDefault(event.code, isButtonTarget(event.target), this.inMatch)) event.preventDefault();
       this.press(event.code, event.repeat);
     };
     const onKeyUp = (event: KeyboardEvent): void => this.release(event.code);

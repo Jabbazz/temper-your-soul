@@ -310,3 +310,16 @@ Gli altri punti aperti di bilanciamento restano invariati.
 ### Pubblicazione su main · v0.04.00
 
 Correzione del danno intero pubblicata su richiesta dell’utente. Restano aperte tutte le checklist manuali e la taratura del bilanciamento; nessuna nuova conferma giocata registrata.
+
+## Grafica e chiarezza: fasi 1–8 dello studio (ramo `feature/grafica-fasi-2`, proposta in pull request)
+
+Il compito e il diario sono in `docs/compito-grafica.md`, le regole nuove da confermare in `docs/game-design.md`.
+
+- [x] Fasi 1–4: luce, muri a tre quarti, minimappa e mappa della discesa, stanze con massicci, grate e atmosfera.
+- [x] Fase 5: pozzi, ponti e ripari distruttibili in otto stanze nuove, campo di flusso per i servitori (proposta di regole).
+- [x] Fase 6: tileset CC0 ricolorati per tema.
+- [x] Fasi 7 e 8: vene B e C (55 servitori, sette comportamenti) e otto luogotenenti delle vene.
+- [x] Verifica automatica: 713 test, tipi client e server, build; prove nel browser e in cooperativa su un server separato.
+- [ ] Prova manuale dell'utente: le otto stanze con pozzi e ripari, i tileset nei quattro dungeon, le vene, in singolo e in cooperativa.
+- [ ] Decisioni di Jabbaz sulle regole proposte (pozzi, ripari, vene, movimento attorno ai massicci).
+- [x] Un solo stile per l'interfaccia: titoli in Grenze Gotisch, HUD in Silkscreen (a 8 e 16 pixel), testi nel carattere di sistema.
