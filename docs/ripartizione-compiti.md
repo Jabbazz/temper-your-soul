@@ -1,0 +1,39 @@
+# Ripartizione dei compiti
+
+Chi lavora su cosa in Temper your soul, per evitare che persone e agenti AI modifichino le stesse parti senza saperlo. Va consultato **prima di iniziare qualsiasi lavoro**, insieme a [README.md](../README.md), [CLAUDE.md](../CLAUDE.md) e [AGENTS.md](../AGENTS.md).
+
+## Aree in carico
+
+| Area | Referente | Stato | Dal | Dettagli |
+| --- | --- | --- | --- | --- |
+| Inventario | simonragaz87-sudo | In carico | 1 novembre 2026 | [Vedi sotto](#inventario) |
+
+Un'area che non compare in tabella non ha un referente: chi vuole lavorarci può prenderla in carico.
+
+## Regole
+
+1. **Prima di modificare file**, controlla se il lavoro tocca un'area in tabella.
+2. **Se l'area è in carico a un altro referente**, coordinati con quel referente prima di modificarla. Un agente AI lo segnala all'utente e aspetta la sua decisione, senza procedere da solo.
+3. **Se il tuo lavoro tocca solo di passaggio un'area altrui**, tieni la modifica al minimo e segnalala nella descrizione della pull request.
+4. **Per prendere in carico un'area**, aggiungi una riga alla tabella e una sezione con i confini, nella stessa pull request o in una dedicata. Quando un lavoro finisce, aggiorna lo stato o togli la riga.
+5. **Questo file dice chi lavora su cosa, non cosa si decide.** Regole e design restano decisioni del proprietario del progetto (Jabbaz), come indicato negli altri documenti.
+
+## Dettaglio delle aree
+
+### Inventario
+
+**Referente:** simonragaz87-sudo.
+
+**Comprende** la schermata dell'inventario e il comportamento dello zaino per il giocatore (elenco, ordinamento, tooltip, equipaggiamento dallo zaino, scarto con conferma):
+
+- `src/features/ui/inventory-screen.ts`
+- `src/features/ui/inventory-view.ts` e `inventory-view.test.ts`
+- `src/features/ui/equipment-actions.ts` e `equipment-actions.test.ts`
+
+**Da coordinare**, perché usato anche da altre parti del gioco:
+
+- `src/features/ui/item-card.ts`: scheda dell'oggetto.
+- `src/features/character/character.ts`: inventario ed equipaggiamento del personaggio.
+- `src/features/character/save-format.ts`: formato dei salvataggi. Cambiarlo richiede di incrementare `SAVE_VERSION` e gestire la migrazione.
+
+**Non comprende** il catalogo degli oggetti, le tabelle di bottino e il bilanciamento.
