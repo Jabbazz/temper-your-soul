@@ -8,6 +8,7 @@ Leggere prima [README.md](README.md), in particolare «Prima di lavorare», stat
 - Se il pull non riesce, spiegare subito perché e risolvere l'allineamento senza perdere lavoro. Non usare reset distruttivi, force push, stash automatici o risoluzioni che scartino il lavoro dell'altro collaboratore. Non iniziare nuove modifiche finché manca una base allineata in sicurezza.
 - **Tenere aggiornato l'utente durante il lavoro**, indicativamente almeno ogni minuto di lavoro attivo, e quando emergono risultati, ostacoli o cambi di piano. Alla fine: modifiche, verifiche, limiti, prova manuale ancora da fare; ramo/hash se pubblicato.
 - Non fare commit/push senza autorizzazione esplicita; quando autorizzati, ricontrollare remoto e stato prima della pubblicazione. Coordinare lavori simultanei su rami separati.
+- **Consultare [docs/ripartizione-compiti.md](docs/ripartizione-compiti.md) prima di iniziare un lavoro**: se tocca un'area in carico a un altro referente, segnalarlo all'utente e attendere la sua decisione.
 - Rispettare la direzione UI **C — Reliquiario**. La revisione dei ritratti/sprite è sospesa: non consumare crediti per rigenerazioni senza una nuova richiesta esplicita.
 
 Gioco d'azione 2D per browser in **TypeScript** (Canvas 2D, nessuna dipendenza runtime nel browser, nessun motore di gioco). La cooperativa usa un server Node/WebSocket: `npm run build` e `npm run server` (porta 4173); Vite in sviluppo inoltra `/party` a quel server. Vedere README per inviti, autorità della simulazione e limiti della prima versione.

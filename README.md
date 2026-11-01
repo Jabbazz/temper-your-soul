@@ -8,7 +8,7 @@ Gioco d’azione 2D per browser in **TypeScript strict**, Canvas 2D e DOM, senza
 
 Questa sezione si applica anche a **Claude, Codex e qualsiasi altro agente** che legga il repository. Il proprietario richiede esplicitamente sincronizzazione e aggiornamenti durante il lavoro.
 
-1. **Prima di modificare qualsiasi file**, comunica in italiano cosa hai capito, cosa controllerai e quale incremento intendi fare. Leggi questo README, le istruzioni dell’agente ([CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md)) e i documenti pertinenti.
+1. **Prima di modificare qualsiasi file**, comunica in italiano cosa hai capito, cosa controllerai e quale incremento intendi fare. Leggi questo README, le istruzioni dell’agente ([CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md)), la [ripartizione dei compiti](docs/ripartizione-compiti.md) e i documenti pertinenti.
 2. Controlla cartella, ramo e modifiche locali, poi **esegui un pull prima di iniziare nuove modifiche**:
 
    ```bash
