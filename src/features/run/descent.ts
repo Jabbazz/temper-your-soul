@@ -9,24 +9,24 @@ import type { LootTable } from '../loot/loot-table';
 import { Match, spreadPlayers, type MatchMember } from '../match/match';
 import { PLAYER_STATS } from '../player/player';
 import type { Loadout } from '../skills/skill-definition';
-import { blessingEffects, type BlessingLevels } from './blessings';
+import type { BlessingLevels } from './blessings';
 import { RoomEncounter, type RoomMember, type RoomView } from './encounter';
 import { LIEUTENANTS, scaledLieutenant } from './lieutenants';
 import { planDescent, type DescentPlan } from './plan';
 import { roomArena, ROOM_TEMPLATES, type RoomTemplate } from './room-templates';
 import { DESCENT, ROOM_COMBAT, type DoorOption, type RoomKind } from './rooms';
-import { addTemper, applyTempers, type TemperPick } from './tempers';
+import type { TemperPick } from './tempers';
 
 /*
  * La discesa: una sequenza di stanze che finisce con il boss del dungeon (o con i quattro boss di fila, nel
- * Pellegrinaggio). Tiene cio' che passa da una stanza all'altra: vita, mana, tempre, braci, sigilli, esperienza.
+ * Pellegrinaggio). Tiene cio' che passa da una stanza all'altra: vita, mana, bestiario e ricompense dei soli boss.
  * Costruisce la partita di ogni stanza; chi la usa (gioco in singolo, server cooperativo) la fa avanzare quando il
  * gruppo esce da una porta. Nessun DOM: la stessa discesa gira nel browser e sul server.
  */
 
 export type RunMode = 'descent' | 'pilgrimage';
 
-/** Un giocatore all'inizio della discesa: skill dell'equipaggiamento e benedizioni dell'Altare. */
+/** Un giocatore all'inizio della discesa. Le benedizioni sono dati storici ignorati. */
 export interface RunMemberSetup {
   readonly id: string;
   readonly loadout: Loadout;
@@ -67,7 +67,7 @@ export interface RunOptions {
   readonly dungeonId: string;
   readonly members: readonly RunMemberSetup[];
   readonly seed: number;
-  /** Grado di tempra (difficolta' facoltativa, 0-5). */
+  /** Campo storico ignorato: la difficoltà non usa più gradi di tempra. */
   readonly grade?: number;
 }
 
@@ -129,31 +129,29 @@ export class DescentRun {
   constructor(options: RunOptions) {
     this.mode = options.mode;
     this.seed = options.seed >>> 0;
-    this.grade = Math.max(0, Math.min(DESCENT.maxGrade, Math.floor(options.grade ?? 0)));
+    this.grade = 0;
     const start = dungeonById(options.dungeonId);
     if (start === undefined) throw new Error(`Dungeon sconosciuto: ${options.dungeonId}`);
     this.dungeons = options.mode === 'pilgrimage' ? ['crypt', 'swamp', 'forge', 'glacier'].map((id) => dungeonById(id)!) : [start];
-    let seals = 0;
+
     for (const member of options.members) {
-      const effects = blessingEffects(member.blessings ?? {});
-      const maxHealth = PLAYER_STATS.maxHealth + effects.bonusHealth;
-      seals = Math.max(seals, effects.seals);
+      const maxHealth = PLAYER_STATS.maxHealth;
       this.players.set(member.id, {
         health: maxHealth,
         maxHealth,
         mana: 100,
         tempers: [],
-        secondLife: effects.secondLife,
+        secondLife: false,
         pacts: 0,
         embers: 0,
         xp: 0,
         kills: {},
-        startingTemper: effects.startingTemper,
-        offers: effects.offers,
+        startingTemper: false,
+        offers: 0,
         baseLoadout: member.loadout,
       });
     }
-    this.seals = Math.min(DESCENT.maxSeals, seals);
+    this.seals = 0;
     this.plan = this.planFor(0);
     this.chosen = this.plan.stages.map(() => null);
     this.chosen[0] = 0;
@@ -202,7 +200,7 @@ export class DescentRun {
         secondLife: state.secondLife,
         ...(state.startingTemper && this.stage === 0 ? { extraOffers: 1 } : {}),
       });
-      matchMembers.push({ id, loadout: applyTempers(state.baseLoadout, state.tempers), health: state.health, maxHealth: state.maxHealth, mana: state.mana });
+      matchMembers.push({ id, loadout: state.baseLoadout, health: state.health, maxHealth: state.maxHealth, mana: state.mana });
     }
     const encounter = new RoomEncounter({
       dungeonId: dungeon.id,
@@ -264,19 +262,18 @@ export class DescentRun {
     if (this.option.kind === 'boss') {
       this.victories.push({ dungeonId: this.dungeon.id, seconds: this.seconds, seals: this.seals });
       for (const state of this.players.values()) state.xp += PROGRESSION.rewards[this.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100;
-      for (const state of this.players.values()) state.embers += Math.round(DESCENT.embers.boss * this.emberFactor());
       if (this.dungeonIndex + 1 >= this.dungeons.length) {
         this.status = 'won';
         return false;
       }
-      // Pellegrinaggio: il dungeon successivo, i sigilli ripartono da quelli dell'Altare.
+      // Pellegrinaggio: passa al dungeon successivo senza premi intermedi o ristori.
       this.dungeonIndex++;
       this.plan = this.planFor(this.dungeonIndex);
       this.chosen = this.plan.stages.map(() => null);
       this.stage = 0;
       this.chosen[0] = 0;
       this.seals = 0;
-      this.restAll(0.5);
+
       this.enter(this.plan.stages[0]!.options[0]!);
       return true;
     }
@@ -287,54 +284,18 @@ export class DescentRun {
     return true;
   }
 
-  /** Premi, tempre e stato dei giocatori all'uscita da una stanza. */
+  /** Conserva salute/mana e conoscenze del bestiario: nessuna ricompensa per stanza. */
   private collect(match: Match, encounter: RoomEncounter): void {
-    const grants = encounter.grants;
-    const factor = this.dungeonXpShare();
     const combat = ROOM_COMBAT[this.option.kind].waves > 0 || this.option.kind === 'lieutenant';
-    if (grants.cleared && combat && this.option.kind !== 'boss') this.roomsCleared++;
-    this.seals = Math.min(DESCENT.maxSeals, this.seals + grants.seals);
+    if (encounter.grants.cleared && combat && this.option.kind !== 'boss') this.roomsCleared++;
     for (const [id, state] of this.players) {
-      const player = match.players.get(id);
-      state.embers += grants.embers.get(id) ?? 0;
-      if (grants.cleared && combat && this.option.kind !== 'boss') state.xp += factor;
-      for (const pick of grants.tempers.get(id) ?? []) state.tempers = addTemper(state.tempers, pick.temperId, pick.slot);
-      if (grants.pacts.has(id)) {
-        state.pacts++;
-        state.maxHealth = Math.max(40, state.maxHealth - 20);
-      }
-      if (grants.usedSecondLife.has(id)) state.secondLife = false;
-      for (const [minion, count] of grants.kills) state.kills[minion] = (state.kills[minion] ?? 0) + count;
-      if (player === undefined) continue;
-      // Chi e' a terra si rialza nella stanza successiva con un po' di vita.
-      state.health = player.health.isDead ? Math.round(state.maxHealth * DESCENT.reviveFraction) : Math.min(state.maxHealth, player.health.current);
+      for (const [kind, count] of encounter.grants.kills) state.kills[kind] = (state.kills[kind] ?? 0) + count;
+      const player = match.players.get(id); if (!player) continue;
+      state.health = player.health.isDead ? Math.round(state.maxHealth * DESCENT.reviveFraction) : player.health.current;
       state.mana = player.mana;
     }
-    // Prima scintilla: la tempra iniziale si sceglie all'uscita dalla Soglia (alla prossima stanza parte l'offerta).
-    if (this.stage === 0) {
-      for (const state of this.players.values()) if (state.startingTemper) state.startingTemper = false;
-    }
   }
 
-  /** Esperienza di una stanza di combattimento: una quota di quella del boss del dungeon. */
-  private dungeonXpShare(): number {
-    const boss = PROGRESSION.rewards[this.dungeon.id as keyof typeof PROGRESSION.rewards] ?? 100;
-    return Math.round(boss * DESCENT.roomXpShare);
-  }
-
-  private emberFactor(): number {
-    return (DESCENT.dungeonFactor[this.dungeon.id] ?? 1) * (1 + DESCENT.gradeEmbers * this.grade);
-  }
-
-  /** Riposo fra un dungeon e l'altro del Pellegrinaggio. */
-  private restAll(fraction: number): void {
-    for (const state of this.players.values()) state.health = Math.min(state.maxHealth, Math.max(state.health, Math.round(state.maxHealth * fraction)));
-  }
-
-  /**
-   * Un giocatore lascia la discesa (disconnessione): resta a terra nella stanza corrente e non entra nelle prossime.
-   * Senza nessuno in piedi la stanza e' persa.
-   */
   removePlayer(id: string): void {
     this.players.delete(id);
     const player = this.match.players.get(id);
@@ -344,10 +305,10 @@ export class DescentRun {
     }
   }
 
-  /** La tabella di bottino del boss con i sigilli: +5 punti ciascuno. */
-  lootTable(dungeonId: string, seals: number): LootTable {
+  /** Tabella originale del boss: nessun modificatore ottenuto nelle stanze. */
+  lootTable(dungeonId: string, _seals = 0): LootTable {
     const table = lootTableFor(dungeonId);
-    return { ...table, dropChance: Math.min(1, table.dropChance + DESCENT.sealBonus * Math.min(seals, DESCENT.maxSeals)) };
+    return table;
   }
 
   view(): RunView {

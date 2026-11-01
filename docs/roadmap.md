@@ -19,23 +19,18 @@
 - [x] Interfaccia party in alto a destra: quattro posti, sprite del personaggio attivo, lobby locale con stato pronto e boss comune; stile Reliquiario e layout mobile.
 - [x] Server cooperativo autorevole Node/WebSocket: link, leader/destinazione/avvio, pronto, controllo GS di tutti, alleati/boss condivisi, no fuoco amico, ping, KO/disconnessioni, premi personali e combat report.
 - [x] Ottimizzazione rete/rendering: protocollo compatto v2, entità riutilizzate, raster cache, badge ping senza ricostruzione DOM, snapshot serializzato una volta per stanza e stop dopo la fine.
-- [ ] Prova giocata con amici su reti differenti; interpolazione/predizione, riconnessione e server persistente in incrementi successivi. Profilare i picchi RTT osservati nel browser in sviluppo Vite (fino a 922 ms nella prova localhost→tunnel), distinti dalle misure dirette e dalla build pubblica.
+- [ ] Prova giocata con amici su reti differenti; predizione locale, riconnessione e server persistente in incrementi successivi. Profilare i picchi RTT osservati nel browser in sviluppo Vite (fino a 922 ms nella prova localhost→tunnel), distinti dalle misure dirette e dalla build pubblica.
 - [ ] Provare manualmente creazione, persistenza, sensazione dei tre set iniziali, grind e premi dei quattro boss.
 - [ ] Tarare GS, livelli oggetto, probabilità e futuro effetto del livello oggetto sulle statistiche.
 - [ ] Prova manuale del grind per classe, della chiarezza delle probabilità condizionate e dei blocchi GS.
-- [x] Discesa a otto stanze con porte e premi, regista delle ondate, insidie, luogotenenti, Prova, Reliquiario con patto, Santuario, Assedio, Caccia e Anticamera (ramo `feature/discesa`, proposta).
-- [x] 32 servitori a tema con comportamenti composti dai dati, élite generiche e a tema, segnali a terra e gettoni d'attacco.
-- [x] Tempre, braci, Altare dell'anima, Bestiario, Duello, Pellegrinaggio e gradi di tempra; salvataggio v7 con migrazione dalla v6.
-- [x] Cooperativa con protocollo 4: modalità e grado nella lobby, servitori compatti, scelta delle tempre e patti dal server.
-- [ ] Decisioni di Jabbaz sulla discesa (Altare al posto della Forgia, sblocco del Duello, bottino solo dal boss, cosa si perde alla sconfitta, scalatura del gruppo).
-- [ ] Prova giocata di una discesa per dungeon, da soli e in quattro, per tarare vita dei servitori, budget, braci e costi dell'Altare.
-- [ ] Banda delle stanze affollate (circa 26 KB/s per client con 35 servitori): valutare posizioni dei servitori a 15 Hz o solo quando cambiano.
-- [x] Fase 0 dello studio sulla grafica: proiettili per squadra, colori nuovi, sagome con bordo, figure ordinate per profondità, particelle sotto i proiettili nemici, luce finta, decori lungo i muri, pavimento della cripta senza strisce (548 test).
-- [ ] Fasi successive dello studio (profondità e luce, minimappa, forme delle stanze, tileset, vene di nemici): dopo le decisioni di Jabbaz.
+- [x] Revisione PR #4: mantenuti mappe, 32 servitori, luogotenenti/pre-boss, Bestiario e direzioni delle stanze.
+- [x] Rimossi premi intermedi, tempre, sigilli, braci, Altare e selettori a tendina di dungeon/modalità/grado. Skill dell’equipaggiamento e ricompense dei boss invariate.
+- [x] Salvataggio v7 conservato senza perdita dei dati storici; relativi bonus disattivati. Protocollo cooperativo 5.
+- [ ] Prova manuale utente: porte, mappe, Prova/Assedio/Caccia, luogotenenti, Bestiario, ricompense dei soli boss, singolo e cooperativa. Nessuna nuova prova visiva automatizzata richiesta.
+- [ ] Definire con l’utente la progressione tra stanze in un incremento successivo.
+- [ ] Tarare budget e danni dei servitori dopo le prove giocate.
 
-Incremento discesa: **545 test**, tipi client/server e build superati. Prove nel browser su origini separate:
-- in singolo: Soglia, porte con i cartelli, dissolvenza, scelta della tempra con i tasti 1–3, Reliquiario con patto (vita massima 100 → 80), luogotenente, Assedio, Santuario, Caccia con sigillo, Anticamera, boss, vittoria con bottino e sigilli, sconfitta, Altare, Bestiario, Duello e grado 1 aperti dopo la vittoria;
-- in cooperativa, con due client sul server 4173: lobby con modalità e grado, avvio, servitori replicati, porta attraversata insieme, alleato a terra rialzato nella stanza dopo, sconfitta comune con braci salvate per entrambi.
+Verifica automatica della revisione: `npm run verify` superato, 555 test in 42 file, tipi e build. Le prove manuali della revisione restano da fare dall’utente. Le correzioni descritte sotto appartengono alla PR originale e non confermano la revisione corrente.
 
 Corretti durante le prove:
 - miniature del Bestiario che coprivano la schermata;
@@ -251,3 +246,22 @@ Checklist manuale:
 - [ ] Attacchi, trasformazione in fase II e morte arrivano al momento giusto.
 - [ ] La differenza di finezza dei pixel fra i boss non disturba.
 - [ ] Le vignette della scelta del dungeon sono piu' belle di prima.
+
+
+## Storico delle migliorie multiplayer integrate dalla copia locale
+
+Le misure seguenti precedono l’integrazione con le stanze della PR #4; non sono benchmark della versione combinata.
+
+### Ripresa e completamento della diagnostica (1 novembre 2026)
+
+478 test, tipi e build superati. Cache della Cripta confrontata con la versione precedente su sei viste: zero differenze di pixel; aggiunti test di riutilizzo e memoria limitata. Watcher Vite corretto per non monitorare log, build e profili browser bloccati. F2 verificato su desktop/mobile; dati server letti durante il party. Un solo browser e alleato simulato via socket: circa 165 FPS in party e server 1,5–3,1% di un core nella finestra misurata. Il calo segnalato non è stato riprodotto in quella prova: conferma manuale e misura F2 nel caso reale ancora da ricevere. Dettagli e limiti nel README.
+
+Prova finale sul nuovo tunnel con due browser isolati: movimento e skill condivisi, vittoria, report identico e 100 XP salvati una sola volta per entrambi; verificato il salvataggio mentre il rendering del membro era sospeso e la comparsa del report alla ripresa, dopo l’animazione finale. Nessuna eccezione JavaScript.
+
+### Interpolazione del multiplayer (1 novembre 2026)
+
+Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, giocatore, alleati, boss, proiettili e servitori interpolano le posizioni a ogni fotogramma fra gli stati ricevuti. Input, HUD, danni, collisioni, ricariche e premi continuano a usare lo stato autorevole. Le scie seguono le posizioni visuali; la mira locale resta agganciata al puntatore. Server a 60 Hz e trasporto a 30 Hz invariati.
+
+Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
+
+Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.

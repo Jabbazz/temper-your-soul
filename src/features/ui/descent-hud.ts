@@ -1,13 +1,8 @@
 import { dungeonById } from '../dungeons/dungeons';
 import type { RunView } from '../run/descent';
 import type { RoomView } from '../run/encounter';
-import { DESCENT, REWARD_LABELS, ROOM_LABELS, TRIAL_LABELS, type RoomKind } from '../run/rooms';
-import { temperById, TEMPER_FAMILIES } from '../run/tempers';
+import { ROOM_LABELS, TRIAL_LABELS, type RoomKind } from '../run/rooms';
 import { el, formatSeconds, requireElement } from './dom';
-
-/** Etichette brevi degli slot (come nella barra delle skill). */
-export const SLOT_NAMES = ['SX', 'DX', 'Q', 'E'];
-const ROMAN = ['', 'I', 'II', 'III'];
 
 /** Lettera della tappa nella mappa della discesa. */
 const STAGE_MARKS: Readonly<Record<RoomKind, string>> = {
@@ -25,7 +20,7 @@ const STAGE_MARKS: Readonly<Record<RoomKind, string>> = {
 
 /**
  * Pannello della discesa: dove si e' (dungeon, tappa, stanza), che cosa sta succedendo (ondate, conto alla rovescia,
- * Prova), la mappa delle tappe, braci, sigilli, grado e tempre. Solo rappresentazione: riceve le viste della discesa e
+ * Prova), la mappa delle tappe e le direzioni disponibili. Solo rappresentazione: riceve le viste della discesa e
  * della stanza e tocca il DOM soltanto quando cambia qualcosa.
  */
 export class DescentHud {
@@ -39,11 +34,11 @@ export class DescentHud {
     this.last = '';
   }
 
-  update(run: RunView, room: RoomView, localId: string): void {
-    const player = run.players[localId];
+  update(run: RunView, room: RoomView, _localId: string): void {
+
     const status = room.cleared
       ? room.doors.length > 0
-        ? 'Stanza libera: raccogli il premio e scegli una porta'
+        ? 'Stanza libera: scegli una direzione'
         : 'Stanza libera'
       : room.countdown !== null
         ? `${room.kind === 'siege' ? 'Resisti' : 'Tempo'} ${formatSeconds(room.countdown)}`
@@ -52,7 +47,7 @@ export class DescentHud {
           : room.kind === 'boss' || room.kind === 'lieutenant'
             ? 'Abbatti il nemico'
             : '';
-    const key = JSON.stringify([run.stage, run.dungeonIndex, run.seals, run.status, player?.embers, player?.tempers, status, room.trialFailed, room.kind]);
+    const key = JSON.stringify([run.stage, run.dungeonIndex, run.status, status, room.trialFailed, room.kind]);
     this.root.classList.remove('hidden');
     if (key === this.last) return;
     this.last = key;
@@ -63,7 +58,7 @@ export class DescentHud {
       el('span', 'eyebrow', `${(dungeon?.name ?? '').toUpperCase()} · TAPPA ${run.stage + 1}/${run.stages}${pilgrimage}`),
       el('strong', '', this.roomTitle(room)),
     );
-    const line = el('span', room.trialFailed ? 'descent-status failed' : 'descent-status', room.trialFailed ? 'Prova fallita: niente premio' : status);
+    const line = el('span', room.trialFailed ? 'descent-status failed' : 'descent-status', room.trialFailed ? 'Obiettivo della prova non raggiunto' : status);
     const map = el('ol', 'descent-map');
     run.plan.forEach((stage, index) => {
       const chosen = stage.chosen === null ? null : stage.options[stage.chosen] ?? null;
@@ -74,27 +69,12 @@ export class DescentHud {
         : stage.options.map((option) => ROOM_LABELS[option.kind].name).join(' o ');
       map.append(pip);
     });
-    const meta = el('div', 'descent-meta');
-    meta.append(
-      el('span', 'descent-embers', `Braci ${player?.embers ?? 0}`),
-      el('span', 'descent-seals', `Sigilli ${run.seals}/${DESCENT.maxSeals}`),
-      ...(run.grade > 0 ? [el('span', 'descent-grade', `Grado ${run.grade}`)] : []),
-    );
-    const tempers = el('ul', 'descent-tempers');
-    for (const pick of player?.tempers ?? []) {
-      const temper = temperById(pick.temperId);
-      if (temper === undefined) continue;
-      const chip = el('li', `temper-chip temper-${temper.family}`, `${temper.name} ${ROMAN[pick.grade] ?? ''} · ${SLOT_NAMES[pick.slot] ?? ''}`);
-      chip.title = `${TEMPER_FAMILIES[temper.family].name}: ${temper.describe(pick.grade)}`;
-      tempers.append(chip);
-    }
-    this.root.replaceChildren(head, line, map, meta, tempers);
+    this.root.replaceChildren(head, line, map);
   }
 
   private roomTitle(room: RoomView): string {
     const name = ROOM_LABELS[room.kind].name;
     if (room.kind === 'trial' && room.rule) return `${name} · ${TRIAL_LABELS[room.rule].name}`;
-    if (room.reward !== null && room.kind !== 'boss') return `${name} · ${REWARD_LABELS[room.reward].name}`;
     return name;
   }
 

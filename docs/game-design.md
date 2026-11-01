@@ -279,105 +279,31 @@ Regole comuni:
 - compaiono in cerchio attorno al boss, senza casualità (la partita resta riproducibile);
 - fermano i proiettili del giocatore prima del boss (fanno da scudo) e sono colpiti da zone e colpi ravvicinati;
 - contano nei danni del resoconto e muoiono con il boss;
-- in cooperativa viaggiano nelle istantanee (protocollo **3**: lista `m` con id, tipo, posizione e vita; nel ramo `feature/discesa` protocollo 4, vedi sotto).
+- in cooperativa viaggiano nelle istantanee (protocollo **3**: lista `m` con id, tipo, posizione e vita; nel revisione locale della PR #4 protocollo 5, vedi sotto).
 
 Grafica nel codice in `presentation/minion-art.ts`. Punti aperti: numeri e frequenze, esperienza o bottino per i servitori (oggi nessuno), servitori anche in fase I.
 
-## Discesa, servitori a tema e progressione (proposta del ramo `feature/discesa`, da approvare)
+## Discesa: decisione del 1 novembre 2026 (revisione PR #4)
 
-Implementa lo studio sulla progressione (documento a parte, condiviso dall'utente): prima del boss si scende per stanze piene di servitori del suo stesso tema. Ispirazioni dichiarate: porte con il premio scritto sopra (Hades), regista a budget delle ondate (Risk of Rain 2), stanze modello con ripari (The Binding of Isaac, Enter the Gungeon), scalatura per il gruppo (Realm of the Mad God). **Tutti i valori sono provvisori**, nelle tabelle con nome indicate; le regole restano da confermare da Jabbaz.
+La revisione locale della PR #4 mantiene mappe, 32 servitori a tema con élite, luogotenenti/pre-boss, Bestiario e scelta delle direzioni lungo otto tappe. **Nessuna ricompensa intermedia**: niente XP, oggetti, braci, cure a fine stanza, sigilli, tempre o Altare. Le skill restano quelle dell’equipaggiamento; solo il boss finale assegna gli XP e il bottino già previsti (25% di possibilità di un oggetto). La progressione tra stanze verrà progettata in un secondo momento.
 
-### Modalità e sblocchi
-
-- **Discesa** (predefinita, dalla scheda del dungeon): otto tappe fino al boss.
-- **Duello**: solo il boss, come prima. Si apre vincendo una discesa in quel dungeon; chi aveva già battuto il boss con un salvataggio v6 lo trova aperto.
-- **Pellegrinaggio**: le quattro discese di fila in versione breve (5 tappe ciascuna), dalla cripta al ghiacciaio. Si apre dopo una discesa vinta in ogni dungeon e chiede il GS d'ingresso più alto (oggi 200).
-- **Gradi di tempra** 0–5: ogni grado aggiunge il 10% al budget dei nemici e alle braci (`DESCENT.gradeBudget`, `gradeEmbers`). Il grado n+1 si apre vincendo al grado n.
-
-### La discesa (`features/run/`)
-
-| Tappa | Porte (`plan.ts`) |
-| --- | --- |
-| 1 | Soglia (scontro facile, braci) |
-| 2 | due Scontri con premi diversi, uno con la tempra |
-| 3 | Scontro, Prova (più dura, teschio sulla porta) o Reliquiario |
-| 4 | Luogotenente |
-| 5 | Santuario o Assedio (più duro) |
-| 6 | Scontro o Caccia (con sigillo) |
-| 7 | Anticamera |
-| 8 | Boss |
-
-- **Porte**: a stanza libera si aprono sul muro in alto con il cartello tipo · premio. Si esce restando tutti i vivi sulla stessa porta per 0,8 s, e solo dopo aver scelto le tempre in sospeso (`DESCENT.doorHold`).
-- **Premi**: tempra, braci, ristoro (+30% vita), sigillo (+5 punti alla probabilità di bottino del boss, fino a +20). I premi a terra sono **per giocatore**: in cooperativa ognuno raccoglie il suo.
-- **Stanze**:
-  - Prova: senza un graffio oppure entro 45 s; premio doppio e un sigillo.
-  - Reliquiario: un forziere, a volte un patto (due tempre per −20 vita massima fino alla fine della discesa).
-  - Santuario: si sceglie fra la fonte (+40% vita) e l'incudine (una tempra).
-  - Assedio: 45 s fra i nidi, ogni nido distrutto toglie 8 s.
-  - Caccia: una preda che fugge ed evoca.
-  - Anticamera: +25% vita.
-- **Stanze modello** (`room-templates.ts`): sei per dungeon (cinque di scontro e una di calma), da 1600–2400 × 1000–1500, con ripari e punti di comparsa. Il boss combatte nella mappa originale del dungeon.
-- **Regista delle ondate** (`director.ts`):
-  - budget = 60 × (1 + 0,15 × tappa) × tipo di stanza × (giocatori + 1)/2 × (1 + 0,1 × grado);
-  - al massimo tre tipi per stanza, la minaccia dalla seconda ondata, un pesante nell'ultima, al massimo un nido o un sostegno;
-  - le élite costano il triplo;
-  - la prossima ondata arriva quando ne resta vivo meno del 30% o dopo 20 s;
-  - vivi al massimo 30, +5 per ogni giocatore in più;
-  - ogni comparsa è annunciata a terra per 0,9 s, a lotti di sei, ad almeno 300 unità dai giocatori.
-- **Insidie** (`hazards.ts`), una per dungeon: vetrate che cadono in linea (cripta), bolle di gas (palude), bocchette di lava fisse (fucina), stalattiti (ghiacciaio).
-- **Luogotenenti** (`lieutenants.ts`): uno per dungeon, con due o tre schemi del boss in piccolo e la folla del dungeon in furia. Doccione del campanile 800, Rospo re 1000, Maestro d'incudine 1100, Prima allieva 1200; +50% di vita per ogni giocatore in più.
-- **Sconfitta**: la discesa finisce. Braci, esperienza e bestiario restano; le tempre si spengono.
-
-### Servitori a tema (`features/minions/`)
-
-32 servitori più la goccia della colata, otto per dungeon, coerenti con il boss: cripta (fiammelle, ceri, pipistrelli, scheletri, doccioni dormienti, accoliti, campane, reliquiari), palude, fucina e ghiacciaio con lo stesso schema di ruoli.
-
-- **Comportamenti composti dai dati**: inseguitore, kamikaze, torretta, tiratore, caricatore, volante, saltatore, scavatore, nido, sostegno, orbitante, fuggitivo. Opzioni: raffiche, cariche, salti, scavo, aure, lanci, teletrasporto, effetti alla morte (scissione, pozza, anello, rinascita), scie, sonno, volo.
-- **Élite**: generiche (robusta, rapida, gemella, schermata) e una a tema per dungeon (ardente, marcia, incandescente, gelida).
-- **Leggibilità**: ogni attacco ha un segnale a terra. Al massimo 3 + (giocatori vivi) servitori attaccano insieme (gettoni). Il tetto è di 80 proiettili dei servitori. I proiettili nemici non usano l'arancio sui fondi caldi.
-- **Vita** per dungeon: ×1 / 1,6 / 2,4 / 3,2, perché l'equipaggiamento dei dungeon alti è più forte.
-- **Ricompense**: ogni stanza di combattimento vale il 5% dell'esperienza del boss del dungeon. Le braci per premio vanno da 6 a 35, × 1 / 1,4 / 1,8 / 2,2 per dungeon.
-- **Grafica**: disegnata nel codice (`presentation/minion-art/`, `boss-art/lieutenants.ts`), senza nuovi asset. L'audio riusa le registrazioni già presenti.
-
-### Tempre, braci, Altare e Bestiario
-
-- **Tempre** (`tempers.ts`): nove, in tre famiglie del gesto del fabbro.
-  - Fuoco: Brace viva, Fiamma concentrata.
-  - Martello: Colpo doppio, Onda larga, Punta pesante.
-  - Acqua: Mano svelta, Risparmio, Passo lungo, Tempra d'acqua.
-  - Ognuna si applica a uno slot e sale fino al grado 3. Si sceglie fra tre carte, con un clic o con i tasti 1–4.
-- **Altare dell'anima** (`blessings.ts`): le braci comprano benedizioni permanenti, valide solo nelle discese e nel Pellegrinaggio e che non cambiano il GS:
-  - Vigore +10 vita (60/120/200);
-  - Prima scintilla (150);
-  - Seconda vita (300);
-  - Occhio del fabbro, quattro offerte (200);
-  - Fortuna, sigilli iniziali (120/240).
-- **Bestiario**: una pagina per servitore e per luogotenente, aperta dalla prima uccisione, con ruolo, schema del boss che insegna e un'iscrizione (`bestiary-lore.ts`).
-- **Salvataggio v7** (`save-format.ts`): aggiunge braci, benedizioni, bestiario, record delle discese (vittorie, miglior tempo, grado massimo, tappa più lontana) e Pellegrinaggio. I salvataggi v6 si leggono senza perdite. Braci, esperienza e bestiario si salvano a ogni stanza, quindi un ricaricamento a metà discesa non li perde.
-
-### Cooperativa (protocollo 4)
-
-- Il leader sceglie destinazione, modalità e grado; il server controlla GS, Duello, Pellegrinaggio e grado di **ogni** membro.
-- I servitori nascono una volta, poi viaggiano come posizione intera, stato e flag; la vita solo quando cambia. Stanza e discesa viaggiano solo quando cambiano. Ogni stanza ha un id d'incontro proprio.
-- Nuovi messaggi del client: `mode`, `temper`, `pact`. Chi è a terra si rialza nella stanza dopo con il 30% della vita.
-- **Benchmark** (`npm run benchmark:network`):
-  - duello: fino a 231 proiettili, 552.886 byte in 40 s, −98,2% rispetto agli snapshot completi;
-  - stanza piena del ghiacciaio con quattro giocatori: fino a 35 servitori, 1.037.484 byte in 40 s, cioè circa 26 KB/s per client, il doppio del duello.
-
-### Decisioni da confermare con Jabbaz
-
-1. Le braci comprano **benedizioni** all'Altare, non il livello degli oggetti (la "Forgia" dello studio): alzare il livello degli oggetti con le braci aggirerebbe le soglie GS di T3/T4.
-2. Il Duello si apre dopo la prima discesa vinta in quel dungeon.
-3. Il bottino resta **solo** dal boss, con i sigilli che ne alzano la probabilità; i servitori non lasciano oggetti.
-4. Alla sconfitta si tengono braci, esperienza e bestiario; si perdono le tempre.
-5. Scalatura del gruppo: budget × (giocatori + 1)/2, luogotenente +50% per giocatore, il boss resta senza aumento (come prima).
+- Otto tappe: Soglia; due Scontri; Scontro/Prova/Reliquiario; Luogotenente; Santuario/Assedio; Scontro/Caccia; Anticamera; Boss. Il percorso e le direzioni restano deterministici dal seme.
+- A stanza libera si aprono le porte. Tutti i vivi restano sulla stessa soglia per 0,8 s. Nessuna scelta di potenziamenti blocca l’uscita.
+- Restano ondate a budget, insidie a tema, élite, segnali di comparsa, tetto dei vivi e scalatura del gruppo. Nessun moltiplicatore da gradi di tempra.
+- Prove, Assedio e Caccia mantengono obiettivi e combattimento. Stanze tranquille e Anticamera non curano e non generano forzieri/fonti/incudini.
+- Vita e mana passano alla stanza successiva; la rigenerazione mana ordinaria resta. In cooperativa un alleato a terra si rialza nella stanza seguente al 30%: meccanica KO preesistente, non premio di stanza.
+- Restano i 32 servitori a tema, i quattro luogotenenti e le mappe modello. Uccisioni registrate nel Bestiario anche alla sconfitta.
+- Boss: XP originali e tabelle originali, nessun bonus sigillo. I servitori e i luogotenenti non assegnano oggetti, XP o valuta.
+- Restano Duello e Pellegrinaggio della PR; la progressione tra stanze è rinviata.
+- Salvataggio v7: conserva migrazioni e dati storici braci/benedizioni/gradi senza applicarne gli effetti. Nessun reset dei profili.
+- Cooperativa: protocollo 5, stessa autorità server. Leader sceglie dungeon e modalità con pulsanti; grado sempre zero. I comandi storici di tempra/patto non assegnano benefici.
 
 ### Punti aperti
 
 - Taratura di vita, danni e budget con partite vere: ogni dungeon è stato provato a fondo solo con simulazioni e bot.
 - Banda nelle stanze affollate: si potrebbero inviare le posizioni dei servitori a 15 Hz o solo quando cambiano.
 - Il resoconto della sconfitta chiama "Contatto con il boss" anche il contatto con il luogotenente.
-- La pagina dell'Altare e il Bestiario usano il tema Reliquiario, ma la revisione grafica complessiva resta sospesa.
+- Il Bestiario usa il tema Reliquiario, ma la revisione grafica complessiva resta sospesa.
 
 ## Grafica: fase 0 dello studio (proposta del ramo `feature/discesa`, da approvare)
 
@@ -409,3 +335,33 @@ Primo passo dello studio su grafica, stanze, minimappa e nemici (documento a par
 
   Prima, nelle stanze, un braciere cadeva sulla porta centrale e uno sull'ingresso.
 - **Pavimento della cripta**: un hash vero al posto della sinusoide, che disegnava strisce regolari.
+
+
+## Storico delle migliorie multiplayer integrate dalla copia locale
+
+Le misure seguenti precedono l’integrazione con le stanze della PR #4; non sono benchmark della versione combinata.
+
+### Diagnostica FPS e completamento dell’ottimizzazione (1 novembre 2026)
+
+Il tasto **F2**, o il pulsante **FPS · F2**, apre un pannello facoltativo con FPS, tempo dei fotogrammi al 95° percentile, lavoro per frame, aggiornamenti di rete al secondo, traffico approssimato, RTT e costi del server. I dati server arrivano da `/health` soltanto quando il pannello è visibile e il client è in party. CPU server è una percentuale di **un core**, non il consumo totale del PC; il tempo del frame non misura direttamente il carico della GPU. Nessuna telemetria inviata a terzi.
+
+La Cripta memorizza il pavimento in tasselli con cache limitata a 8 MiB per arena; torce animate e rune sono disegnate a parte. Completata la verifica di sei viste, inclusi bordi e coordinate frazionarie: **zero differenze di pixel** rispetto alla versione senza cache. Due test controllano riutilizzo, separazione fra arene e rimozione dei tasselli vecchi. Il caricamento audio limita a due le operazioni contemporanee; selezione delle piste e scritture di volume evitano lavoro ripetuto quando lo stato non cambia. Queste ottimizzazioni erano già integrate nel main; la ripresa ne completa verifica e documentazione.
+
+Corretto un problema rilevato nelle prove Windows: il watcher di Vite includeva `.tools/` e poteva arrestarsi con `EBUSY` su file bloccati dei profili browser. Ora ignora `.tools/` e `dist/`. È un problema dell’ambiente di sviluppo/test, non una causa dimostrata del calo durante una partita sulla build pubblica.
+
+Profilo della versione attuale: un browser con accelerazione grafica e un alleato simulato tramite socket, senza un secondo renderer sul PC. Circa **159 FPS in singolo e 165 in party**, frame p95 circa 6,2 ms; server circa **1,5–3,1% di un core**, passo p95 0,11–0,13 ms, invio p95 0,34–0,35 ms, rete 30 aggiornamenti/s e circa 6,3 KB/s nella finestra misurata. In questa prova il server non è risultato saturo e il calo segnalato non è stato riprodotto: non è una garanzia per altre reti, dungeon o carichi. La misura con F2 durante il problema reale resta necessaria; aggiornamenti del mondo a 30 Hz e FPS del canvas sono grandezze distinte. Questo profilo precede l’interpolazione implementata nel successivo incremento descritto sotto.
+
+Verifica aggiornata: **478 test**, tipi client/server e build superati. Controllati il pannello desktop/mobile e la lettura dei dati server. Conferma giocata dell’utente ancora da ricevere. La prossima parte della progressione resta da concordare, senza modifiche implicite a XP, drop o permadeath.
+
+### Interpolazione del multiplayer (1 novembre 2026)
+
+Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, giocatore, alleati, boss, proiettili e servitori interpolano le posizioni a ogni fotogramma fra gli stati ricevuti. Input, HUD, danni, collisioni, ricariche e premi continuano a usare lo stato autorevole. Le scie seguono le posizioni visuali; la mira locale resta agganciata al puntatore. Server a 60 Hz e trasporto a 30 Hz invariati.
+
+Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
+
+Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.
+
+
+### Verifica della versione combinata (1 novembre 2026)
+
+Integrate le fix delle stanze e le migliorie multiplayer locali. `npm run verify`: 555 test in 42 file, tipi client/server e build superati. Due regressioni aggiuntive verificano interpolazione in stanze senza boss e conservazione del luogotenente con vita scalata. Nessuna nuova prova visiva eseguita, come richiesto dall’utente.

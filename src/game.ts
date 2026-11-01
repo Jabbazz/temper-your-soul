@@ -2,6 +2,7 @@ import { renderCharacterCreation } from './features/ui/character-creation';
 import { PROGRESSION, levelProgress } from './features/character/progression';
 import { Camera, ZOOM } from './core/camera';
 import { Input, SKILL_ACTIONS } from './core/input';
+import { NetworkView } from './features/presentation/network-view';
 import { PerformancePanel } from './features/ui/performance-panel';
 import { SeededRng } from './core/rng';
 import { Vec2 } from './core/vec2';
@@ -36,7 +37,6 @@ import { Overlay } from './features/ui/overlay';
 import { Screens } from './features/ui/screens';
 import { PartyPanel } from './features/ui/party-panel';
 import { applySnapshot, replicaMatch, type BattleSnapshot, type PartyMember } from './features/network/protocol';
-import { applyTempers } from './features/run/tempers';
 import { deserializeCharacter } from './features/character/save-format';
 import { DUNGEONS, dungeonById } from './features/dungeons/dungeons';
 import type { Item, ItemRoll } from './features/items/item';
@@ -45,8 +45,6 @@ import { DescentRun, type RunMode, type RunView } from './features/run/descent';
 import type { RoomView } from './features/run/encounter';
 import type { DoorOption } from './features/run/rooms';
 import { DescentHud } from './features/ui/descent-hud';
-import { TemperChoice } from './features/ui/temper-choice';
-import { AltarScreen } from './features/ui/altar-screen';
 import { BestiaryScreen } from './features/ui/bestiary-screen';
 import type { AudioScreen } from './features/audio/audio-director';
 
@@ -67,9 +65,9 @@ const TOAST_MS = 6000;
  * Schermata corrente dell'applicazione. Le prime sono fuori dalla partita (mostrano lo sfondo di un dungeon);
  * la partita avanza solo in `playing`.
  */
-type Screen = 'menu' | 'dungeons' | 'inventory' | 'altar' | 'bestiary' | 'playing' | 'paused' | 'ended';
+type Screen = 'menu' | 'dungeons' | 'inventory' | 'bestiary' | 'playing' | 'paused' | 'ended';
 
-const IDLE_SCREENS: readonly Screen[] = ['menu', 'dungeons', 'inventory', 'altar', 'bestiary'];
+const IDLE_SCREENS: readonly Screen[] = ['menu', 'dungeons', 'inventory', 'bestiary'];
 
 /** Come si entra in un dungeon: il Duello di sempre, la Discesa, il Pellegrinaggio. */
 type Mode = 'duel' | RunMode;
@@ -93,7 +91,6 @@ export class Game {
   private readonly audioPanel: AudioPanel;
   private readonly hud = new Hud();
   private readonly descentHud = new DescentHud();
-  private readonly temperChoice = new TemperChoice();
   private readonly performancePanel = new PerformancePanel();
   private readonly overlay = new Overlay();
   private readonly tally = new CombatTally();
@@ -111,6 +108,7 @@ export class Game {
     if (this.networkBattleId) { this.networkBattleId = ''; this.showToast('Hai lasciato il combattimento cooperativo.'); this.showMenu(); }
   });
   private networkBattleId = '';
+  private networkView: NetworkView | null = null;
   private readonly completedBattles = new Set<string>();
   private battleMembers: PartyMember[] = [];
   private readonly allyPoses = new Map<string, ActorPoses>();
@@ -120,7 +118,6 @@ export class Game {
   private readonly menu: MainMenu;
   private readonly dungeonSelect: DungeonSelect;
   private readonly inventoryScreen: InventoryScreen;
-  private readonly altarScreen: AltarScreen;
   private readonly bestiaryScreen: BestiaryScreen;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly saveStore: SaveStore;
@@ -143,7 +140,7 @@ export class Game {
   private toastTimer: number | undefined;
   private saveWarningShown = false;
 
-  /** Come si entra nel dungeon scelto e con che grado di tempra. */
+  /** Modalità di ingresso; il grado storico resta fisso a zero. */
   private mode: Mode = 'descent';
   private grade = 0;
   /** La discesa in corso (partita singola). */
@@ -179,7 +176,6 @@ export class Game {
     this.menu = new MainMenu({
       onDungeons: () => this.openDungeons(),
       onInventory: () => this.openInventory(),
-      onAltar: () => this.openAltar(),
       onBestiary: () => this.openBestiary(),
     });
     this.dungeonSelect = new DungeonSelect({
@@ -190,7 +186,6 @@ export class Game {
       onBack: () => this.showMenu(),
     });
     this.inventoryScreen = new InventoryScreen({ onChange: () => this.persist(), onBack: () => this.showMenu() });
-    this.altarScreen = new AltarScreen({ onChange: () => this.persist(), onBack: () => this.showMenu() });
     this.bestiaryScreen = new BestiaryScreen({ onBack: () => this.showMenu() });
     this.match = this.createMatch(this.dungeon);
     this.menu.setNote(
@@ -264,10 +259,9 @@ export class Game {
         this.persist();this.showMenu();
       }
     }));
-    for (const id of ['menu-dungeons', 'menu-inventory', 'menu-altar', 'menu-bestiary']) {
+    for (const id of ['menu-dungeons', 'menu-inventory', 'menu-bestiary']) {
       (requireElement(id) as HTMLButtonElement).disabled = !this.character.created;
     }
-    requireElement('menu-altar').textContent = this.character.created ? `Altare · ${this.character.embers} braci` : 'Altare';
   }
 
   private openDungeons(): void {
@@ -290,13 +284,6 @@ export class Game {
     this.updateParty();
   }
 
-  private openAltar(): void {
-    if (!this.character.created) return;
-    this.screen = 'altar';
-    this.screens.show('altar');
-    this.altarScreen.render(this.character);
-  }
-
   private openBestiary(): void {
     if (!this.character.created) return;
     this.screen = 'bestiary';
@@ -306,6 +293,7 @@ export class Game {
 
   /** Sfondo delle schermate fuori dalla partita: la mappa e il boss del dungeon indicato, fermi. */
   private preview(dungeon: DungeonDefinition): void {
+    this.networkView = null;
     this.renderAppearance = undefined; this.allyVisuals = [];
     this.dungeon = dungeon;
     this.match = this.createMatch(dungeon);
@@ -315,15 +303,15 @@ export class Game {
     this.updateParty();
   }
 
-  private startDungeon(dungeon: DungeonDefinition, mode: Mode, grade: number): void {
+  private startDungeon(dungeon: DungeonDefinition, mode: Mode, _grade: number): void {
     if (this.party.client.state) {
       this.party.client.send({ type: 'choose', dungeonId: dungeon.id });
-      this.party.client.send({ type: 'mode', mode, grade });
+      this.party.client.send({ type: 'mode', mode, grade: 0 });
       this.party.openDialog(); return;
     }
     this.dungeon = dungeon;
     this.mode = mode;
-    this.grade = grade;
+    this.grade = 0;
     this.startMatch();
   }
 
@@ -352,7 +340,7 @@ export class Game {
     this.run = new DescentRun({
       mode: this.mode,
       dungeonId: this.mode === 'pilgrimage' ? DUNGEONS[0]!.id : this.dungeon.id,
-      members: [{ id: 'local', loadout: this.character.loadout(), blessings: this.character.blessings }],
+      members: [{ id: 'local', loadout: this.character.loadout() }],
       seed: Math.floor(Math.random() * 0x100000000),
       grade: this.grade,
     });
@@ -442,7 +430,6 @@ export class Game {
     this.saveRunProgress();
     if (run.status === 'playing') {
       // Nuova stanza: un attimo di buio (piu' lungo dopo un boss del Pellegrinaggio, per vederlo cadere).
-      this.temperChoice.hide();
       this.pendingRoom = { remaining: bossRoom ? END_DELAY.won : ROOM_FADE, enter: () => this.enterRoom() };
       if (!bossRoom) document.body.classList.add('room-fading');
       return;
@@ -450,7 +437,7 @@ export class Game {
     this.finishRun(run);
   }
 
-  /** Il boss della discesa e' caduto: bottino con i sigilli e record del boss, salvati subito. */
+  /** Il boss della discesa e' caduto: bottino e record del boss, salvati subito. */
   private onDescentBoss(match: Match, run: DescentRun): void {
     const rolls = run.rollBossLoot(new SeededRng(Math.floor(Math.random() * 0x100000000))).get('local') ?? [];
     this.runItems.push(...this.character.addRolls(rolls));
@@ -470,7 +457,6 @@ export class Game {
       if (delta > 0) kills[id] = delta;
     }
     if (embers === 0 && xp === 0 && Object.keys(kills).length === 0) return;
-    this.character.embers += Math.max(0, embers);
     this.character.totalXp += Math.max(0, xp);
     this.character.addKills(kills);
     this.runSaved = { embers: state.embers, xp: state.xp, kills: { ...state.kills } };
@@ -518,7 +504,6 @@ export class Game {
     };
     this.screen = 'ended';
     this.input.releaseAll();
-    this.temperChoice.hide();
     const extra = won ? renderDescentVictory(view) : renderDescentDefeat({ ...view, onInventory: () => this.openInventory() });
     if (!won) document.body.classList.add('defeated');
     let sounds: Array<'loot' | 'level_up'> = [];
@@ -545,7 +530,6 @@ export class Game {
     this.run = null;
     this.pendingRoom = null;
     document.body.classList.remove('room-fading');
-    this.temperChoice.hide();
     this.descentHud.hide();
     this.descentHud.hideBanner();
     const state = run.players.get('local');
@@ -668,14 +652,14 @@ export class Game {
         .filter(m => snapshot.players.some(p => p.id === m.id))
         .map(m => {
           const character = deserializeCharacter(m.character)!;
-          const tempers = snapshot.run?.players[m.id]?.tempers ?? [];
-          return { id: m.id, loadout: applyTempers(character.loadout(), tempers) };
+          return { id: m.id, loadout: character.loadout() };
         });
       this.match = replicaMatch(dungeon, snapshot.setup, members);
       this.match.viewPlayerId = me;
+      const view = new NetworkView(this.match); this.networkView = view;
       this.allyPoses.clear(); for (const member of members) this.allyPoses.set(member.id, new ActorPoses());
       this.allyVisuals = this.battleMembers.filter(m => m.id !== me && this.match.players.has(m.id)).map(member => ({
-        player: this.match.players.get(member.id)!, poses: this.allyPoses.get(member.id)!, name: member.name, appearance: member.appearance,
+        player: view.match.players.get(member.id)!, poses: this.allyPoses.get(member.id)!, name: member.name, appearance: member.appearance,
       }));
       this.renderAppearance = this.character.appearance();
       this.effects.clear(); this.poses.reset(); this.input.releaseAll();
@@ -688,6 +672,7 @@ export class Game {
     this.networkRun = snapshot.run;
     this.networkRoom = snapshot.room;
     applySnapshot(this.match, snapshot);
+    this.networkView!.accept(snapshot, performance.now());
     for (const event of snapshot.events) {
       this.effects.handle(event, me); this.audio.handle(event, me);
       this.hud.onEvent(event, me); this.tally.handle(event); this.runTally.handle(event);
@@ -720,7 +705,6 @@ export class Game {
     }
     const newItems = rewards.slice(saved.items);
     if (state.embers === saved.embers && state.xp === saved.xp && Object.keys(kills).length === 0 && newItems.length === 0) return;
-    this.character.embers += Math.max(0, state.embers - saved.embers);
     this.character.totalXp += Math.max(0, state.xp - saved.xp);
     this.character.addKills(kills);
     this.runItems.push(...this.character.addRolls(newItems));
@@ -771,7 +755,6 @@ export class Game {
     };
     this.screen = 'ended';
     this.input.releaseAll();
-    this.temperChoice.hide();
     const extra = won ? renderDescentVictory(view) : renderDescentDefeat({ ...view, onInventory: () => this.openInventory() });
     if (!won) document.body.classList.add('defeated');
     this.networkRunId = '';
@@ -801,7 +784,6 @@ export class Game {
     // Durante la creazione non si ridisegna il menu: il nome che si sta scrivendo andrebbe perso.
     if (this.screen === 'menu' && this.draft === null) this.showMenu();
     else if (this.screen === 'dungeons') this.dungeonSelect.render(this.character);
-    else if (this.screen === 'altar') this.altarScreen.render(this.character);
     else if (this.screen === 'bestiary') this.bestiaryScreen.render(this.character);
     else if (this.screen === 'inventory') {
       this.inventoryScreen.reset();
@@ -885,7 +867,7 @@ export class Game {
     if (this.screen === 'playing' || this.screen === 'ended') {
       this.poses.update(STEP, match.player.moving);
       for (const [id, poses] of this.allyPoses) poses.update(STEP, match.players.get(id)?.moving ?? false);
-      this.effects.update(STEP, match, this.camera);
+      this.effects.update(STEP, this.networkBattleId && this.networkView ? this.networkView.match : match, this.camera);
     }
     if (this.screen === 'playing' && this.pendingRoom === null) {
       if (this.networkBattleId) {
@@ -915,34 +897,6 @@ export class Game {
     return { run: run.view(), room: run.roomView(), next: run.nextOptions, localId: 'local' };
   }
 
-  /** Mostra o nasconde la scelta della tempra e il patto, e li collega alla stanza (o al server, in cooperativa). */
-  private updateChoices(): void {
-    if (this.networkBattleId) {
-      const run = this.networkRun, room = this.networkRoom, me = this.party.client.playerId;
-      if (run === null || room === null || this.screen !== 'playing') { this.temperChoice.hide(); return; }
-      const offers = room.offers[me];
-      if (offers !== undefined) {
-        const loadout = applyTempers(this.character.loadout(), run.players[me]?.tempers ?? []);
-        this.temperChoice.showOffers(offers, loadout, (index) => this.party.client.send({ type: 'temper', index }));
-      } else if (room.pacts.includes(me)) {
-        this.temperChoice.showPact((accept) => this.party.client.send({ type: 'pact', accept }));
-      } else this.temperChoice.hide();
-      return;
-    }
-    const run = this.run;
-    if (run === null || this.screen !== 'playing' || run.match !== this.match) {
-      this.temperChoice.hide();
-      return;
-    }
-    const encounter = run.encounter;
-    const offers = encounter.offers.get('local');
-    if (offers !== undefined) {
-      this.temperChoice.showOffers(offers, encounter.temperedLoadout('local'), (index) => encounter.chooseOffer(run.match, 'local', index));
-    } else if (encounter.pendingPacts.has('local')) {
-      this.temperChoice.showPact((accept) => encounter.answerPact(run.match, 'local', accept));
-    } else this.temperChoice.hide();
-  }
-
   private frame(time: number): void {
     const frameStart = performance.now();
     this.party.client.flushSnapshot();
@@ -950,6 +904,8 @@ export class Game {
     this.lastTime = time;
     this.clock += delta;
     this.accumulator += delta;
+    const view = this.networkBattleId && this.networkView ? this.networkView : null;
+    view?.sample(performance.now());
     while (this.accumulator >= STEP) {
       this.step();
       this.accumulator -= STEP;
@@ -973,17 +929,19 @@ export class Game {
     }
     this.camera.shakeOffset =
       this.screen === 'playing' || this.screen === 'ended' ? this.effects.shakeOffset() : Vec2.ZERO;
+    const renderedMatch = view?.match ?? this.match;
+    this.camera.follow(renderedMatch.player.position);
+    if (view) renderedMatch.player.aim = renderedMatch.player.position.add(this.camera.pointerOffset(this.input.pointer));
     this.hud.update(this.match, levelProgress(this.character.totalXp));
     const views = this.descentViews();
     if (views !== null && (this.screen === 'playing' || this.screen === 'paused')) this.descentHud.update(views.run, views.room, views.localId);
-    this.updateChoices();
     this.audio.setListener(this.match.player.position, this.camera.width / 2);
-    const audioScreen: AudioScreen = this.screen === 'altar' || this.screen === 'bestiary' ? 'menu' : this.screen;
+    const audioScreen: AudioScreen = this.screen === 'bestiary' ? 'menu' : this.screen;
     this.audio.setScene({ screen: audioScreen, theme: this.match.arena.theme, enraged: this.match.boss?.isEnraged ?? false });
     this.audio.update(delta);
     const look: RoomLook | null = views === null ? null : { view: views.room, arena: this.match.arena, nextOptions: views.next, localId: views.localId };
     renderScene(this.ctx, {
-      match: this.match,
+      match: renderedMatch,
       effects: this.effects,
       poses: this.poses,
       camera: this.camera,
@@ -992,7 +950,7 @@ export class Game {
       allies: this.allyVisuals,
       ...(look === null ? {} : {
         drawRoom: (ctx: CanvasRenderingContext2D, layer: 'floor' | 'above') => (layer === 'floor' ? drawRoomFloor(ctx, look, this.clock) : drawRoomLabels(ctx, look)),
-        drawRoomScreen: (ctx: CanvasRenderingContext2D) => drawRoomIndicators(ctx, this.camera, this.match.player.position, look.view, this.match.minions),
+        drawRoomScreen: (ctx: CanvasRenderingContext2D) => drawRoomIndicators(ctx, this.camera, renderedMatch.player.position, look.view, renderedMatch.minions),
         preyId: look.view.preyId,
       }),
     });

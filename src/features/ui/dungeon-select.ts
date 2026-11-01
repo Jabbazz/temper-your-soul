@@ -15,13 +15,12 @@ export function pilgrimageGearScore(): number {
 
 /**
  * Scelta del dungeon: una scheda per ognuno, con boss, pericolo e record del personaggio. Si entra con la Discesa
- * (stanze di servitori fino al boss) o, dopo aver battuto il boss, con il Duello (il boss da solo, come prima). Il grado
- * di tempra rende la discesa piu' dura e ricca; il Pellegrinaggio fa le quattro discese di fila.
+ * (stanze di servitori fino al boss) o, dopo aver battuto il boss, con il Duello (il boss da solo, come prima). il Pellegrinaggio fa le quattro discese di fila.
  */
 export class DungeonSelect {
   private readonly list = requireElement('dungeon-list');
   private readonly pilgrimage = requireElement<HTMLButtonElement>('dungeons-pilgrimage');
-  private readonly grades = new Map<string, number>();
+
 
   constructor(
     private readonly handlers: {
@@ -71,7 +70,7 @@ export class DungeonSelect {
           'span',
           descent.clears > 0 ? 'dungeon-record done' : 'dungeon-record',
           descent.clears > 0
-            ? `Discese: ${descent.clears}${descent.bestTimeSeconds !== null ? ` · ${formatSeconds(descent.bestTimeSeconds)}` : ''}${descent.bestGrade > 0 ? ` · grado ${descent.bestGrade}` : ''}`
+            ? `Discese: ${descent.clears}${descent.bestTimeSeconds !== null ? ` · ${formatSeconds(descent.bestTimeSeconds)}` : ''}`
             : descent.furthestStage > 0
               ? `Discesa: arrivato alla tappa ${descent.furthestStage}`
               : 'Discesa non ancora completata',
@@ -88,28 +87,12 @@ export class DungeonSelect {
       card.append(el('p', 'dungeon-rewards', `${PROGRESSION.rewards[dungeon.id as keyof typeof PROGRESSION.rewards]} XP · Set livello ${table.itemLevel}`), renderLootRate(table));
       const allowed = canEnterDungeon(dungeon, character.gearScore);
       const minimum = minimumDungeonGearScore(dungeon);
-      const maxGrade = character.maxGrade(dungeon.id);
-      const grade = Math.min(this.grades.get(dungeon.id) ?? 0, maxGrade);
-      if (maxGrade > 0) {
-        const label = el('label', 'dungeon-grade', 'Grado di tempra ');
-        const select = el('select');
-        for (let value = 0; value <= maxGrade; value++) {
-          const option = el('option', '', value === 0 ? '0 · normale' : `${value} · +${value * 10}% nemici e braci`);
-          option.value = String(value);
-          select.append(option);
-        }
-        select.value = String(grade);
-        select.addEventListener('change', () => this.grades.set(dungeon.id, Number(select.value)));
-        select.addEventListener('click', (event) => event.stopPropagation());
-        label.append(select);
-        card.append(label);
-      }
       const buttons = el('div', 'dungeon-buttons');
       const descend = el('button', 'primary dungeon-enter', allowed ? 'Discesa →' : `Richiesti ${minimum} GS · Hai ${character.gearScore}`);
       descend.type = 'button';
       descend.disabled = !allowed;
       descend.title = allowed ? 'Stanze di servitori, una scelta di porte a ogni tappa, il boss in fondo.' : `Ingresso: almeno ${minimum} GS equipaggiati · Attuali ${character.gearScore}`;
-      descend.addEventListener('click', () => this.handlers.onDescent(dungeon, Math.min(this.grades.get(dungeon.id) ?? 0, maxGrade)));
+      descend.addEventListener('click', () => this.handlers.onDescent(dungeon, 0));
       const duel = el('button', 'secondary dungeon-duel', 'Duello');
       duel.type = 'button';
       duel.disabled = !allowed || !character.canDuel(dungeon.id);

@@ -2,10 +2,10 @@ import { requireElement } from './dom';
 import { hideItemTooltip } from './item-slot';
 import { hideLootTooltip } from './loot-tooltip';
 
-/** Le schermate a pieno schermo fuori dalla partita (menu, dungeon, equipaggiamento, Altare, bestiario). */
-export type ScreenId = 'menu' | 'dungeons' | 'inventory' | 'altar' | 'bestiary';
+/** Le schermate a pieno schermo fuori dalla partita (menu, dungeon, equipaggiamento, bestiario). */
+export type ScreenId = 'menu' | 'dungeons' | 'inventory' | 'bestiary';
 
-const IDS: readonly ScreenId[] = ['menu', 'dungeons', 'inventory', 'altar', 'bestiary'];
+const IDS: readonly ScreenId[] = ['menu', 'dungeons', 'inventory', 'bestiary'];
 
 /** Mostra una sola schermata alla volta (o nessuna, durante la partita). */
 export class Screens {

@@ -147,11 +147,11 @@ export interface DescentSummaryView {
   readonly items: readonly Item[];
   readonly saved: boolean;
   readonly characterClass: CharacterClass | null;
-  /** Probabilita' di bottino del boss con i sigilli. */
+  /** Probabilità di bottino originale del boss, senza bonus delle stanze. */
   readonly dropChance: number;
 }
 
-/** Fine di una discesa vinta: tempo totale, stanze, braci, tempre, esperienza e bottino del boss. */
+/** Fine di una discesa vinta: tempo totale, stanze, esperienza e bottino del boss. */
 export function renderDescentVictory(view: DescentSummaryView): HTMLElement {
   const root = el('div', 'result result-victory');
   root.append(el('p', 'result-subtitle', view.title));
@@ -159,8 +159,6 @@ export function renderDescentVictory(view: DescentSummaryView): HTMLElement {
   stats.append(
     tile('Tempo della discesa', formatSeconds(view.seconds), view.firstClear ? 'Prima vittoria' : view.newBest ? 'Record!' : undefined, 0),
     tile('Stanze liberate', number(view.rooms), undefined, 90),
-    tile('Braci', number(view.embers), undefined, 180),
-    tile('Tempre', number(view.tempers), undefined, 270),
     tile('Servitori abbattuti', number(view.summary.minionsDefeated), undefined, 360),
   );
   root.append(stats);
@@ -171,15 +169,11 @@ export function renderDescentVictory(view: DescentSummaryView): HTMLElement {
     loot.querySelector('.loot-title')!.textContent = 'Nessun oggetto questa volta';
     loot.querySelector('.loot-grid')?.remove();
   }
-  loot.insertBefore(
-    el('small', 'result-note', `Con ${view.seals} ${view.seals === 1 ? 'sigillo' : 'sigilli'} la probabilità di bottino era del ${Math.round(view.dropChance * 100)}%.`),
-    loot.querySelector('.loot-saved'),
-  );
   root.append(loot);
   return root;
 }
 
-/** Fine di una discesa persa: dove si e' arrivati, cosa resta (braci ed esperienza), cosa ha colpito di piu'. */
+/** Fine di una discesa persa: dove si è arrivati, bestiario e cause dei danni. */
 export function renderDescentDefeat(view: DescentSummaryView & { readonly onInventory: () => void }): HTMLElement {
   const root = el('div', 'result result-defeat');
   root.append(el('p', 'result-subtitle', view.title));
@@ -187,7 +181,6 @@ export function renderDescentDefeat(view: DescentSummaryView & { readonly onInve
   stats.append(
     tile('Tappa raggiunta', `${view.stage} di ${view.stages}`, undefined, 0),
     tile('Resistito', formatSeconds(view.seconds), undefined, 90),
-    tile('Braci tenute', number(view.embers), undefined, 180),
     tile('Stanze liberate', number(view.rooms), undefined, 270),
   );
   root.append(stats);
@@ -201,7 +194,7 @@ export function renderDescentDefeat(view: DescentSummaryView & { readonly onInve
     cause.append(list, el('p', 'result-tip', DEFEAT_TIPS[top[0]!.kind]));
     root.append(cause);
   }
-  root.append(el('small', 'result-note', 'Braci, esperienza e bestiario restano; le tempre si spengono con la discesa.'));
+  root.append(el('small', 'result-note', 'Il bestiario resta aggiornato. Le stanze intermedie non assegnano ricompense.'));
   const inventory = el('button', 'result-link', 'Cambia equipaggiamento');
   inventory.type = 'button';
   inventory.addEventListener('click', view.onInventory);

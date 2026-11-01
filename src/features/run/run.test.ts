@@ -9,7 +9,6 @@ import { Match, type PlayerIntent } from '../match/match';
 import type { Minion } from '../minions/minion';
 import { MAGE_SKILLS } from '../skills/mage-skills';
 import { eventsOfType, recordEvents, STEP } from '../../testing';
-import { blessingEffects, cleanBlessings, nextBlessingCost } from './blessings';
 import { DescentRun } from './descent';
 import { planWaves, waveShares } from './director';
 import { RoomEncounter, type RoomMember } from './encounter';
@@ -18,7 +17,6 @@ import { planDescent } from './plan';
 import { ROOM_BESTIARY } from './room-bestiary';
 import { ROOM_LAYOUT, roomArena, roomDoors, ROOM_TEMPLATES, spawnPoints } from './room-templates';
 import { DESCENT, type DoorOption, type RoomKind } from './rooms';
-import { addTemper, applyTempers, MAX_TEMPER_GRADE, offerTempers, TEMPERS } from './tempers';
 
 const idle = (_match: Match): PlayerIntent => ({ move: Vec2.ZERO, aimOffset: new Vec2(100, 0), skills: [false, false, false, false] });
 
@@ -57,20 +55,11 @@ function strike(match: Match, minion: Minion, amount: number): void {
   (match as unknown as { hitMinion(m: Minion, a: number, o: string, v: string): void }).hitMinion(minion, amount, 'local', 'zone');
 }
 
-/** Raccoglie i premi, sceglie le tempre e attraversa la prima porta. */
+/** Attraversa una direzione senza premi o scelte intermedie. */
 function exitRoom(match: Match, encounter: RoomEncounter, door = 0): void {
-  for (let i = 0; i < 60 * 30 && match.status === 'playing'; i++) {
-    const view = encounter.view();
-    for (const [id, player] of match.players) {
-      if (player.health.isDead) continue;
-      const offers = encounter.offers.get(id);
-      if (offers) encounter.chooseOffer(match, id, 0);
-      if (encounter.pendingPacts.has(id)) encounter.answerPact(match, id, false);
-      const pickup = view.pickups.find((p) => !p.takenBy.includes(id) && !(p.kind === 'anvil' && view.pickups.some((q) => q.kind === 'fountain' && q.takenBy.includes(id))));
-      const target = pickup !== undefined && i < 60 * 10 ? new Vec2(pickup.x, pickup.y) : encounter.doors[door]!.position;
-      player.position = target;
-    }
-    match.stepParty(STEP, new Map([...match.players.keys()].map((id) => [id, idle(match)])));
+  for (let i = 0; i < 60 * 3 && match.status === 'playing'; i++) {
+    for (const player of match.livingPlayers()) player.position = encounter.doors[door]!.position;
+    match.stepParty(STEP, new Map([...match.players.keys()].map(id => [id, idle(match)])));
   }
 }
 
@@ -142,8 +131,8 @@ describe('piano della discesa', () => {
       ]);
       // Le porte della stessa tappa di combattimento hanno premi diversi, e una delle due e' una tempra.
       const second = plan.stages[1]!.options.map((option) => option.reward);
-      expect(new Set(second).size).toBe(2);
-      expect(second).toContain('temper');
+      expect(second).toEqual([null, null]);
+      expect(plan.stages.flatMap(stage => stage.options).every(option => option.reward === null)).toBe(true);
       const trial = plan.stages[2]!.options.find((option) => option.kind === 'trial')!;
       expect(trial.hard).toBe(true);
       expect(['unscathed', 'timed']).toContain(trial.rule);
@@ -223,18 +212,18 @@ describe('regista delle ondate', () => {
 
 describe('stanze della discesa', () => {
   for (const dungeon of DUNGEONS) {
-    it(`${dungeon.id}: uno scontro si libera, lascia il premio, propone le tempre e si esce da una porta`, () => {
+    it(`${dungeon.id}: uno scontro si libera senza premi e si sceglie una porta`, () => {
       const { match, encounter } = room(dungeon.id, { kind: 'combat', reward: 'temper' }, 5, 3);
       const events = recordEvents(match);
       clearRoom(match, encounter);
       expect(encounter.cleared).toBe(true);
       expect(eventsOfType(events, 'room_cleared')).toHaveLength(1);
-      expect(encounter.view().pickups.map((p) => p.kind)).toEqual(['temper']);
+      expect(encounter.view().pickups).toEqual([]);
       exitRoom(match, encounter, 1);
       expect(match.status).toBe('won');
       expect(encounter.exit).toBe(1);
-      expect(encounter.grants.tempers.get('local')?.length).toBe(1);
-      expect(eventsOfType(events, 'temper_chosen')).toHaveLength(1);
+      expect(encounter.grants.tempers.size).toBe(0);
+      expect(eventsOfType(events, 'temper_chosen')).toHaveLength(0);
       expect(eventsOfType(events, 'room_exited')[0]).toMatchObject({ door: 1 });
     });
   }
@@ -247,36 +236,22 @@ describe('stanze della discesa', () => {
     expect(encounter.doorProgress[0]).toBe(0);
   });
 
-  it('il santuario offre fonte o incudine: prenderne una toglie l\'altra', () => {
-    const { match, encounter } = room('swamp', { kind: 'sanctuary', reward: null });
-    match.step(STEP, idle(match));
-    expect(encounter.cleared).toBe(true);
-    match.player.health.current = 40;
-    const fountain = encounter.pickups.find((p) => p.kind === 'fountain')!;
-    match.player.position = fountain.position;
-    match.step(STEP, idle(match));
-    expect(match.player.health.current).toBe(80);
-    const anvil = encounter.pickups.find((p) => p.kind === 'anvil')!;
-    match.player.position = anvil.position;
-    match.step(STEP, idle(match));
-    expect(anvil.takenBy).toHaveLength(0);
-    expect(encounter.offers.has('local')).toBe(false);
+  it('santuario e anticamera non curano e non offrono premi', () => {
+    for (const kind of ['sanctuary', 'antechamber'] as const) {
+      const { match, encounter } = room('swamp', { kind, reward: null });
+      match.player.health.current = 40;
+      for (let i = 0; i < 60; i++) match.step(STEP, idle(match));
+      expect(encounter.cleared).toBe(true); expect(match.player.health.current).toBe(40);
+      expect(encounter.pickups).toEqual([]); expect(encounter.offers.size).toBe(0);
+    }
   });
 
-  it('il forziere da\' braci e propone un patto: accettarlo porta due tempre e toglie vita massima', () => {
+  it('il reliquiario non contiene forzieri, patti o braci', () => {
     const { match, encounter } = room('crypt', { kind: 'reliquary', reward: 'embers' });
-    match.step(STEP, idle(match));
-    match.player.position = encounter.pickups[0]!.position;
-    match.step(STEP, idle(match));
-    expect(encounter.grants.embers.get('local')).toBeGreaterThan(0);
-    expect(encounter.pendingPacts.has('local')).toBe(true);
-    expect(encounter.answerPact(match, 'local', true)).toBe(true);
-    expect(encounter.offers.get('local')).toHaveLength(3);
-    encounter.chooseOffer(match, 'local', 0);
-    expect(encounter.offers.get('local')).toHaveLength(3);
-    encounter.chooseOffer(match, 'local', 1);
-    expect(encounter.offers.has('local')).toBe(false);
-    expect(encounter.grants.pacts.has('local')).toBe(true);
+    match.step(STEP, idle(match)); expect(encounter.cleared).toBe(true);
+    expect(encounter.pickups).toEqual([]); expect(encounter.grants.embers.size).toBe(0);
+    expect(encounter.answerPact(match, 'local', true)).toBe(false);
+    expect(encounter.chooseOffer(match, 'local', 0)).toBe(false);
   });
 
   it('la Prova senza un graffio fallisce al primo colpo: niente premio ne\' sigillo', () => {
@@ -288,12 +263,12 @@ describe('stanze della discesa', () => {
     expect(encounter.pickups).toHaveLength(0);
   });
 
-  it('la Prova riuscita vale doppio e un sigillo', () => {
+  it('la Prova riuscita apre le porte senza sigilli o premi', () => {
     const { match, encounter } = room('forge', { kind: 'trial', reward: 'embers', rule: 'timed', hard: true }, 4, 2);
     clearRoom(match, encounter);
     expect(encounter.grants.trial).toBe(true);
-    expect(encounter.grants.seals).toBe(1);
-    expect(encounter.pickups[0]!.amount).toBe(Math.round(DESCENT.embers.door * DESCENT.dungeonFactor.forge! * 2));
+    expect(encounter.grants.seals).toBe(0);
+    expect(encounter.pickups).toHaveLength(0);
   });
 
   it('l\'Assedio finisce a tempo, e ogni nido distrutto lo accorcia', () => {
@@ -331,7 +306,7 @@ describe('stanze della discesa', () => {
     prey.health.current = 1;
     strike(match, prey, 5);
     expect(encounter.cleared).toBe(true);
-    expect(encounter.pickups[0]!.kind).toBe('seal');
+    expect(encounter.pickups).toHaveLength(0);
   });
 
   it('le insidie arrivano solo dalla terza tappa e avvisano', () => {
@@ -355,46 +330,6 @@ describe('stanze della discesa', () => {
   });
 });
 
-describe('tempre', () => {
-  it('ogni tempra cambia la skill a cui si applica, e i gradi crescono fino al terzo', () => {
-    for (const temper of TEMPERS) {
-      const slot = MAGE_SKILLS.findIndex((skill) => skill !== null && temper.applies(skill));
-      expect(slot, temper.id).toBeGreaterThanOrEqual(0);
-      const base = MAGE_SKILLS[slot]!;
-      const one = applyTempers(MAGE_SKILLS, [{ temperId: temper.id, slot, grade: 1 }])[slot]!;
-      const three = applyTempers(MAGE_SKILLS, [{ temperId: temper.id, slot, grade: 3 }])[slot]!;
-      expect(JSON.stringify(one), temper.id).not.toBe(JSON.stringify(base));
-      expect(JSON.stringify(three), temper.id).not.toBe(JSON.stringify(one));
-      expect(temper.describe(1).length).toBeGreaterThan(5);
-      expect(base.effect).toBe(MAGE_SKILLS[slot]!.effect);
-    }
-    let picks = addTemper([], 'live_ember', 0);
-    for (let i = 0; i < 5; i++) picks = addTemper(picks, 'live_ember', 0);
-    expect(picks).toEqual([{ temperId: 'live_ember', slot: 0, grade: MAX_TEMPER_GRADE }]);
-  });
-
-  it('le offerte sono diverse, applicabili, non al massimo e varie per famiglia', () => {
-    for (let seed = 0; seed < 30; seed++) {
-      const offers = offerTempers(new SeededRng(seed), MAGE_SKILLS, [], 3);
-      expect(offers).toHaveLength(3);
-      expect(new Set(offers.map((o) => `${o.temperId}:${o.slot}`)).size).toBe(3);
-      const families = new Set(offers.map((o) => TEMPERS.find((t) => t.id === o.temperId)!.family));
-      expect(families.size).toBe(3);
-    }
-    const maxed = TEMPERS.flatMap((t) => [0, 1, 2, 3].map((slot) => ({ temperId: t.id, slot, grade: 3 })));
-    expect(offerTempers(new SeededRng(1), MAGE_SKILLS, maxed, 3)).toEqual([]);
-  });
-});
-
-describe('Altare dell\'anima', () => {
-  it('benedizioni: costi, effetti e pulizia dei dati', () => {
-    expect(nextBlessingCost({}, 'vigor')).toBe(60);
-    expect(nextBlessingCost({ vigor: 3 }, 'vigor')).toBeNull();
-    expect(blessingEffects({ vigor: 2, fortune: 1, smith_eye: 1, second_life: 1 })).toEqual({ bonusHealth: 20, startingTemper: false, secondLife: true, offers: 4, seals: 1 });
-    expect(cleanBlessings({ vigor: 9, nope: 2, fortune: -1, smith_eye: 1.5 })).toEqual({ vigor: 3 });
-  });
-});
-
 /** Gioca una discesa intera abbattendo tutto e prendendo sempre la prima porta. */
 function playDescent(run: DescentRun): RoomKind[] {
   const visited: RoomKind[] = [];
@@ -408,7 +343,7 @@ function playDescent(run: DescentRun): RoomKind[] {
 }
 
 describe('discesa completa', () => {
-  it('dalla Soglia al boss: otto stanze, tempre portate avanti, braci, esperienza e vittoria', () => {
+  it('dalla Soglia al boss: otto stanze, direzioni, bestiario e premi solo dal boss', () => {
     const run = new DescentRun({ mode: 'descent', dungeonId: 'crypt', members: [{ id: 'local', loadout: MAGE_SKILLS }], seed: 77 });
     const visited = playDescent(run);
     expect(visited, visited.join(', ')).toHaveLength(8);
@@ -417,29 +352,23 @@ describe('discesa completa', () => {
     expect(run.status).toBe('won');
     expect(run.victories).toHaveLength(1);
     const state = run.players.get('local')!;
-    expect(state.tempers.length).toBeGreaterThan(0);
-    expect(state.embers).toBeGreaterThan(0);
-    expect(state.xp).toBeGreaterThan(100);
+    expect(state.tempers).toEqual([]);
+    expect(state.embers).toBe(0);
+    expect(state.xp).toBe(100);
     // Il luogotenente apre la sua pagina del bestiario.
     expect(state.kills.belfry_gargoyle).toBe(1);
-    expect(run.seals).toBeLessThanOrEqual(DESCENT.maxSeals);
-    expect(run.lootTable('crypt', 4).dropChance).toBeCloseTo(0.45);
+    expect(run.seals).toBe(0);
+    expect(run.lootTable('crypt', 4).dropChance).toBeCloseTo(0.25);
   });
 
-  it('le tempre scelte cambiano le skill della stanza dopo; vita e mana passano da una stanza all\'altra', () => {
+  it('fra stanze conserva skill, vita e mana senza premi o potenziamenti', () => {
     const run = new DescentRun({ mode: 'descent', dungeonId: 'swamp', members: [{ id: 'local', loadout: MAGE_SKILLS }], seed: 5 });
-    clearRoom(run.match, run.encounter);
-    exitRoom(run.match, run.encounter, 0);
-    run.match.player.health.current = 57;
-    run.advance();
-    expect(run.match.player.health.current).toBeLessThanOrEqual(100);
-    run.encounter.offers.set('local', [{ temperId: 'quick_hand', slot: 0, grade: 1 }]);
-    run.encounter.chooseOffer(run.match, 'local', 0);
-    clearRoom(run.match, run.encounter);
-    exitRoom(run.match, run.encounter, 0);
-    run.advance();
-    expect(run.players.get('local')!.tempers).toContainEqual({ temperId: 'quick_hand', slot: 0, grade: 1 });
-    expect(run.match.player.skillBar.skillAt(0)!.cooldown).toBeCloseTo(MAGE_SKILLS[0]!.cooldown * 0.88);
+    clearRoom(run.match, run.encounter); exitRoom(run.match, run.encounter, 1);
+    run.match.player.health.current = 57; run.match.player.mana = 40; run.advance();
+    expect(run.match.player.health.current).toBe(57); expect(run.match.player.mana).toBe(40);
+    expect(run.players.get('local')!.xp).toBe(0); expect(run.players.get('local')!.embers).toBe(0);
+    expect(run.match.player.skillBar.skills).toEqual(MAGE_SKILLS);
+    expect(run.encounter.chooseOffer(run.match, 'local', 0)).toBe(false);
   });
 
   it('a terra in una stanza: la discesa e\' persa ma braci ed esperienza restano', () => {
@@ -456,13 +385,11 @@ describe('discesa completa', () => {
     expect(run.players.get('local')!.embers).toBe(embers);
   });
 
-  it('Seconda vita: a terra una volta ci si rialza', () => {
-    const run = new DescentRun({ mode: 'descent', dungeonId: 'crypt', members: [{ id: 'local', loadout: MAGE_SKILLS, blessings: { second_life: 1, vigor: 1 } }], seed: 9 });
-    expect(run.match.player.health.max).toBe(110);
-    (run.match as unknown as { hurtPlayer(a: number): void }).hurtPlayer(500);
-    expect(run.match.status).toBe('playing');
-    expect(run.match.player.health.current).toBe(33);
-    run.match.player.invulnerableFor = 0;
+  it('le vecchie benedizioni salvate non danno vita, sigilli, tempra o resurrezione', () => {
+    const run = new DescentRun({ mode: 'descent', dungeonId: 'crypt', members: [{ id: 'local', loadout: MAGE_SKILLS,
+      blessings: { second_life: 1, vigor: 3, fortune: 2, first_spark: 1, smith_eye: 1 } }], seed: 9, grade: 5 });
+    expect(run.grade).toBe(0); expect(run.seals).toBe(0); expect(run.match.player.health.max).toBe(100);
+    expect(run.match.player.skillBar.skills).toEqual(MAGE_SKILLS);
     (run.match as unknown as { hurtPlayer(a: number): void }).hurtPlayer(500);
     expect(run.match.status).toBe('lost');
   });

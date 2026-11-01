@@ -9,7 +9,6 @@ import { rollLoot } from '../loot/roll-loot';
 import type { ItemRoll } from '../items/item';
 import { Match, spreadPlayers, type PlayerIntent } from '../match/match';
 import { DescentRun } from '../run/descent';
-import { DESCENT } from '../run/rooms';
 import { NETWORK, PARTY_MODES, snapshotOf, type PartyMode, type PartyState, type BattleSnapshot } from './protocol';
 
 const MODE_NAMES: Readonly<Record<PartyMode, string>> = { descent: 'la discesa', duel: 'il duello', pilgrimage: 'il Pellegrinaggio' };
@@ -62,13 +61,13 @@ export class PartyRoom {
     if (!dungeonById(dungeonId)) throw new Error('Dungeon non valido.');
     this.dungeonId = dungeonId; this.ready.clear();
   }
-  /** Il leader sceglie come entrare (Discesa, Duello, Pellegrinaggio) e il grado di tempra. */
+  /** Il leader sceglie come entrare (Discesa, Duello, Pellegrinaggio). */
   chooseMode(id: string, mode: unknown, grade: unknown): void {
     this.requireLeader(id);
     if (this.playing) throw new Error('La partita è già iniziata.');
     if (typeof mode !== 'string' || !PARTY_MODES.includes(mode as PartyMode)) throw new Error('Modalità non valida.');
-    if (typeof grade !== 'number' || !Number.isInteger(grade) || grade < 0 || grade > DESCENT.maxGrade) throw new Error('Grado non valido.');
-    this.mode = mode as PartyMode; this.grade = mode === 'duel' ? 0 : grade; this.ready.clear();
+    if (typeof grade !== 'number' || !Number.isInteger(grade) || grade < 0 || grade !== 0) throw new Error('I gradi di tempra non sono disponibili.');
+    this.mode = mode as PartyMode; this.grade = 0; this.ready.clear();
   }
   start(id: string, battleId: string, seed: number): void {
     this.requireLeader(id);
@@ -82,7 +81,6 @@ export class PartyRoom {
       }
       if (this.mode === 'duel' && !character.canDuel(dungeon.id)) throw new Error(`${character.name}: il duello si apre dopo aver sconfitto il boss in una discesa.`);
       if (this.mode === 'pilgrimage' && !character.canPilgrimage(DUNGEONS.map((d) => d.id))) throw new Error(`${character.name}: il Pellegrinaggio si apre dopo una discesa vinta in ogni dungeon.`);
-      if (this.mode === 'descent' && this.grade > character.maxGrade(dungeon.id)) throw new Error(`${character.name}: grado ${this.grade} non ancora sbloccato.`);
     }
     this.run = null;
     if (this.mode === 'duel') {
@@ -93,7 +91,7 @@ export class PartyRoom {
       this.run = new DescentRun({
         mode: this.mode,
         dungeonId: this.mode === 'pilgrimage' ? DUNGEONS[0]!.id : dungeon.id,
-        members: [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout(), blessings: character.blessings })),
+        members: [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout() })),
         seed,
         grade: this.grade,
       });

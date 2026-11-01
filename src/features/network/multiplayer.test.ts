@@ -99,17 +99,16 @@ describe('discesa in cooperativa', () => {
     expect(r.mode).toBe('descent');
     expect(() => r.chooseMode('b', 'duel', 0)).toThrow('Solo il leader');
     expect(() => r.chooseMode('a', 'arena', 0)).toThrow('Modalità');
-    expect(() => r.chooseMode('a', 'descent', 9)).toThrow('Grado');
+    expect(() => r.chooseMode('a', 'descent', 9)).toThrow('tempra');
     r.chooseMode('a', 'duel', 0); r.ready.add('a'); r.ready.add('b');
     expect(() => r.start('a', 'x', 1)).toThrow('Bruno: il duello');
-    r.chooseMode('a', 'descent', 1); r.ready.add('a'); r.ready.add('b');
-    expect(() => r.start('a', 'x', 1)).toThrow('grado 1');
+    expect(() => r.chooseMode('a', 'descent', 1)).toThrow('tempra');
     r.chooseMode('a', 'pilgrimage', 0); r.ready.add('a'); r.ready.add('b');
     expect(() => r.start('a', 'x', 1)).toThrow('GS');
     expect(r.state()).toMatchObject({ mode: 'pilgrimage', grade: 0 });
   });
 
-  it('una discesa intera sul server: stanze nuove per la rete, tempre scelte dai client, bottino per giocatore', () => {
+  it('una discesa intera sul server: stanze nuove per la rete, nessuna ricompensa intermedia, bottino per giocatore', () => {
     const r = room(); r.ready.add('a'); r.ready.add('b'); r.start('a', 'run', 11);
     const first = r.snapshot()!;
     expect(first.id).toBe('run:1'); expect(first.boss).toBeNull(); expect(first.room?.kind).toBe('threshold');
@@ -126,7 +125,9 @@ describe('discesa in cooperativa', () => {
     const last = r.snapshot()!;
     expect(last.status).toBe('won');
     expect(Object.keys(last.rewards).sort()).toEqual(['a', 'b']);
-    expect(last.run!.players.a!.tempers.length).toBeGreaterThan(0);
+    expect(last.run!.players.a!.tempers).toEqual([]);
+    expect(last.run!.players.a!.xp).toBe(100);
+    expect(last.run!.players.a!.embers).toBe(0);
     expect(last.run!.victories).toHaveLength(1);
     expect(() => r.chooseTemper('a', 0)).toThrow();
   });

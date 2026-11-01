@@ -1,5 +1,5 @@
 import { SeededRng, type Rng } from '../../core/rng';
-import type { DoorOption, RewardKind, TrialRule } from './rooms';
+import type { DoorOption, TrialRule } from './rooms';
 
 /*
  * Il piano della discesa: per ogni tappa le porte fra cui scegliere. Generato dal seme: stesso seme, stessa discesa.
@@ -18,20 +18,7 @@ export interface DescentPlan {
   readonly stages: readonly StagePlan[];
 }
 
-/** Premi delle porte di combattimento. */
-const COMBAT_REWARDS: readonly RewardKind[] = ['temper', 'embers', 'heal'];
 const TRIAL_RULES: readonly TrialRule[] = ['unscathed', 'timed'];
-
-/** Premi diversi fra loro, presi da `pool` (il primo e' sempre una tempra, se `withTemper`). */
-function distinctRewards(rng: Rng, pool: readonly RewardKind[], count: number, withTemper: boolean): RewardKind[] {
-  const rest = pool.filter((reward) => !withTemper || reward !== 'temper');
-  for (let i = rest.length - 1; i > 0; i--) {
-    const j = Math.floor(rng.next() * (i + 1));
-    [rest[i], rest[j]] = [rest[j]!, rest[i]!];
-  }
-  const rewards = withTemper ? ['temper' as const, ...rest] : rest;
-  return rewards.slice(0, count);
-}
 
 const shuffled = <T>(rng: Rng, items: T[]): T[] => {
   for (let i = items.length - 1; i > 0; i--) {
@@ -45,33 +32,31 @@ export function planDescent(dungeonId: string, seed: number, options: { readonly
   const rng = new SeededRng(seed ^ 0x5eed);
   const short = options.short === true;
   const stages: StagePlan[] = [];
-  stages.push({ options: [{ kind: 'threshold', reward: 'embers' }] });
-  // Due porte di combattimento con premi diversi, una delle due con la tempra.
-  stages.push({ options: shuffled(rng, distinctRewards(rng, COMBAT_REWARDS, 2, true).map((reward) => ({ kind: 'combat' as const, reward }))) });
+  stages.push({ options: [{ kind: 'threshold', reward: null }] });
+  // Due direzioni di combattimento, senza ricompense intermedie.
+  stages.push({ options: [{ kind: 'combat', reward: null }, { kind: 'combat', reward: null }] });
   if (!short) {
     // Tre porte: uno Scontro, una Prova (facoltativa, piu' dura) e un Reliquiario.
-    const [combatReward, trialReward] = distinctRewards(rng, ['temper', 'embers', 'heal'], 2, rng.next() < 0.5);
     const rule = TRIAL_RULES[Math.floor(rng.next() * TRIAL_RULES.length)]!;
     stages.push({
       options: shuffled(rng, [
-        { kind: 'combat', reward: combatReward! },
-        { kind: 'trial', reward: trialReward === 'heal' ? 'temper' : trialReward!, rule, hard: true },
-        { kind: 'reliquary', reward: 'embers' },
+        { kind: 'combat', reward: null },
+        { kind: 'trial', reward: null, rule, hard: true },
+        { kind: 'reliquary', reward: null },
       ]),
     });
   }
-  stages.push({ options: [{ kind: 'lieutenant', reward: 'temper' }] });
-  // Respiro o rischio: il Santuario, o l'Assedio con il premio pieno.
+  stages.push({ options: [{ kind: 'lieutenant', reward: null }] });
+  // Stanza tranquilla oppure Assedio: la progressione fra stanze verrà definita in seguito.
   stages.push({
     options: shuffled(rng, [
       { kind: 'sanctuary', reward: null },
-      { kind: 'siege', reward: rng.next() < 0.5 ? 'temper' : 'embers', hard: true },
+      { kind: 'siege', reward: null, hard: true },
     ]),
   });
   if (!short) {
-    const reward = distinctRewards(rng, ['temper', 'heal', 'embers'], 1, false)[0]!;
-    stages.push({ options: shuffled(rng, [{ kind: 'combat', reward }, { kind: 'hunt', reward: 'seal' }]) });
-    stages.push({ options: [{ kind: 'antechamber', reward: 'heal' }] });
+    stages.push({ options: shuffled(rng, [{ kind: 'combat', reward: null }, { kind: 'hunt', reward: null }]) });
+    stages.push({ options: [{ kind: 'antechamber', reward: null }] });
   }
   stages.push({ options: [{ kind: 'boss', reward: null }] });
   return { dungeonId, seed, short, stages };

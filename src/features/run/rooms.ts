@@ -16,7 +16,7 @@ export type RoomKind =
   | 'antechamber'
   | 'boss';
 
-/** Il premio mostrato sulla porta. */
+/** Identificatori storici: le porte attuali hanno sempre reward: null. */
 export type RewardKind = 'temper' | 'embers' | 'heal' | 'seal';
 
 /** La regola di una Prova: senza farsi colpire, oppure entro un tempo. */
@@ -34,21 +34,14 @@ export interface DoorOption {
 export const ROOM_LABELS: Readonly<Record<RoomKind, { readonly name: string; readonly summary: string }>> = {
   threshold: { name: 'Soglia', summary: 'Uno scontro facile per entrare.' },
   combat: { name: 'Scontro', summary: 'Ondate di servitori: elimina tutto.' },
-  trial: { name: 'Prova', summary: 'Facoltativa, con una regola: premio doppio e un sigillo.' },
-  reliquary: { name: 'Reliquiario', summary: 'Nessuna ondata: un forziere, a volte un patto.' },
+  trial: { name: 'Prova', summary: 'Scontro facoltativo con un obiettivo aggiuntivo.' },
+  reliquary: { name: 'Reliquiario', summary: 'Una stanza tranquilla fra gli scontri.' },
   lieutenant: { name: 'Luogotenente', summary: 'Un servitore maggiore con gli schemi del boss.' },
-  sanctuary: { name: 'Santuario', summary: 'Nessun nemico: scegli fra la fonte e l\'incudine.' },
+  sanctuary: { name: 'Santuario', summary: 'Una stanza senza nemici per scegliere la prossima direzione.' },
   siege: { name: 'Assedio', summary: 'Resisti mentre i nidi generano nemici: distruggerli accorcia l\'attesa.' },
   hunt: { name: 'Caccia', summary: 'Abbatti la preda che fugge ed evoca.' },
-  antechamber: { name: 'Anticamera', summary: 'Calma prima del boss: un ristoro.' },
+  antechamber: { name: 'Anticamera', summary: 'Calma prima del boss.' },
   boss: { name: 'Boss', summary: 'Il guardiano della discesa.' },
-};
-
-export const REWARD_LABELS: Readonly<Record<RewardKind, { readonly name: string; readonly summary: string }>> = {
-  temper: { name: 'Tempra', summary: 'Potenzia una delle tue skill fino alla fine della discesa.' },
-  embers: { name: 'Braci', summary: 'Valuta permanente per l\'Altare dell\'anima.' },
-  heal: { name: 'Ristoro', summary: 'Recupera vita.' },
-  seal: { name: 'Sigillo', summary: 'Alza la probabilità di bottino del boss.' },
 };
 
 export const TRIAL_LABELS: Readonly<Record<TrialRule, { readonly name: string; readonly summary: string }>> = {
@@ -96,10 +89,6 @@ export const DESCENT = {
   introDelay: 1.6,
   /** Secondi in cui tutti i giocatori vivi devono restare sulla porta per attraversarla. */
   doorHold: 0.8,
-  /** Ristori. */
-  sanctuaryHeal: 0.4,
-  antechamberHeal: 0.25,
-  rewardHeal: 0.3,
   /** Chi era a terra si rialza alla stanza successiva con questa frazione della vita. */
   reviveFraction: 0.3,
   /** Assedio: durata e secondi tolti da ogni nido distrutto. */
@@ -107,17 +96,4 @@ export const DESCENT = {
   siegeNestBonus: 8,
   /** Prova a tempo: secondi a disposizione. */
   trialSeconds: 45,
-  /** Braci per premio, prima del moltiplicatore del dungeon. */
-  embers: { threshold: 6, door: 22, unscathedRoom: 4, reliquary: 35, siege: 12, boss: 30, lieutenant: 15 },
-  /** Moltiplicatore delle braci e dell'esperienza delle stanze, per dungeon. */
-  dungeonFactor: { crypt: 1, swamp: 1.4, forge: 1.8, glacier: 2.2 } as Readonly<Record<string, number>>,
-  /** Ogni stanza di combattimento liberata vale questa frazione dell'esperienza del boss del dungeon. */
-  roomXpShare: 0.05,
-  /** Sigilli: +5 punti alla probabilità di bottino del boss, fino a +20. */
-  sealBonus: 0.05,
-  maxSeals: 4,
-  /** Gradi di tempra: +10% budget, +10% braci ogni grado. */
-  gradeBudget: 0.1,
-  gradeEmbers: 0.1,
-  maxGrade: 5,
 } as const;

@@ -6,8 +6,7 @@ import type { DungeonDefinition } from '../dungeons/dungeon-definition';
 import { DUNGEONS, dungeonById } from '../dungeons/dungeons';
 import { minimumDungeonGearScore } from '../dungeons/dungeon-access';
 import { PartyClient } from '../network/party-client';
-import { NETWORK, type BattleSnapshot, type PartyMode } from '../network/protocol';
-import { DESCENT } from '../run/rooms';
+import { NETWORK, type BattleSnapshot } from '../network/protocol';
 import { characterPixels } from '../presentation/character-art';
 import { renderBossArtwork } from './boss-artwork';
 import { pixelSvg } from './character-portrait';
@@ -111,22 +110,22 @@ export class PartyPanel {
       text.append(el('small', '', 'Obiettivo comune'), el('strong', '', dungeon.boss.name), el('span', '', dungeon.name)); objective.append(text); dialog.append(objective);
     }
     if (state) {
-      const label = el('label', 'party-destination', 'Destinazione · '), select = el('select', ''); select.setAttribute('aria-label', 'Destinazione party');
-      for (const d of DUNGEONS) { const option = el('option', '', `${d.name} · minimo ${minimumDungeonGearScore(d)} GS`); option.value = d.id; select.append(option); }
-      select.value = state.dungeonId; select.disabled = !leader || state.playing || state.mode === 'pilgrimage';
-      select.addEventListener('change', () => this.client.send({ type: 'choose', dungeonId: select.value })); label.append(select); dialog.append(label);
-      // Come si entra: Discesa (con il grado di tempra), Duello o Pellegrinaggio.
-      const modeLabel = el('label', 'party-destination', 'Modalità · '), mode = el('select', ''); mode.setAttribute('aria-label', 'Modalità del party');
-      for (const [value, text] of [['descent', 'Discesa'], ['duel', 'Duello (solo il boss)'], ['pilgrimage', 'Pellegrinaggio (i quattro dungeon)']] as const) {
-        const option = el('option', '', text); option.value = value; mode.append(option);
+      const destinations = el('div', 'party-destination-buttons');
+      destinations.setAttribute('role', 'group'); destinations.setAttribute('aria-label', 'Destinazione party');
+      for (const d of DUNGEONS) {
+        const button = el('button', 'secondary', d.name);
+        button.disabled = !leader || state.playing; button.setAttribute('aria-pressed', String(d.id === state.dungeonId));
+        button.title = 'Requisito: ' + minimumDungeonGearScore(d) + ' GS';
+        button.addEventListener('click', () => this.client.send({ type: 'choose', dungeonId: d.id })); destinations.append(button);
       }
-      mode.value = state.mode; mode.disabled = !leader || state.playing;
-      const grade = el('select', ''); grade.setAttribute('aria-label', 'Grado di tempra del party');
-      for (let value = 0; value <= DESCENT.maxGrade; value++) { const option = el('option', '', `Grado ${value}`); option.value = String(value); grade.append(option); }
-      grade.value = String(state.grade); grade.disabled = !leader || state.playing || state.mode === 'duel';
-      const sendMode = () => this.client.send({ type: 'mode', mode: mode.value as PartyMode, grade: Number(grade.value) });
-      mode.addEventListener('change', sendMode); grade.addEventListener('change', sendMode);
-      modeLabel.append(mode, grade); dialog.append(modeLabel);
+      dialog.append(destinations);
+      const modes = el('div', 'party-lobby-actions');
+      for (const [id, text] of [['descent', 'Stanze e boss'], ['duel', 'Solo boss']] as const) {
+        const button = el('button', 'secondary', text); button.disabled = !leader || state.playing;
+        button.setAttribute('aria-pressed', String(state.mode === id));
+        button.addEventListener('click', () => this.client.send({ type: 'mode', mode: id, grade: 0 })); modes.append(button);
+      }
+      dialog.append(modes);
       const link = el('input', 'party-link'); link.readOnly = true; link.value = this.inviteUrl(); link.setAttribute('aria-label', 'Link invito al party'); link.addEventListener('click', () => link.select()); dialog.append(link);
     }
     dialog.append(el('p', 'party-preview-note', this.note || (state ? 'Il mondo continua anche se apri il menu o cambi scheda. Uscire dal party abbandona il combattimento. I progressi restano in questo browser.' : 'Crea un party e condividi il link con i tuoi amici.')));

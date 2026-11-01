@@ -16,9 +16,9 @@ const wire = (frame: SnapshotFrame): SnapshotFrame => JSON.parse(JSON.stringify(
 const create = (): Match => new Match({ rng: new SeededRng(12), dungeon: CRYPT, loadout: MAGE_SKILLS });
 const spec = { team: 'enemy' as const, speed: 100, damage: 13, radius: 4, lifetime: 10, visual: 'arcane_bolt' };
 
-describe('servitori in cooperativa (protocollo 4)', () => {
-  it('il protocollo è alla versione 4: i servitori nascono una volta, poi viaggiano come posizione, stato e segnali', () => {
-    expect(NETWORK.protocolVersion).toBe(4);
+describe('servitori in cooperativa (protocollo 5)', () => {
+  it('il protocollo è alla versione 5: i servitori nascono una volta, poi viaggiano come posizione, stato e segnali', () => {
+    expect(NETWORK.protocolVersion).toBe(5);
     const match = create(), encoder = new SnapshotEncoder(), decoder = new SnapshotDecoder();
     const minion = new Minion(7, SPORELING, new Vec2(120.123, 340.456), { elite: 'robust', maxHealth: 20 }); minion.health.current = 42; match.minions.push(minion);
     const first = encoder.encode(snapshotOf(match, 'a', [], {}));

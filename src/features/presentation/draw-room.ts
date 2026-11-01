@@ -4,7 +4,7 @@ import type { ArenaDefinition, ArenaThemeId } from '../arena/arena';
 import type { Minion } from '../minions/minion';
 import type { PickupKind, RoomView } from '../run/encounter';
 import { ROOM_LAYOUT } from '../run/room-templates';
-import { REWARD_LABELS, ROOM_LABELS, type DoorOption } from '../run/rooms';
+import { ROOM_LABELS, type DoorOption } from '../run/rooms';
 import { drawBossIndicator } from './draw-effects';
 import { drawSprite, type Palette, type SpriteFrame } from './sprites';
 
@@ -137,7 +137,7 @@ export function drawRoomLabels(ctx: CanvasRenderingContext2D, look: RoomLook): v
     const option = look.nextOptions[index];
     if (option === undefined) return;
     const room = ROOM_LABELS[option.kind].name.toUpperCase();
-    const reward = option.reward !== null ? REWARD_LABELS[option.reward].name : '';
+    const reward = '';
     const text = reward !== '' ? `${room} · ${reward}` : room;
     ctx.save();
     ctx.font = 'bold 10px sans-serif';

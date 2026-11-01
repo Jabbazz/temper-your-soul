@@ -6,7 +6,7 @@ import { resolveItem, type Item, type ItemRoll } from '../items/item';
 import type { Loadout } from '../skills/skill-definition';
 import { cleanCharacterName, STARTER_SETS } from './creation';
 import { cleanItemLevel, gearScore } from '../items/gear-score';
-import { blessingLevel, nextBlessingCost, type BlessingId } from '../run/blessings';
+import type { BlessingId } from '../run/blessings';
 
 /** Progressi in un dungeon: vittorie e miglior tempo (null finche' non si vince). */
 export interface DungeonRecord {
@@ -231,12 +231,7 @@ export class Character {
     }
   }
 
-  /** Compra il prossimo livello di una benedizione, se le braci bastano. */
-  buyBlessing(id: BlessingId): boolean {
-    const cost = nextBlessingCost(this.blessings, id);
-    if (cost === null || this.embers < cost) return false;
-    this.embers -= cost;
-    this.blessings[id] = blessingLevel(this.blessings, id) + 1;
-    return true;
-  }
+  /** Compatibilità v7: i vecchi dati restano salvati, ma l'altare non è più utilizzabile. */
+  buyBlessing(_id: BlessingId): boolean { return false; }
+
 }

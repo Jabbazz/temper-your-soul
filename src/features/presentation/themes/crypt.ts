@@ -75,6 +75,10 @@ function drawStaticFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, 
   ctx.fillRect(0, 0, wall, arena.height);
   ctx.fillRect(arena.width - wall, 0, wall, arena.height);
 
+}
+
+/** Rune nel contesto finale: evita giunzioni antialias visibili fra i tasselli della cache. */
+function drawRunes(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera): void {
   for (const fraction of CRYPT_DECOR.runeCircles) {
     const circle = new Vec2(fraction.x * arena.width, fraction.y * arena.height);
     if (!camera.isVisible(circle, 140)) continue;
@@ -102,6 +106,7 @@ const floorCache = new FloorCache(drawStaticFloor);
 
 function drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
   floorCache.draw(ctx, arena, camera);
+  drawRunes(ctx, arena, camera);
   const { inset, spacing } = CRYPT_DECOR.torches;
   const light = CRYPT_DECOR.torchLight;
   for (const { x, y } of wallSpots(arena, inset, spacing, 20)) {

@@ -10,9 +10,9 @@ Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti p
 
 ## Aperti
 
-- **Lieve calo FPS multiplayer segnalato dall’utente.** Rilevati invio ripetuto di dati statici, ricreazione delle entità a ogni snapshot, ricostruzione della lobby a ogni ping e disegno pixel per pixel per tutti gli alleati. Ottimizzati nel protocollo v2 e nel rendering con cache; controlli comparativi in README. Da confermare sul PC dell’utente. L’aggiornamento del mondo a 30 Hz resta distinto dagli FPS del canvas; interpolazione/predizione ancora fuori da questo incremento.
+- **Lieve calo FPS multiplayer segnalato dall’utente.** Rilevati invio ripetuto di dati statici, ricreazione delle entità a ogni snapshot, ricostruzione della lobby a ogni ping e disegno pixel per pixel per tutti gli alleati. Ottimizzati nel protocollo v2 e nel rendering con cache; controlli comparativi in README. Da confermare sul PC dell’utente. L’aggiornamento del mondo a 30 Hz resta distinto dagli FPS del canvas; Interpolazione visuale multiplayer integrata; predizione locale ancora assente. L’utente ha segnalato un miglioramento lasciando una sola scheda di gioco per finestra; la versione combinata con le stanze richiede una nuova prova giocata.
 
-- **Limiti cooperativa iniziale:** stanze in RAM, nessun rientro durante l’incontro dopo refresh/disconnessione; il membro uscente viene messo KO. Server senza interpolazione/predizione client: input/snapshot 30 Hz, quindi ping e intervallo dei messaggi incidono sulla risposta visiva. Gli oggetti restano locali validati ma modificabili manualmente; non è ancora un’economia autorevole persistente. HP del boss invariati per numero di membri: bilanciamento cooperativo da provare. Il report misura danno effettivo e riserva guarigione a 0 fino alle cure.
+- **Limiti cooperativa iniziale:** stanze in RAM, nessun rientro durante l’incontro dopo refresh/disconnessione; il membro uscente viene messo KO. Client con interpolazione visuale, senza predizione locale: input/snapshot 30 Hz, quindi ping e intervallo dei messaggi incidono sulla risposta visiva. Gli oggetti restano locali validati ma modificabili manualmente; non è ancora un’economia autorevole persistente. HP del boss invariati per numero di membri: bilanciamento cooperativo da provare. Il report misura danno effettivo e riserva guarigione a 0 fino alle cure.
 
 - **Sprite e ritratti: difetti residui confermati dall’utente.** Offset e vestibilità delle armature, proporzioni e prese delle armi richiedono ancora revisione. Lavoro sospeso su richiesta esplicita per contenere le rigenerazioni; TODO nel codice (`portrait-rig.ts`) e nella roadmap. Nessuna nuova revisione grafica inclusa nell’incremento creazione/bottino.
 
@@ -23,7 +23,7 @@ Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti p
 - **Raggi di collisione incoerenti (ereditati).** I proiettili usano raggio + 9 sul giocatore e + 26 sul boss; le zone raggio + 8 e + 25 (`features/combat/collision.ts`). Da unificare con la prova manuale.
 - **Valori provvisori.** Tutti i valori di gioco sono quelli del prototipo e non sono tarati (vedi `docs/game-design.md`).
 - **Camera senza limiti.** Vicino ai bordi dell'arena la camera mostra il vuoto scuro oltre il muro (come nel prototipo).
-- **Disegno senza interpolazione.** La simulazione gira a 60 Hz e il disegno usa l'ultimo stato: su schermi a frequenza maggiore il movimento puo' risultare lievemente a scatti.
+- **Disegno del singolo senza interpolazione.** In singolo la simulazione gira a 60 Hz e il disegno usa l'ultimo stato: su schermi a frequenza maggiore il movimento puo' risultare lievemente a scatti.
 - **Differenze volute rispetto al prototipo da confermare a mano**: elenco in `docs/game-design.md` (passo fisso, tasti per posizione fisica, scossa dello schermo applicata, effetti che proseguono dopo la fine, traslazione di camera arrotondata, tocchi brevissimi non persi).
 - **`npm audit` segnala avvisi sulle dipendenze di sviluppo** (osservato). Le versioni sono fissate uguali a quelle di Ashen Realm (vite 5.4.11, vitest 2.1.8): esbuild (<= 0.24.2, il server di sviluppo risponde a richieste di qualunque sito), `@vitest/mocker` (moderata) e `tinypool` (segnalata critica, ma riguarda le opzioni dei worker dei test). npm indica come correzione disponibile vite 5.4.21 e vitest 2.1.9 (aggiornamenti di patch, fuori dall'intervallo fissato). Sono solo dipendenze di sviluppo e non finiscono nel gioco pubblicato; non e' stato aggiornato nulla. Da decidere se allineare le versioni anche in Ashen Realm.
 
@@ -140,3 +140,22 @@ Rilevati: spada deformata durante l’attacco (si inclinava solo la lama); dita 
 Segnalazione dell’utente: stivali sospesi sotto le gambe e armi sovrapposte alle mani senza essere impugnate. Correzione: basi maschili/femminili specifiche per le tre classi, prive di stivali incorporati; presa registrata per ogni arma, dita in primo piano e due punti di aggancio per ciascuno stivale (caviglia e suola). Corretto anche il verso degli stivali sulla posa specchiata del mago e mantenuta la testa davanti ai colletti delle armature. Controlli automatici: geometria di tutte le prese e dei tre paia di stivali sulle sei pose, persistenza della classe e migrazione v3; prova browser di scelta corpo/classe, ricaricamento, inventario e zoom senza eccezioni JavaScript. Fotogrammi delle pose maschili e femminili ispezionati; **approvazione visiva manuale ancora da ricevere**.
 
 Seconda segnalazione dell’utente: miglioramento parziale, ma offset delle armature, proporzioni di alcune armi e stivali davanti alla tunica ancora errati; posa dell’arciere troppo tesa. Corretti i riferimenti delle armature con collo/cintura/spalle propri per ogni indumento e corpo, invertita la profondità tunica/stivali, ridimensionate le armi e riposizionata la presa dell’arco sul legno anziché sulla corda. Sostituite le due basi dell’arciere con pose rilassate. Corretto anche il rapporto del ritratto sotto 400 px, che era deformato da 164×250 a fronte del formato 4:5. Test di continuità busto/gonna e agganci sulle sei pose, fotogrammi maschile/femminile controllati; resta da ricevere la conferma visiva dell’utente.
+
+
+## Storico delle migliorie multiplayer integrate dalla copia locale
+
+Le misure seguenti precedono l’integrazione con le stanze della PR #4; non sono benchmark della versione combinata.
+
+## Completamento diagnostica e cache (1 novembre 2026)
+
+- Rilevata una differenza di antialiasing sulle rune nel confronto della cache con il pavimento originale: rune riportate nel contesto di disegno finale. Sei viste ora identiche pixel per pixel, mantenendo la cache delle piastrelle e le animazioni delle torce.
+- Riprodotto arresto Vite con `EBUSY` sui file Cookies dei browser di test sotto `.tools/`: watcher configurato per ignorare `.tools/` e `dist/`. Non attribuito a questo errore il calo FPS della build pubblica segnalato dall’utente.
+- Il caso di calo FPS all’ingresso dell’amico resta da misurare sul PC dell’utente con F2. Nella prova isolata il server non risulta saturo; non dichiarare risolto universalmente il problema dai soli FPS del test.
+
+### Interpolazione del multiplayer (1 novembre 2026)
+
+Implementata `NetworkView`, una copia riservata alla rappresentazione: camera, giocatore, alleati, boss, proiettili e servitori interpolano le posizioni a ogni fotogramma fra gli stati ricevuti. Input, HUD, danni, collisioni, ricariche e premi continuano a usare lo stato autorevole. Le scie seguono le posizioni visuali; la mira locale resta agganciata al puntatore. Server a 60 Hz e trasporto a 30 Hz invariati.
+
+Buffer visivo provvisorio di un aggiornamento (circa 33 ms); non è predizione del movimento locale. Scatti e teletrasporti vengono mostrati immediatamente, così come l’esito finale. Dopo oltre 250 ms senza aggiornamenti si riallinea la scena; senza nuovi dati si ferma all’ultima posizione confermata, senza inventare movimento o colpi. Valori regolabili in `NETWORK_VIEW`.
+
+Verifica: 484 test, tipi client/server e build superati. Sei nuovi test coprono posizioni intermedie, separazione dallo stato autorevole, alleati/boss/proiettili/servitori, arrivi irregolari, salti, interruzioni e fine partita. Nessun test visivo eseguito, su richiesta dell’utente: fluidità e ritardo percepito restano da confermare nella sua partita.

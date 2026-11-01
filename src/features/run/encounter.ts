@@ -1,5 +1,4 @@
 import { Vec2 } from '../../core/vec2';
-import { pushOutOfPillars } from '../arena/arena';
 import type { Encounter } from '../match/encounter';
 import type { Match } from '../match/match';
 import { THEME_ELITES } from '../minions/elites';
@@ -11,11 +10,10 @@ import { HazardRunner, HAZARDS } from './hazards';
 import { bestiaryEntry, ROOM_BESTIARY, type BestiaryEntry } from './room-bestiary';
 import { onDoor, roomDoors, spawnPoints, type RoomDoor, type RoomTemplate } from './room-templates';
 import { DESCENT, ROOM_COMBAT, type DoorOption } from './rooms';
-import { addTemper, applyTempers, offerTempers, type TemperPick } from './tempers';
+import type { TemperPick } from './tempers';
 
 /*
- * Una stanza della discesa: il suo obiettivo (ondate, Assedio, Caccia, luogotenente, calma), le insidie, i premi da
- * raccogliere, le offerte di tempra e le porte. E' guidata dalla partita (`Encounter`): tutto passa dal suo
+ * Una stanza della discesa: il suo obiettivo (ondate, Assedio, Caccia, luogotenente, calma), le insidie e le porte. Nessuna ricompensa intermedia. E' guidata dalla partita (`Encounter`): tutto passa dal suo
  * generatore, quindi in cooperativa il server la esegue e i client ne ricevono la vista (`RoomView`).
  */
 
@@ -97,7 +95,7 @@ export interface RoomView {
 }
 
 /** Raggio entro cui un giocatore raccoglie un premio. */
-const PICKUP_RADIUS = 36;
+
 
 export class RoomEncounter implements Encounter {
   readonly grants: RoomGrants = {
@@ -114,8 +112,6 @@ export class RoomEncounter implements Encounter {
   readonly pickups: RoomPickup[] = [];
   /** Offerte di tempra in attesa di scelta, per giocatore. */
   readonly offers = new Map<string, TemperPick[]>();
-  /** Offerte ancora da proporre dopo quella in corso (Prova, patto). */
-  private readonly offerQueue = new Map<string, number>();
   /** Giocatori a cui il forziere propone un patto. */
   readonly pendingPacts = new Set<string>();
   readonly doorProgress: number[];
@@ -123,7 +119,7 @@ export class RoomEncounter implements Encounter {
   /** Le ondate pianificate (per sapere quali servitori compaiono). */
   waves: readonly WavePlan[] = [];
   private hazard: HazardRunner | null = null;
-  private nextPickupId = 1;
+
   private trialFailed = false;
   private trialTimer = 0;
   private siegeRemaining = 0;
@@ -133,13 +129,12 @@ export class RoomEncounter implements Encounter {
   /** Porta attraversata (indice), quando il gruppo esce. */
   exit: number | null = null;
   private readonly healthScale: number;
-  private readonly secondLives: Set<string>;
+
 
   constructor(readonly setup: RoomSetup) {
     this.doors = roomDoors(setup.template, setup.exits);
     this.doorProgress = this.doors.map(() => 0);
-    this.healthScale = (DESCENT.healthScale[setup.dungeonId] ?? 1) * (1 + 0.05 * setup.grade);
-    this.secondLives = new Set([...setup.members].filter(([, member]) => member.secondLife).map(([id]) => id));
+    this.healthScale = (DESCENT.healthScale[setup.dungeonId] ?? 1);
   }
 
   get kind(): DoorOption['kind'] {
@@ -157,14 +152,14 @@ export class RoomEncounter implements Encounter {
     if (combat.waves > 0 && combat.budget > 0) {
       const players = this.setup.members.size;
       const budget =
-        DESCENT.baseBudget * (1 + DESCENT.budgetPerStage * this.setup.stage) * combat.budget * DESCENT.partyBudget(players) * (1 + DESCENT.gradeBudget * this.setup.grade);
+        DESCENT.baseBudget * (1 + DESCENT.budgetPerStage * this.setup.stage) * combat.budget * DESCENT.partyBudget(players);
       this.waves = planWaves(
         {
           budget,
           waves: combat.waves,
           bestiary: option.kind === 'hunt' ? bestiary.filter((item) => item.role === 'swarm') : bestiary,
           stage: this.setup.stage,
-          eliteChance: option.kind === 'threshold' ? 0 : Math.min(0.9, DESCENT.eliteChance + 0.05 * this.setup.stage + 0.05 * this.setup.grade),
+          eliteChance: option.kind === 'threshold' ? 0 : Math.min(0.9, DESCENT.eliteChance + 0.05 * this.setup.stage),
           maxElites: option.kind === 'threshold' ? 0 : players >= 3 ? 2 : 1,
           themeElite: THEME_ELITES[dungeonId] ?? 'robust',
           seen: this.setup.seen,
@@ -243,7 +238,6 @@ export class RoomEncounter implements Encounter {
       }
       return;
     }
-    this.collect(match);
     this.walkDoors(dt, match);
   }
 
@@ -278,213 +272,30 @@ export class RoomEncounter implements Encounter {
     return Math.max(1, Math.round((entry?.health ?? definition.maxHealth) * this.healthScale));
   }
 
-  onPlayerDown(match: Match, playerId: string): boolean {
-    if (!this.secondLives.has(playerId)) return false;
-    this.secondLives.delete(playerId);
-    this.grants.usedSecondLife.add(playerId);
-    const player = match.players.get(playerId)!;
-    player.health.current = Math.max(1, Math.round(player.health.max * DESCENT.reviveFraction));
-    player.invulnerableFor = 1.5;
-    match.events.emit({ type: 'reward_taken', position: player.position, reward: 'second_life', playerId });
-    return true;
-  }
+  /** Nessuna benedizione, patto o seconda vita della vecchia progressione. */
+  onPlayerDown(_match: Match, _playerId: string): boolean { return false; }
 
-  // --- Stanza liberata: premi e porte --------------------------------------------------------------------------
-
-  /** La stanza e' libera: niente piu' nemici e insidie, compaiono i premi, si aprono le porte. */
+  /** Una stanza libera apre solo le direzioni: niente premi, ristori o potenziamenti. */
   private clear(match: Match, announce: boolean, at?: Vec2): void {
     if (this.grants.cleared) return;
     this.grants.cleared = true;
-    this.director?.stop();
-    this.hazard = null;
-    match.dismissMinions();
-    const center = new Vec2(match.arena.width / 2, match.arena.height * 0.5);
-    if (announce) match.events.emit({ type: 'room_cleared', position: at ?? center });
-    const ids = [...this.setup.members.keys()];
-    const factor = this.emberFactor();
-    if (announce && this.isCombat()) {
-      for (const id of ids) {
-        if ((match.report.get(id)?.damageReceived ?? 0) === 0) this.addEmbers(id, Math.round(DESCENT.embers.unscathedRoom * factor));
-      }
-    }
-    for (const [id, member] of this.setup.members) if ((member.extraOffers ?? 0) > 0) this.queueOffers(match, id, member.extraOffers!);
-    const option = this.setup.option;
-    // I premi stanno dove il giocatore puo' arrivare: mai dentro un pilastro.
-    const free = (point: Vec2): Vec2 => pushOutOfPillars(match.arena, point, PICKUP_RADIUS);
-    const spot = free(at === undefined ? center : new Vec2(Math.min(Math.max(at.x, 160), match.arena.width - 160), Math.min(Math.max(at.y, 220), match.arena.height - 220)));
-    switch (option.kind) {
-      case 'sanctuary':
-        this.place('fountain', free(center.add(new Vec2(-130, 0))), DESCENT.sanctuaryHeal, false, 'sanctuary');
-        this.place('anvil', free(center.add(new Vec2(130, 0))), 0, false, 'sanctuary');
-        return;
-      case 'reliquary':
-        this.place('chest', free(center), Math.round(DESCENT.embers.reliquary * factor), false);
-        return;
-      case 'antechamber':
-        for (const id of ids) match.heal(id, (match.players.get(id)?.health.max ?? 100) * DESCENT.antechamberHeal);
-        return;
-      case 'threshold':
-        for (const id of ids) this.addEmbers(id, Math.round(DESCENT.embers.threshold * factor));
-        return;
-      case 'trial':
-        this.grants.trial = !this.trialFailed;
-        if (this.trialFailed) return;
-        this.grants.seals += 1;
-        break;
-      case 'siege':
-        for (const id of ids) this.addEmbers(id, Math.round(DESCENT.embers.siege * factor));
-        break;
-      case 'lieutenant':
-        for (const id of ids) this.addEmbers(id, Math.round(DESCENT.embers.lieutenant * factor));
-        break;
-      default:
-        break;
-    }
-    const reward = option.reward;
-    if (reward === null) return;
-    const double = option.kind === 'trial';
-    if (reward === 'seal') {
-      this.place('seal', spot, 1, true);
-    } else if (reward === 'embers') {
-      this.place('embers', spot, Math.round(DESCENT.embers.door * factor * (double ? 2 : 1)), false);
-    } else if (reward === 'heal') {
-      this.place('heal', spot, DESCENT.rewardHeal * (double ? 2 : 1), false);
-    } else {
-      this.place('temper', spot, double ? 2 : 1, false);
-    }
+    this.grants.trial = this.kind === 'trial' ? !this.trialFailed : null;
+    this.director?.stop(); this.hazard = null; match.dismissMinions();
+    if (announce) match.events.emit({ type: 'room_cleared', position: at ?? new Vec2(match.arena.width / 2, match.arena.height * .5) });
   }
 
-  private isCombat(): boolean {
-    return ['threshold', 'combat', 'trial', 'siege', 'hunt', 'lieutenant'].includes(this.kind);
-  }
-
-  private emberFactor(): number {
-    return (DESCENT.dungeonFactor[this.setup.dungeonId] ?? 1) * (1 + DESCENT.gradeEmbers * this.setup.grade);
-  }
-
-  private place(kind: PickupKind, position: Vec2, amount: number, shared: boolean, group?: string): void {
-    this.pickups.push({ id: this.nextPickupId++, kind, position, amount, takenBy: [], shared, ...(group ? { group } : {}) });
-  }
-
-  private addEmbers(playerId: string, amount: number): void {
-    if (amount <= 0) return;
-    this.grants.embers.set(playerId, (this.grants.embers.get(playerId) ?? 0) + amount);
-  }
-
-  /** Chi passa su un premio lo prende (una volta per giocatore; il sigillo una volta per tutti). */
-  private collect(match: Match): void {
-    for (const [id, player] of match.players) {
-      if (player.health.isDead) continue;
-      for (const pickup of this.pickups) {
-        if (pickup.takenBy.includes(id) || (pickup.shared && pickup.takenBy.length > 0)) continue;
-        if (player.position.distanceTo(pickup.position) > PICKUP_RADIUS) continue;
-        if (pickup.group !== undefined && this.pickups.some((other) => other.group === pickup.group && other.takenBy.includes(id))) continue;
-        this.take(match, id, pickup);
-      }
-    }
-  }
-
-  private take(match: Match, playerId: string, pickup: RoomPickup): void {
-    pickup.takenBy.push(playerId);
-    const player = match.players.get(playerId)!;
-    let amount: number | undefined;
-    switch (pickup.kind) {
-      case 'embers':
-        this.addEmbers(playerId, pickup.amount);
-        amount = pickup.amount;
-        break;
-      case 'heal':
-      case 'fountain':
-        amount = Math.round(match.heal(playerId, player.health.max * pickup.amount));
-        break;
-      case 'seal':
-        this.grants.seals += pickup.amount;
-        break;
-      case 'temper':
-        this.queueOffers(match, playerId, pickup.amount);
-        break;
-      case 'anvil':
-        this.queueOffers(match, playerId, 1);
-        break;
-      case 'chest':
-        this.addEmbers(playerId, pickup.amount);
-        amount = pickup.amount;
-        this.pendingPacts.add(playerId);
-        break;
-    }
-    match.events.emit({ type: 'reward_taken', position: pickup.position, reward: pickup.kind, playerId, ...(amount !== undefined ? { amount } : {}) });
-  }
-
-  /** Propone `count` scelte di tempra di fila al giocatore. */
-  private queueOffers(match: Match, playerId: string, count: number): void {
-    this.offerQueue.set(playerId, (this.offerQueue.get(playerId) ?? 0) + count);
-    if (!this.offers.has(playerId)) this.nextOffer(match, playerId);
-  }
-
-  private nextOffer(match: Match, playerId: string): void {
-    const queued = this.offerQueue.get(playerId) ?? 0;
-    const member = this.setup.members.get(playerId);
-    if (queued <= 0 || member === undefined) {
-      this.offers.delete(playerId);
-      return;
-    }
-    this.offerQueue.set(playerId, queued - 1);
-    const picks = this.currentTempers(playerId);
-    const offers = offerTempers(match.rng, member.loadout, picks, member.offers);
-    if (offers.length === 0) {
-      // Nessuna tempra possibile (tutto al massimo): braci al posto della scelta.
-      this.addEmbers(playerId, Math.round(DESCENT.embers.door * this.emberFactor()));
-      this.nextOffer(match, playerId);
-      return;
-    }
-    this.offers.set(playerId, offers);
-  }
-
-  /** Le tempre del giocatore: quelle della discesa piu' quelle scelte in questa stanza. */
-  currentTempers(playerId: string): TemperPick[] {
-    let picks = [...(this.setup.members.get(playerId)?.tempers ?? [])];
-    for (const pick of this.grants.tempers.get(playerId) ?? []) picks = addTemper(picks, pick.temperId, pick.slot);
-    return picks;
-  }
-
-  /** Le skill del giocatore con le tempre di adesso (per l'interfaccia). */
-  temperedLoadout(playerId: string): Loadout {
-    const member = this.setup.members.get(playerId);
-    return member === undefined ? [] : applyTempers(member.loadout, this.currentTempers(playerId));
-  }
-
-  /** Il giocatore sceglie l'offerta `index`. Restituisce false se non c'era. */
-  chooseOffer(match: Match, playerId: string, index: number): boolean {
-    const offers = this.offers.get(playerId);
-    const choice = offers?.[index];
-    if (choice === undefined) return false;
-    const chosen = this.grants.tempers.get(playerId) ?? [];
-    chosen.push({ temperId: choice.temperId, slot: choice.slot, grade: 1 });
-    this.grants.tempers.set(playerId, chosen);
-    this.offers.delete(playerId);
-    match.events.emit({ type: 'temper_chosen', temperId: choice.temperId, slot: choice.slot, grade: choice.grade, playerId });
-    this.nextOffer(match, playerId);
-    return true;
-  }
-
-  /** Il patto del forziere: due tempre in cambio di vita massima per il resto della discesa. */
-  answerPact(match: Match, playerId: string, accept: boolean): boolean {
-    if (!this.pendingPacts.delete(playerId)) return false;
-    if (accept) {
-      this.grants.pacts.add(playerId);
-      this.queueOffers(match, playerId, 2);
-    }
-    return true;
-  }
+  // Compatibilità delle viste della PR: le vecchie scelte non attribuiscono più bonus.
+  currentTempers(_playerId: string): TemperPick[] { return []; }
+  temperedLoadout(playerId: string): Loadout { return this.setup.members.get(playerId)?.loadout ?? []; }
+  chooseOffer(_match: Match, _playerId: string, _index: number): boolean { return false; }
+  answerPact(_match: Match, _playerId: string, _accept: boolean): boolean { return false; }
 
   /** Il gruppo esce da una porta: tutti i vivi sulla stessa soglia per un attimo, nessuna scelta in sospeso. */
   private walkDoors(dt: number, match: Match): void {
     if (this.doors.length === 0 || this.exit !== null) return;
     const living = match.livingPlayers();
-    const ids = [...match.players].filter(([, player]) => !player.health.isDead).map(([id]) => id);
-    const busy = ids.some((id) => this.offers.has(id) || this.pendingPacts.has(id));
     for (const door of this.doors) {
-      const everyone = !busy && living.length > 0 && living.every((player) => onDoor(door, player.position));
+      const everyone = living.length > 0 && living.every((player) => onDoor(door, player.position));
       const progress = this.doorProgress[door.index]!;
       this.doorProgress[door.index] = everyone ? Math.min(1, progress + dt / DESCENT.doorHold) : Math.max(0, progress - dt * 2);
       if (this.doorProgress[door.index]! >= 1) {

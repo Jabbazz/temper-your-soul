@@ -248,17 +248,10 @@ describe('formato di salvataggio', () => {
     expect(loaded.inventory).toEqual(sampleCharacter().inventory);
   });
 
-  it('l\'Altare: si compra solo con le braci che bastano, fino all\'ultimo livello', () => {
-    const character = sampleCharacter();
-    character.embers = 100;
-    expect(character.buyBlessing('vigor')).toBe(true);
-    expect(character.embers).toBe(40);
+  it('le braci e benedizioni storiche non possono più essere spese', () => {
+    const character = sampleCharacter(); character.embers = 1000; character.blessings = { vigor: 1 };
     expect(character.buyBlessing('vigor')).toBe(false);
-    character.embers = 1000;
-    expect(character.buyBlessing('vigor')).toBe(true);
-    expect(character.buyBlessing('vigor')).toBe(true);
-    expect(character.buyBlessing('vigor')).toBe(false);
-    expect(character.blessings.vigor).toBe(3);
+    expect(character.embers).toBe(1000); expect(character.blessings).toEqual({ vigor: 1 });
   });
 
   it('JSON non valido, valori non oggetto, versione mancante o futura => null', () => {
