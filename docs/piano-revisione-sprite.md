@@ -112,7 +112,7 @@ Si separano braccio dietro, busto, gambe, testa e braccio davanti con un ritocco
 
 ## Rischi
 
-- **Lavori in parallelo:** la pull request 4 (`feature/discesa`, aperta al 1 novembre 2026) modifica molti file in `presentation/`, compresi `draw-actors.ts` e `presentation.test.ts`, ma non `character-art.ts`, `wearable-draw.ts` o i file dei ritratti. Il piano evita quei due file e va riallineato quando la pull request viene unita.
+- **Lavori in parallelo:** altre aree di `presentation/` cambiano spesso (l'ultima integrazione di stanze e bestiario ha toccato molti file, compreso `draw-actors.ts`, ma non `character-art.ts`, `wearable-draw.ts` o i file dei ritratti). Prima di ogni fase va controllata la [ripartizione dei compiti](ripartizione-compiti.md) e riallineato il ramo.
 - **Tempo:** se la tavola mostra pochi difetti, ci si ferma prima della fase 5. Se ne mostra molti, si decide di nuovo invece di allargare il lavoro.
 - **Giudizio visivo:** i criteri lasciano margine di interpretazione. Per questo ogni fase si ferma per la prova manuale.
 
