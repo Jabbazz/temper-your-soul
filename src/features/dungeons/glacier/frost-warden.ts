@@ -15,7 +15,7 @@ import {
  * Valori provvisori (vedi docs/game-design.md): non definiscono il bilanciamento.
  */
 export const FROST_WARDEN_STATS: BossStats = {
-  maxHealth: 3600,
+  maxHealth: 10800,
   phaseTwoThreshold: 0.5,
   speed: 165,
   slowedSpeed: 55,

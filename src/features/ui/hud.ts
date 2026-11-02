@@ -1,3 +1,4 @@
+import { InputBindings } from '../../core/input-bindings';
 import { SKILL_ICONS } from '../presentation/skill-icons';
 import { renderPixelIcon } from './pixel-icon';
 import { describeSkillStats } from '../items/item';
@@ -13,9 +14,11 @@ import { ChipBar, DamageMeter } from './health-feedback';
  * senza regole di gioco, e tocca il DOM soltanto quando un valore cambia.
  */
 /** Etichette dei comandi per slot di skill (i tasti veri sono nell'Input Map). */
-const SLOT_LABELS = ['MOUSE SX', 'MOUSE DX', 'Q', 'E'];
+
 
 export class Hud {
+  private readonly keyLabels: HTMLElement[] = [];
+  constructor(private readonly bindings = new InputBindings()) {bindings.changed.connect(()=>this.keyLabels.forEach((key,slot)=>{key.textContent=bindings.labelForSlot(slot);}));}
   private readonly playerBar = requireElement('player-bar');
   private readonly playerText = requireElement('player-text');
   private readonly bossBar = requireElement('boss-bar');
@@ -63,12 +66,14 @@ export class Hud {
     const list = requireElement('skills');
     list.replaceChildren();
     this.cooldownBars.length = 0;
+    this.keyLabels.length = 0;
     skills.forEach((skill, slot) => {
       const item = document.createElement('li');
       item.className = skill === null ? 'skill skill-empty' : 'skill';
       const key = document.createElement('span');
       key.className = 'key';
-      key.textContent = SLOT_LABELS[slot] ?? '';
+      key.textContent = this.bindings.labelForSlot(slot);
+      this.keyLabels.push(key);
       const name = document.createElement('b');
       name.textContent = skill === null ? '— vuoto —' : skill.name;
       const description = document.createElement('small');

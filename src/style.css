@@ -883,7 +883,7 @@ button.secondary:hover {
 .in-menu .resource-hud{display:none}.hint{bottom:5px;font-size:8px}
 
 /* Reliquiario: direzione C scelta per i comandi principali. */
-.menu-buttons button, .overlay-buttons button, .screen-head button, .actions button {
+:is(.menu-buttons button, .relic-button), .overlay-buttons button, .screen-head button, .actions button {
   color: #ffe7c6;
   background: linear-gradient(#643a3c, #38242b);
   border: 2px solid #c18b70;
@@ -891,19 +891,19 @@ button.secondary:hover {
   box-shadow: inset 0 0 0 3px #291e28, 0 4px 0 #090b12;
   transition: background-color 150ms, box-shadow 150ms, transform 150ms;
 }
-.menu-buttons button.secondary, .overlay-buttons button.secondary, .screen-head button.secondary {
+:is(.menu-buttons button, .relic-button).secondary, .overlay-buttons button.secondary, .screen-head button.secondary {
   color: #cdb7cc;
   background: linear-gradient(#2c2736, #191720);
   border-color: #655567;
 }
-.menu-buttons button:hover, .overlay-buttons button:hover, .screen-head button:hover, .actions button:hover {
+:is(.menu-buttons button, .relic-button):hover, .overlay-buttons button:hover, .screen-head button:hover, .actions button:hover {
   color: #fff0d9;
   background: linear-gradient(#7a484a, #482c36);
   border-color: #e0af8c;
   box-shadow: inset 0 0 0 3px #291e28, 0 5px 0 #090b12, 0 0 18px #a55e4930;
   transform: translateY(-1px);
 }
-.menu-buttons button:active, .overlay-buttons button:active, .screen-head button:active, .actions button:active {
+:is(.menu-buttons button, .relic-button):active, .overlay-buttons button:active, .screen-head button:active, .actions button:active {
   transform: translateY(2px);
   box-shadow: inset 0 0 0 3px #291e28, 0 1px 0 #090b12;
 }
@@ -916,7 +916,7 @@ button.secondary:hover {
 .menu-card .eyebrow { color: #d69880; }
 button:focus-visible { outline: 2px solid #ffe1a2; outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) {
-  .menu-buttons button, .overlay-buttons button, .screen-head button, .actions button { transition: none; }
+  :is(.menu-buttons button, .relic-button), .overlay-buttons button, .screen-head button, .actions button { transition: none; }
 }
 
 /* Reliquiario: tema condiviso da tutte le schermate e finestre. */
@@ -999,7 +999,7 @@ button:focus-visible { outline: 2px solid #ffe1a2; outline-offset: 4px; }
 .appearance-option[aria-pressed=true] { border-color: #e4b58a; color: #ffe3bb; box-shadow: inset 0 0 0 2px #ae7c4b60, 0 0 16px #ae7c4b28; }
 .appearance-option:hover { background: #4a3042; }
 .appearance-note { flex-basis: 100%; text-align: center; }
-.menu-buttons button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+:is(.menu-buttons button, .relic-button):disabled { opacity: .45; cursor: not-allowed; transform: none; }
 #inventory-appearance .appearance-option { display: flex; width: auto; align-items: center; padding: 5px 12px; }
 #inventory-appearance .appearance-option svg { width: 24px; height: 32px; }
 #inventory-appearance .appearance-note { display: none; }
@@ -1381,8 +1381,9 @@ body.room-fading .room-fade { opacity: 1; }
 
 /* Versione e note: appartengono solo al menu principale. */
 #screen-menu { padding-bottom: 72px; }
-.menu-release-footer { position: fixed; inset: auto 0 0; height: 48px; z-index: 2; pointer-events: none;
+.menu-release-footer { display: none; position: fixed; inset: auto 0 0; height: 48px; z-index: 10; pointer-events: none;
   background: linear-gradient(transparent, #141019e8); }
+#screen-menu:not(.hidden) + .menu-release-footer { display: block; }
 .menu-version { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); color: #baa9ad;
   font-size: 11px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
 .menu-changelog { position: absolute; left: 16px; bottom: 10px; pointer-events: auto; color: #d4beb6; }
@@ -1446,3 +1447,39 @@ body.room-fading .room-fade { opacity: 1; }
   .room-minimap-canvas { width: 120px; height: 76px; }
   .room-minimap-status { font-size: 10px; }
 }
+
+/* Impostazioni: due schede nello stesso reliquiario. */
+#settings-button{font:24px system-ui;line-height:1;padding:6px 12px}
+#settings-panel{width:min(440px,calc(100vw - 32px))}
+.settings-tabs{display:flex;gap:8px;margin:16px 0}.settings-tab{flex:1;padding:9px 8px;color:var(--relic-ivory);background:var(--relic-control);border:1px solid var(--relic-copper);border-radius:5px 10px;font:12px var(--relic-text)}
+.settings-tab[aria-selected=true]{background:#64412f;box-shadow:inset 0 -2px #dfbb77}.settings-pane[hidden]{display:none}
+.settings-pane p{font-size:12px;line-height:1.5}.control-bindings{display:grid;gap:12px;margin:16px 0}.control-binding{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}
+.binding-button,.controls-reset{padding:8px 12px;background:var(--relic-control);border:1px solid var(--relic-copper);border-radius:5px 10px;color:var(--relic-ivory);font:12px var(--relic-text)}
+.binding-button{min-width:104px}.binding-button.capturing{outline:2px solid #dfbb77;background:#64412f}.controls-message{min-height:38px;color:#e5c69b}.controls-fixed,.settings-storage{color:#b5a99d;font-size:11px}
+/* Piazza del rifugio: Canvas esteso a tutto il viewport, pixel interi. */
+.hub-screen{position:fixed;inset:0;z-index:25;overflow:hidden;color:var(--text)}
+.hub-screen.hidden{display:none}.hub-world{display:block;width:100%;height:100%;image-rendering:pixelated;outline:none}
+.hub-controls{position:absolute;left:16px;bottom:16px;display:flex;gap:8px;max-width:calc(100vw - 32px);flex-wrap:wrap}
+.hub-controls button{font-size:12px;padding:9px 14px}.hub-controls .hub-character-button{padding:8px 12px;min-width:60px}
+.hub-wallet{position:absolute;right:16px;bottom:62px;margin:0;padding:8px 12px;background:var(--relic-panel);border:1px solid var(--relic-copper);color:#d8bb7d;font:8px var(--relic-pixel)}
+.hub-interaction-tooltip{position:absolute;z-index:2;margin:0;max-width:202px;padding:9px 12px;border:1px solid var(--relic-copper);background:var(--relic-panel);color:var(--relic-ivory);font:8px var(--relic-pixel);box-shadow:3px 3px 0 #070b13;pointer-events:none}
+.hub-interaction-tooltip:before{content:'';position:absolute;left:-6px;top:12px;width:8px;height:8px;background:#18181d;border-left:1px solid #c5a46d;border-bottom:1px solid #c5a46d;transform:rotate(45deg)}
+.hub-interaction-tooltip.hidden{display:none}
+.hub-dialog{position:fixed;inset:0;background:#08090ce8;z-index:60;display:grid;place-items:center;padding:20px}
+.hub-dialog-card,.profile-modal{color:var(--text);padding:24px;max-height:85vh;overflow:auto;width:min(1000px,94vw);box-shadow:0 20px 80px #0009}
+.hub-dialog-card>h2{display:inline-block;margin-right:24px}.hub-service-action{display:block;width:100%;margin-top:10px;text-align:left}
+.player-profile{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:24px;align-items:center;padding-top:18px}.profile-portrait{height:360px;display:grid;place-items:center}.game-character-preview{position:static;inset:auto;height:336px;max-height:100%;max-width:100%;width:288px;image-rendering:pixelated;object-fit:contain}
+.profile-stats p{border-bottom:1px solid #8b744433;padding-bottom:9px}.profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.profile-cell{aspect-ratio:1;border:1px solid #8d774e;background:#0c0d1288;min-width:54px;display:grid;place-items:center}.profile-cell .item-slot{width:100%;height:100%}.profile-modal::backdrop{background:#08090ce0}.player-profile-button{position:fixed;left:16px;top:110px;z-index:22}.in-menu .player-profile-button{display:none}
+.hub-dialog-card h2,.player-profile h2{font-family:var(--relic-title);font-weight:normal;color:var(--gold)}.profile-pages{display:flex;align-items:center;justify-content:space-between;gap:10px}
+@media(max-width:650px){.player-profile{grid-template-columns:1fr 1fr;gap:12px}.profile-portrait{height:220px}.player-profile>section:last-child{grid-column:1/-1}.profile-grid{max-width:240px}.hub-dialog-card,.profile-modal{padding:14px}.hub-controls button{font-size:11px;padding:7px}.hub-wallet{font-size:8px}}
+
+/* Pannelli e comandi del rifugio riutilizzano il Reliquiario del menu. */
+.hub-dialog-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}.hub-dialog-head h2{margin:0;color:var(--relic-ivory);font:30px var(--relic-title)}
+.hub-dialog-head .relic-button{flex-shrink:0;padding:9px 14px}.hub-service-wallet{color:var(--gold);font:8px var(--relic-pixel)}.hub-service-note{color:var(--muted);font-size:13px;line-height:1.6}
+.hub-offer-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}.hub-offer{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--relic-border);border-radius:6px 18px;background:#17121caa}.hub-offer>.item-slot{width:72px;height:72px;flex-shrink:0}.hub-offer-details{flex:1;min-width:0}.hub-offer h3{margin:0;color:var(--relic-ivory);font:22px var(--relic-title)}.hub-offer p{font-size:12px;color:var(--muted);margin:6px 0}.hub-offer .hub-service-action{padding:10px 12px;font-size:12px;white-space:normal}.relic-button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.profile-figure{min-width:0}.profile-portrait>.character-portrait{position:relative;left:auto;top:auto;transform:none;width:100%;height:100%;pointer-events:auto;max-width:230px}.profile-equipment{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:14px}.profile-equipment-slot{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}.profile-equipment-slot>span{font-size:10px;text-align:center;min-height:25px;color:var(--muted)}.profile-equipment-slot>.item-slot{width:48px;height:48px}.profile-equipment-slot .small-button{padding:5px;font-size:10px}.profile-equipment-slot>.profile-cell{min-width:0;width:48px;height:48px}
+.hub-storage-dialog{width:min(1340px,97vw);max-height:94vh}.storage-window{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(0,2fr);gap:24px;align-items:start}.storage-panel,.storage-backpack{border:1px solid var(--relic-border);border-radius:8px 20px;background:#17121c99;padding:16px}.storage-panel h3{margin:0;color:var(--relic-ivory);font:28px var(--relic-title)}.storage-count{font:8px var(--relic-pixel);color:var(--gold);margin:12px 0 20px}.storage-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.storage-cell{position:relative;aspect-ratio:1;min-width:0;border:1px solid #655064;background:#0f1018bb;box-shadow:inset 0 0 0 2px #201b25;display:grid;place-items:center}.storage-slot-number{position:absolute;left:3px;top:3px;font:8px var(--relic-pixel);color:#87758a;pointer-events:none}.storage-cell>.item-slot{width:100%;height:100%;margin:0;z-index:1}.storage-cell .pixel-icon{width:38px;height:38px}.storage-help{font-size:12px;line-height:1.6;min-height:76px;color:var(--muted)}.storage-move{width:100%;padding:10px;font-size:12px}.storage-backpack .player-profile{grid-template-columns:minmax(90px,.75fr) minmax(150px,1.2fr) minmax(130px,1fr);gap:12px;padding:0}.storage-backpack .profile-portrait{height:270px}.storage-backpack .profile-equipment{grid-template-columns:repeat(2,minmax(0,1fr))}.storage-backpack .profile-stats h2{font-size:23px}.storage-backpack .profile-stats p{font-size:12px}.storage-backpack .profile-cell{min-width:0}.storage-backpack .profile-cell .pixel-icon{width:36px;height:36px}.storage-backpack .profile-grid{gap:6px}.storage-backpack .item-slot{min-width:0}.storage-backpack .profile-cell{min-height:44px}.storage-drop-active{outline:2px solid #e0af8c;outline-offset:2px;background:#654a43}.is-transfer-selected{outline:2px solid #e0af8c;outline-offset:2px}
+@media(max-width:1050px){.storage-window{grid-template-columns:230px minmax(0,1fr);gap:12px}.storage-backpack .player-profile{grid-template-columns:minmax(90px,1fr) minmax(150px,1.3fr)}.storage-backpack .player-profile>section:last-child{grid-column:1/-1}.storage-backpack .profile-grid{max-width:210px}.storage-backpack .profile-portrait{height:230px}.storage-backpack .profile-equipment{grid-template-columns:repeat(4,minmax(0,1fr));grid-column:1/-1}.hub-storage-dialog{padding:16px}}
+@media(max-width:650px){.storage-window{grid-template-columns:1fr}.storage-panel{max-width:350px;width:100%;margin:auto}.hub-offer-list{grid-template-columns:1fr}.hub-dialog-head h2{font-size:25px}.hub-dialog-head .relic-button{padding:8px;font-size:11px}.profile-equipment{grid-template-columns:repeat(2,minmax(0,1fr))}.hub-storage-dialog{padding:12px}.storage-backpack{padding:12px}}
+
+.profile-equipment-slot>.item-slot{padding:4px}.profile-equipment-slot .pixel-icon{width:36px;height:36px}.storage-draggable{touch-action:none;cursor:grab}.storage-draggable:active{cursor:grabbing}.storage-drag-ghost{position:fixed!important;z-index:9999!important;pointer-events:none!important;opacity:.85;width:64px!important;height:64px!important;transform:none!important}.storage-drag-ghost .pixel-icon{width:40px;height:40px}

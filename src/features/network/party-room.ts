@@ -1,3 +1,4 @@
+import { bossForParty } from '../combat/party-health';
 import { SeededRng } from '../../core/rng';
 import { deserializeCharacter, serializeCharacter } from '../character/save-format';
 import type { Character } from '../character/character';
@@ -85,14 +86,14 @@ export class PartyRoom {
     }
     this.run = null;
     if (this.mode === 'duel') {
-      const members = [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout(), characterClass: character.characterClass }));
-      this.match = new Match({ rng: new SeededRng(seed), dungeon, loadout: members[0]!.loadout, members });
+      const members = [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout(), totalXp: character.totalXp, characterClass: character.characterClass }));
+      this.match = new Match({ rng: new SeededRng(seed), dungeon, loadout: members[0]!.loadout, members, boss: bossForParty(dungeon.boss,members.length) });
       spreadPlayers(this.match);
     } else {
       this.run = new DescentRun({
         mode: this.mode,
         dungeonId: this.mode === 'pilgrimage' ? DUNGEONS[0]!.id : dungeon.id,
-        members: [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout(), characterClass: character.characterClass })),
+        members: [...this.characters].map(([key, character]) => ({ id: key, loadout: character.loadout(), totalXp: character.totalXp, characterClass: character.characterClass })),
         seed,
         grade: this.grade,
         // Le vene di servitori sono quelle sbloccate dal capo gruppo.

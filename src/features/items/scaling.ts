@@ -1,4 +1,4 @@
-import { manaCost, manaBonus } from '../skills/mana';
+import { manaCost, manaBonus, RARITY_MANA_REGENERATION } from '../skills/mana';
 import type { SkillDefinition, SkillEffect } from '../skills/skill-definition';
 import { RARITY_STATS, type Rarity } from './rarity';
 
@@ -20,7 +20,7 @@ export function scaleSkill(skill: SkillDefinition, rarity: Rarity): SkillDefinit
   const { powerMultiplier, cooldownMultiplier } = RARITY_STATS[rarity];
   const damage = (value: number): number => value * powerMultiplier;
   const dashFactor = 1 + (powerMultiplier - 1) * DASH_POWER_SHARE;
-  return { ...skill, manaCost: manaCost(skill) * cooldownMultiplier, manaRegeneration: (1 / cooldownMultiplier - 1) * 8 + manaBonus(skill), cooldown: skill.cooldown * cooldownMultiplier, onHit: skill.onHit ? { ...skill.onHit, ...(skill.onHit.damagePerSecond ? { damagePerSecond: damage(skill.onHit.damagePerSecond) } : {}) } : undefined, effect: scaleEffect(skill.effect, damage, dashFactor) };
+  return { ...skill, manaCost: manaCost(skill) * cooldownMultiplier, manaRegeneration: (1 / cooldownMultiplier - 1) * RARITY_MANA_REGENERATION + manaBonus(skill), cooldown: skill.cooldown * cooldownMultiplier, onHit: skill.onHit ? { ...skill.onHit, ...(skill.onHit.damagePerSecond ? { damagePerSecond: damage(skill.onHit.damagePerSecond) } : {}) } : undefined, effect: scaleEffect(skill.effect, damage, dashFactor) };
 }
 
 function scaleEffect(effect: SkillEffect, damage: (value: number) => number, dashFactor: number): SkillEffect {

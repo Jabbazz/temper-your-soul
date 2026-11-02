@@ -36,11 +36,11 @@
       <button id="performance-button" type="button" class="performance-toggle" aria-expanded="false" aria-controls="performance-panel">FPS · F2</button>
       <aside id="performance-panel" class="performance-panel hidden" aria-label="Diagnostica prestazioni"></aside>
       <div class="actions">
-        <button id="audio-button" type="button" aria-expanded="false" aria-controls="audio-panel">Audio</button>
+        <button id="settings-button" data-settings-navigation type="button" aria-label="Impostazioni" title="Impostazioni" aria-expanded="false" aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
         <button id="fullscreen-button" type="button">Schermo intero · F</button>
         <button id="pause-button" type="button">Pausa · ESC</button>
       </div>
-      <section class="audio-panel hidden" id="audio-panel" role="dialog" aria-label="Impostazioni audio"></section>
+      <section class="audio-panel hidden" id="settings-panel" role="dialog" aria-label="Impostazioni"></section>
 
       <div class="hint">WASD · Muoviti &nbsp;|&nbsp; ESC · Pausa &nbsp;|&nbsp; R · Ricomincia &nbsp;|&nbsp; <span id="audio-state">Audio disattivato · M</span></div>
 
@@ -59,20 +59,22 @@
           <div id="menu-profiles"></div>
           <div id="menu-appearance"></div>
           <div class="menu-buttons">
-            <button id="menu-dungeons" type="button">Dungeon →</button>
-            <button id="menu-inventory" type="button" class="secondary backpack-button" aria-label="Apri lo zaino e l’equipaggiamento">Zaino</button>
+            <button id="menu-dungeons" type="button">Entra nel rifugio →</button>
+            <button id="menu-inventory" type="button" class="secondary backpack-button" aria-label="Apri lo zaino e l’equipaggiamento"></button>
             <button id="menu-bestiary" type="button" class="secondary">Bestiario</button>
           </div>
           <small id="menu-note"></small>
         </div>
-        <footer class="menu-release-footer" aria-label="Versione e aggiornamenti">
-          <details class="menu-changelog" id="menu-changelog">
-            <summary id="menu-changelog-toggle">Changelog</summary>
-            <section id="menu-changelog-content" aria-label="Cronologia del gioco"></section>
-          </details>
-          <small id="menu-version" class="menu-version" aria-label="Versione del gioco"></small>
-        </footer>
+
       </div>
+
+      <footer class="menu-release-footer" aria-label="Versione e aggiornamenti">
+        <details class="menu-changelog" id="menu-changelog">
+          <summary id="menu-changelog-toggle">Changelog</summary>
+          <section id="menu-changelog-content" aria-label="Cronologia del gioco"></section>
+        </details>
+        <small id="menu-version" class="menu-version" aria-label="Versione del gioco"></small>
+      </footer>
 
       <div class="screen hidden" id="screen-dungeons">
         <div class="screen-card wide">

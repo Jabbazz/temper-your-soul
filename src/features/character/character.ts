@@ -73,6 +73,8 @@ export class Character {
     for(const slot of EQUIPMENT_SLOTS) { const item=this.equippedItem(slot); if(item) equipment[slot]=item; }
     return {body:this.bodyType ?? 'male',characterClass:this.characterClass ?? 'mage',equipment};
   }
+  storage: Item[] = [];
+  storagePositions: Record<string,number> = {};
   inventory: Item[] = [];
   equipped: Record<EquipmentSlot, string | null> = { primary_hand: null, secondary_hand: null, armor: null, boots: null };
   records: Record<string, DungeonRecord> = {};

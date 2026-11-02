@@ -27,6 +27,7 @@ const MINION_FLAGS = { shield: 1, warded: 2, prey: 4, slowed: 8 } as const;
  * quando cambia. Stanza e discesa solo quando cambiano.
  */
 export interface SnapshotFrame {
+  ep?: Readonly<Record<string, number>>;
   cs?: ClassCombatSnapshot;
   type: 'frame'; q: number; t: number; s: MatchStatus;
   start?: [string, string, string[], BattleSetup];
@@ -47,6 +48,7 @@ const flagsOf = (minion: MinionSnapshot): number =>
   (minion.shield ? MINION_FLAGS.shield : 0) | (minion.warded ? MINION_FLAGS.warded : 0) | (minion.prey ? MINION_FLAGS.prey : 0) | (minion.slowed ? MINION_FLAGS.slowed : 0);
 
 export class SnapshotEncoder {
+  private experience = '';
   private battle = '';
   private sequence = 0;
   private shots = new Set<number>();
@@ -61,7 +63,7 @@ export class SnapshotEncoder {
   encode(snapshot: BattleSnapshot): SnapshotFrame {
     const initial = snapshot.id !== this.battle;
     if (initial) {
-      this.battle = snapshot.id; this.sequence = 0; this.shots.clear(); this.zones.clear(); this.minions.clear();
+      this.experience = ''; this.battle = snapshot.id; this.sequence = 0; this.shots.clear(); this.zones.clear(); this.minions.clear();
       this.projectileTypes.clear(); this.zoneTypes.clear(); this.room = ''; this.run = ''; this.covers = '';
     }
     const frame: SnapshotFrame = {
@@ -73,6 +75,8 @@ export class SnapshotEncoder {
         : [compact(snapshot.boss.position.x), compact(snapshot.boss.position.y), snapshot.boss.health, snapshot.boss.phase, compact(snapshot.boss.slowFor), snapshot.boss.charge],
     };
     if (initial) frame.start = [snapshot.id, snapshot.dungeonId, snapshot.players.map(p => p.id), snapshot.setup];
+    const experience=JSON.stringify(snapshot.setup.experience ?? {});
+    if(experience!==this.experience){frame.ep=snapshot.setup.experience;this.experience=experience;}
     const specIndex = <T extends object>(spec: T, registry: Map<string, number>, added: T[]): number => {
       let key = this.keys.get(spec); if (!key) { key = JSON.stringify(spec); this.keys.set(spec, key); }
       let index = registry.get(key);
@@ -189,6 +193,7 @@ export class SnapshotDecoder {
       projectiles.push(shot.state);
     }
     for (const zone of this.zones.values()) { zone.state.remaining = zone.remaining - (frame.t - zone.time); zones.push(zone.state); }
+    if(frame.ep)this.setup={...this.setup,experience:{...frame.ep}};
     const boss = frame.b;
     return {
       classState: frame.cs ? { ...frame.cs, pets: frame.cs.pets.map(pet => ({ ...pet, position: vector(pet.position) })),

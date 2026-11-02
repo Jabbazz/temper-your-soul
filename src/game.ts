@@ -1,3 +1,6 @@
+import { HubScreen } from './features/ui/hub-screen';
+import { playerProfile } from './features/ui/player-profile';
+import { hideItemTooltip } from './features/ui/item-slot';
 import { renderCharacterCreation } from './features/ui/character-creation';
 import { PROGRESSION, levelProgress } from './features/character/progression';
 import { Camera, ZOOM } from './core/camera';
@@ -32,7 +35,7 @@ import { DungeonSelect, pilgrimageGearScore } from './features/ui/dungeon-select
 import { requireElement } from './features/ui/dom';
 import { FullscreenToggle } from './features/ui/fullscreen';
 import { Hud } from './features/ui/hud';
-import { AudioPanel } from './features/ui/audio-panel';
+import { SettingsPanel } from './features/settings/settings-panel';
 import { InventoryScreen } from './features/ui/inventory-screen';
 import { renderDefeat, renderDescentDefeat, renderDescentVictory, renderVictory } from './features/ui/end-screen';
 import { PhaseBanner } from './features/ui/phase-banner';
@@ -71,9 +74,9 @@ const TOAST_MS = 6000;
  * Schermata corrente dell'applicazione. Le prime sono fuori dalla partita (mostrano lo sfondo di un dungeon);
  * la partita avanza solo in `playing`.
  */
-type Screen = 'menu' | 'dungeons' | 'inventory' | 'bestiary' | 'playing' | 'paused' | 'ended';
+type Screen = 'hub' | 'menu' | 'dungeons' | 'inventory' | 'bestiary' | 'playing' | 'paused' | 'ended';
 
-const IDLE_SCREENS: readonly Screen[] = ['menu', 'dungeons', 'inventory', 'bestiary'];
+const IDLE_SCREENS: readonly Screen[] = ['hub', 'menu', 'dungeons', 'inventory', 'bestiary'];
 
 /** Come si entra in un dungeon: il Duello di sempre, la Discesa, il Pellegrinaggio. */
 type Mode = 'duel' | RunMode;
@@ -90,12 +93,14 @@ const LOAD_NOTES: Record<LoadStatus, string> = {
  */
 export class Game {
   private readonly input = new Input();
+  private readonly hub: HubScreen;
+  private profileDialog: HTMLDialogElement | null = null;
   private readonly camera = new Camera();
   private readonly effects = new Effects();
   private readonly poses = new ActorPoses();
   private readonly audio: AudioPlayer;
-  private readonly audioPanel: AudioPanel;
-  private readonly hud = new Hud();
+  private readonly settingsPanel: SettingsPanel;
+  private readonly hud = new Hud(this.input.bindings);
   private readonly descentHud = new DescentHud();
   private readonly minimap = new RoomMinimap();
   private readonly descentMap = new DescentMapOverlay();
@@ -158,7 +163,7 @@ export class Game {
   /** La discesa in corso (partita singola). */
   private run: DescentRun | null = null;
   /** Quanto della discesa e' gia' passato nel personaggio salvato. */
-  private runSaved = { embers: 0, xp: 0, kills: {} as Record<string, number> };
+  private runSaved = { gold: 0, embers: 0, xp: 0, kills: {} as Record<string, number> };
   /** Oggetti vinti nei boss della discesa (il Pellegrinaggio ne ha piu' d'uno). */
   private runItems: Item[] = [];
   /** XP del personaggio all'inizio della discesa (per la barra della schermata finale). */
@@ -167,7 +172,7 @@ export class Game {
   private networkRun: RunView | null = null;
   private networkRoom: RoomView | null = null;
   private networkRunId = '';
-  private networkSaved = { embers: 0, xp: 0, kills: {} as Record<string, number>, items: 0 };
+  private networkSaved = { gold: 0, embers: 0, xp: 0, kills: {} as Record<string, number>, items: 0 };
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -182,13 +187,14 @@ export class Game {
     const storage = browserStorage();
     this.saveStore = new SaveStore(storage);
     this.audio = new AudioPlayer(storage);
-    this.audioPanel = new AudioPanel(this.audio, { onOpen: () => this.pauseIfPlaying() });
+    this.settingsPanel = new SettingsPanel(this.audio, this.input, storage, { onOpen: () => this.pauseIfPlaying() });
     const loaded = this.saveStore.loadRoster();
     this.roster=loaded.roster;
     this.loadStatus = loaded.status;
 
+    this.hub = new HubScreen({portal:()=>this.openDungeons(),save:()=>{this.persist();},inventory:()=>this.openInventory(),menu:()=>this.showMenu()});
     this.menu = new MainMenu({
-      onDungeons: () => this.openDungeons(),
+      onDungeons: () => this.openHub(),
       onInventory: () => this.openInventory(),
       onBestiary: () => this.openBestiary(),
     });
@@ -197,10 +203,10 @@ export class Game {
       onDuel: (dungeon) => this.startDungeon(dungeon, 'duel', 0),
       onPilgrimage: () => this.startDungeon(DUNGEONS[0]!, 'pilgrimage', 0),
       onPreview: (dungeon) => this.preview(dungeon),
-      onBack: () => this.showMenu(),
+      onBack: () => this.openHub(),
     });
-    this.inventoryScreen = new InventoryScreen({ onChange: () => this.persist(), onBack: () => this.showMenu() });
-    this.bestiaryScreen = new BestiaryScreen({ onBack: () => this.showMenu() });
+    this.inventoryScreen = new InventoryScreen({ onChange: () => this.persist(), onBack: () => this.openHub() }, this.input.bindings);
+    this.bestiaryScreen = new BestiaryScreen({ onBack: () => this.openHub() });
     this.match = this.createMatch(this.dungeon);
     this.menu.setNote(
       storage === null ? 'Salvataggio locale non disponibile: i progressi non verranno conservati.' : LOAD_NOTES[this.loadStatus],
@@ -210,13 +216,15 @@ export class Game {
   start(): void {
     this.input.attach(this.canvas);
     this.input.actionPressed.connect((action) => {
-      if (action === 'pause') this.onEscape();
+      if (action === 'interact' && this.screen === 'hub') this.hub.interact();
+      else if (action === 'pause') this.onEscape();
       else if (action === 'restart') this.restartIfInGame();
       else if (action === 'toggle_audio') this.toggleAudio();
       else if (action === 'toggle_performance') this.performancePanel.toggle();
       else if (action === 'toggle_minimap') this.minimap.toggle();
       else if (action === 'toggle_fullscreen') void this.fullscreen.toggle();
     });
+    const profileButton=document.createElement('button');profileButton.id='player-profile-button';profileButton.className='player-profile-button';profileButton.textContent='Profilo';profileButton.onclick=()=>this.openPlayerProfile();document.body.append(profileButton);
     requireElement('pause-button').addEventListener('click', () => this.togglePause());
     requireElement('main-menu-button').addEventListener('click',()=>this.showMenu());
     this.overlay.onButtons(
@@ -249,6 +257,8 @@ export class Game {
   // --- Navigazione tra le schermate ------------------------------------------------------------------------------
 
   private showMenu(): void {
+    this.hub.hide();
+    this.profileDialog?.close();
     if (this.networkBattleId && this.screen === 'playing') this.party.client.leave();
     this.networkBattleId = '';
     this.networkRun = null;
@@ -279,7 +289,28 @@ export class Game {
     }
   }
 
+  private openHub(): void {
+    if(!this.character.created){this.showMenu();return;}
+    if(this.networkBattleId)this.party.client.leave();
+    this.abandonRun();this.networkBattleId='';this.networkRun=null;this.networkRoom=null;
+    this.screen='hub';this.input.releaseAll();this.clearBattleFeedback();this.overlay.hide();this.screens.show(null);
+    document.body.classList.add('in-menu');this.hub.show(this.character,this.roster);this.updateParty();
+  }
+
+  private openPlayerProfile(): void {
+    if(!this.character.created || this.profileDialog)return;
+    if(this.screen==='hub'){this.hub.openProfile();return;}
+    const resume=this.screen==='playing'&&!this.networkBattleId;
+    if(resume)this.togglePause();this.input.releaseAll();this.input.suspended=true;
+    const dialog=document.createElement('dialog');dialog.className='profile-modal menu-card';dialog.setAttribute('aria-label','Profilo del personaggio');
+    const close=document.createElement('button');close.textContent='Chiudi · ESC';close.onclick=()=>dialog.close();
+    dialog.append(close,playerProfile(this.character,this.roster.gold));
+    dialog.addEventListener('close',()=>{hideItemTooltip();dialog.remove();this.profileDialog=null;this.input.suspended=false;this.input.releaseAll();if(resume&&this.screen==='paused')this.togglePause();});
+    document.body.append(dialog);this.profileDialog=dialog;dialog.showModal();
+  }
+
   private openDungeons(): void {
+    this.hub.hide();
     if(!this.character.created) return;
     this.screen = 'dungeons';
     this.screens.show('dungeons');
@@ -288,6 +319,7 @@ export class Game {
   }
 
   private openInventory(): void {
+    this.hub.hide();
     if(!this.character.created)return;
     this.screen = 'inventory';
     this.clearBattleFeedback();
@@ -332,6 +364,7 @@ export class Game {
 
   /** Nuova partita nel dungeon corrente: il Duello con il boss, oppure una Discesa (o un Pellegrinaggio) da capo. */
   private startMatch(): void {
+    this.hub.hide();
     if (this.party.client.state) { this.party.openDialog(); return; }
     this.networkBattleId = '';
     this.renderAppearance = undefined; this.allyVisuals = [];
@@ -356,12 +389,12 @@ export class Game {
     this.run = new DescentRun({
       mode: this.mode,
       dungeonId: this.mode === 'pilgrimage' ? DUNGEONS[0]!.id : this.dungeon.id,
-      members: [{ id: 'local', loadout: this.character.loadout(), characterClass: this.character.characterClass }],
+      members: [{ id: 'local', loadout: this.character.loadout(), totalXp: this.character.totalXp, characterClass: this.character.characterClass }],
       seed: Math.floor(Math.random() * 0x100000000),
       grade: this.grade,
       veins: veinUnlocks(this.character, this.mode === 'pilgrimage' ? DUNGEONS.map((dungeon) => dungeon.id) : [this.dungeon.id]),
     });
-    this.runSaved = { embers: 0, xp: 0, kills: {} };
+    this.runSaved = { gold: 0, embers: 0, xp: 0, kills: {} };
     this.runItems = [];
     this.runXpStart = this.character.totalXp;
     this.enterRoom();
@@ -402,7 +435,9 @@ export class Game {
   }
 
   private onEscape(): void {
-    if (this.audioPanel.isOpen) this.audioPanel.close();
+    if(this.profileDialog){this.profileDialog.close();return;}
+    if(this.screen==='hub'){if(!this.hub.closeDialog())this.showMenu();return;}
+    if (this.settingsPanel.isOpen) this.settingsPanel.close();
     else if (IDLE_SCREENS.includes(this.screen) && this.screen !== 'menu') this.showMenu();
     else this.togglePause();
   }
@@ -412,7 +447,7 @@ export class Game {
     const match = new Match({
       rng: new SeededRng(Math.floor(Math.random() * 0x100000000)),
       dungeon,
-      loadout: this.character.loadout(), characterClass: this.character.characterClass,
+      loadout: this.character.loadout(), totalXp: this.character.totalXp, characterClass: this.character.characterClass,
     });
     this.attach(match);
     return match;
@@ -464,6 +499,7 @@ export class Game {
 
   /** Porta nel personaggio cio' che la discesa ha dato finora (braci, esperienza, bestiario) e salva. */
   private saveRunProgress(): void {
+    this.run?.syncProgress();
     const state = this.run?.players.get('local');
     if (state === undefined) return;
     const embers = state.embers - this.runSaved.embers;
@@ -473,10 +509,11 @@ export class Game {
       const delta = count - (this.runSaved.kills[id] ?? 0);
       if (delta > 0) kills[id] = delta;
     }
-    if (embers === 0 && xp === 0 && Object.keys(kills).length === 0) return;
+    if (state.gold === this.runSaved.gold && embers === 0 && xp === 0 && Object.keys(kills).length === 0) return;
     this.character.totalXp += Math.max(0, xp);
     this.character.addKills(kills);
-    this.runSaved = { embers: state.embers, xp: state.xp, kills: { ...state.kills } };
+    this.roster.gold += Math.max(0, state.gold - this.runSaved.gold);
+    this.runSaved = { gold: state.gold, embers: state.embers, xp: state.xp, kills: { ...state.kills } };
     this.persist();
   }
 
@@ -659,7 +696,7 @@ export class Game {
       const runId = snapshot.id.split(':')[0]!;
       if (runId !== this.networkRunId) {
         this.networkRunId = runId;
-        this.networkSaved = { embers: 0, xp: 0, kills: {}, items: 0 };
+        this.networkSaved = { gold: 0, embers: 0, xp: 0, kills: {}, items: 0 };
         this.runItems = [];
         this.runXpStart = this.character.totalXp;
         this.runTally.reset(me);
@@ -721,11 +758,12 @@ export class Game {
       if (delta > 0) kills[id] = delta;
     }
     const newItems = rewards.slice(saved.items);
-    if (state.embers === saved.embers && state.xp === saved.xp && Object.keys(kills).length === 0 && newItems.length === 0) return;
+    if ((state.gold ?? 0) === saved.gold && state.embers === saved.embers && state.xp === saved.xp && Object.keys(kills).length === 0 && newItems.length === 0) return;
     this.character.totalXp += Math.max(0, state.xp - saved.xp);
     this.character.addKills(kills);
     this.runItems.push(...this.character.addRolls(newItems));
-    this.networkSaved = { embers: state.embers, xp: state.xp, kills: { ...state.kills }, items: rewards.length };
+    this.roster.gold += Math.max(0, (state.gold ?? 0) - saved.gold);
+    this.networkSaved = { gold: state.gold ?? 0, embers: state.embers, xp: state.xp, kills: { ...state.kills }, items: rewards.length };
     this.persist();
   }
 
@@ -800,6 +838,7 @@ export class Game {
     this.updateParty();
     // Durante la creazione non si ridisegna il menu: il nome che si sta scrivendo andrebbe perso.
     if (this.screen === 'menu' && this.draft === null) this.showMenu();
+    else if (this.screen === 'hub') this.hub.show(this.character,this.roster);
     else if (this.screen === 'dungeons') this.dungeonSelect.render(this.character);
     else if (this.screen === 'bestiary') this.bestiaryScreen.render(this.character);
     else if (this.screen === 'inventory') {
@@ -881,6 +920,7 @@ export class Game {
 
   private step(): void {
     const { match } = this;
+    if(this.screen==='hub')this.hub.step(STEP,this.input.getVector('move_left','move_right','move_up','move_down'));
     if (this.screen === 'playing' || this.screen === 'ended') {
       this.poses.update(STEP, match.player.moving);
       for (const [id, poses] of this.allyPoses) poses.update(STEP, match.players.get(id)?.moving ?? false);
@@ -893,7 +933,7 @@ export class Game {
         // Pausa drammatica della fase II: il mondo aspetta, gli effetti continuano; le pressioni non si accumulano.
         this.interlude -= STEP; this.input.takeLatched();
       } else {
-        match.step(STEP, this.readIntent()); this.input.takeLatched();
+        match.step(STEP, this.readIntent()); this.saveRunProgress(); this.input.takeLatched();
       }
     } else if (IDLE_SCREENS.includes(this.screen)) {
       // Dietro i menu la mira segue comunque il mouse, cosi' il mirino e' al suo posto appena si entra.
@@ -950,6 +990,8 @@ export class Game {
     this.camera.follow(renderedMatch.player.position);
     if (view) renderedMatch.player.aim = renderedMatch.player.position.add(this.camera.pointerOffset(this.input.pointer));
     this.hud.update(this.match, levelProgress(this.character.totalXp));
+    const profileButton=requireElement('player-profile-button'),profileLabel=`Profilo · ${this.roster.gold} oro`;
+    if(profileButton.textContent!==profileLabel)profileButton.textContent=profileLabel;
     const views = this.descentViews();
     if (views !== null && (this.screen === 'playing' || this.screen === 'paused')) this.descentHud.update(views.run, views.room, views.localId);
     // Minimappa della stanza (anche nel Duello) e, tenendo premuto Tab, la mappa intera della discesa.
@@ -960,7 +1002,7 @@ export class Game {
     if (this.input.inMatch && views !== null && this.input.isActionPressed('show_map')) this.descentMap.show(views.run);
     else this.descentMap.hide();
     this.audio.setListener(this.match.player.position, this.camera.width / 2);
-    const audioScreen: AudioScreen = this.screen === 'bestiary' ? 'menu' : this.screen;
+    const audioScreen: AudioScreen = this.screen === 'bestiary' || this.screen === 'hub' ? 'menu' : this.screen;
     this.audio.setScene({ screen: audioScreen, theme: this.match.arena.theme, enraged: this.match.boss?.isEnraged ?? false });
     this.audio.update(delta);
     const mood = views === null

@@ -47,21 +47,14 @@ describe('giocatore', () => {
     expect(player.moving).toBe(false);
   });
 
-  it('un colpo toglie vita e da\' 0,65 s di invulnerabilita\'; durante quel tempo i colpi sono ignorati', () => {
-    const player = new Player(CRYPT_ARENA, MAGE_SKILLS);
-    expect(player.tryHurt(18)).toBe(true);
-    expect(player.health.current).toBe(82);
-    expect(player.invulnerableFor).toBeCloseTo(0.65, 10);
-    expect(player.tryHurt(18)).toBe(false);
-    expect(player.health.current).toBe(82);
-    player.tick(0.64);
-    expect(player.tryHurt(18)).toBe(false);
-    player.tick(0.02);
-    expect(player.isInvulnerable).toBe(false);
-    expect(player.tryHurt(18)).toBe(true);
-    expect(player.health.current).toBe(64);
+  it('due colpi consecutivi tolgono vita senza creare invulnerabilità', () => {
+    const player=new Player(CRYPT_ARENA,MAGE_SKILLS);
+    expect(player.tryHurt(18)).toBe(true);expect(player.health.current).toBe(82);
+    expect(player.invulnerableFor).toBe(0);
+    expect(player.tryHurt(18)).toBe(true);expect(player.health.current).toBe(64);
+    player.invulnerableFor=0.4;
+    expect(player.tryHurt(18)).toBe(false);expect(player.health.current).toBe(64);
   });
-
   it('tick consuma anche le ricariche delle skill', () => {
     const player = new Player(CRYPT_ARENA, MAGE_SKILLS);
     player.skillBar.start(0);

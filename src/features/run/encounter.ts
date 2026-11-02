@@ -1,3 +1,4 @@
+import { MOB_REWARDS, mobReward } from './mob-rewards';
 import { Vec2 } from '../../core/vec2';
 import type { Encounter } from '../match/encounter';
 import type { Match } from '../match/match';
@@ -18,7 +19,7 @@ import type { TemperPick } from './tempers';
  */
 
 /** Che cosa c'e' a terra da raccogliere. */
-export type PickupKind = 'temper' | 'embers' | 'heal' | 'seal' | 'fountain' | 'anvil' | 'chest';
+export type PickupKind = 'gold' | 'temper' | 'embers' | 'heal' | 'seal' | 'fountain' | 'anvil' | 'chest';
 
 export interface RoomPickup {
   readonly id: number;
@@ -62,6 +63,8 @@ export interface RoomSetup {
 
 /** Cio' che la stanza ha dato: la discesa lo raccoglie quando il gruppo attraversa una porta. */
 export interface RoomGrants {
+  readonly gold: Map<string, number>;
+  readonly xp: Map<string, number>;
   readonly embers: Map<string, number>;
   seals: number;
   readonly tempers: Map<string, TemperPick[]>;
@@ -101,6 +104,7 @@ export interface RoomView {
 
 export class RoomEncounter implements Encounter {
   readonly grants: RoomGrants = {
+    gold: new Map(), xp: new Map(),
     embers: new Map(),
     seals: 0,
     tempers: new Map(),
@@ -220,6 +224,12 @@ export class RoomEncounter implements Encounter {
   }
 
   step(dt: number, match: Match): void {
+    for (const pickup of this.pickups) for (const [id, player] of match.players) {
+      if (pickup.kind !== 'gold' || player.health.isDead || pickup.takenBy.includes(id)) continue;
+      if (player.position.sub(pickup.position).length() > MOB_REWARDS.pickupRadius) continue;
+      pickup.takenBy.push(id);
+      this.grants.gold.set(id, (this.grants.gold.get(id) ?? 0) + pickup.amount);
+    }
     if (!this.grants.cleared) {
       this.director?.step(dt, match);
       this.hazard?.step(dt, match);
@@ -259,14 +269,27 @@ export class RoomEncounter implements Encounter {
       return;
     }
     // Il luogotenente apre la sua pagina del bestiario come un servitore.
+    if (match.boss !== null) this.rewardMob(match, match.boss.position);
     if (match.boss !== null) this.grants.kills.set(match.boss.definition.id, (this.grants.kills.get(match.boss.definition.id) ?? 0) + 1);
     this.clear(match, true, match.boss?.position);
   }
 
   onMinionKilled(match: Match, minion: Minion, exploded: boolean): void {
+    if (!exploded) this.rewardMob(match, minion.position);
     if (!exploded) this.grants.kills.set(minion.definition.id, (this.grants.kills.get(minion.definition.id) ?? 0) + 1);
     if (this.siegeNests.delete(minion.id)) this.siegeRemaining -= DESCENT.siegeNestBonus;
     if (minion === this.prey && !this.grants.cleared) this.clear(match, true);
+  }
+
+  private rewardMob(match: Match, position: Vec2): void {
+    const reward = mobReward(this.setup.dungeonId);
+    for (const [id, player] of match.players) {
+      this.grants.xp.set(id, (this.grants.xp.get(id) ?? 0) + reward.xp);
+      player.setExperience(player.totalXp + reward.xp);
+    }
+    if (match.rng.next() < MOB_REWARDS.chance) this.pickups.push({
+      id: this.pickups.length + 1, kind: 'gold', position, amount: reward.gold, takenBy: [], shared: false,
+    });
   }
 
   minionHealth(definition: MinionDefinition): number {

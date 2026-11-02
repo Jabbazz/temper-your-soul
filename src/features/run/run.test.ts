@@ -260,7 +260,7 @@ describe('stanze della discesa', () => {
     clearRoom(match, encounter);
     expect(encounter.grants.trial).toBe(false);
     expect(encounter.grants.seals).toBe(0);
-    expect(encounter.pickups).toHaveLength(0);
+    expect(encounter.pickups.every(pickup=>pickup.kind==='gold')).toBe(true);
   });
 
   it('la Prova riuscita apre le porte senza sigilli o premi', () => {
@@ -268,7 +268,7 @@ describe('stanze della discesa', () => {
     clearRoom(match, encounter);
     expect(encounter.grants.trial).toBe(true);
     expect(encounter.grants.seals).toBe(0);
-    expect(encounter.pickups).toHaveLength(0);
+    expect(encounter.pickups.every(pickup=>pickup.kind==='gold')).toBe(true);
   });
 
   it('l\'Assedio finisce a tempo, e ogni nido distrutto lo accorcia', () => {
@@ -306,7 +306,7 @@ describe('stanze della discesa', () => {
     prey.health.current = 1;
     strike(match, prey, 5);
     expect(encounter.cleared).toBe(true);
-    expect(encounter.pickups).toHaveLength(0);
+    expect(encounter.pickups.every(pickup=>pickup.kind==='gold')).toBe(true);
   });
 
   it('le insidie arrivano solo dalla terza tappa e avvisano', () => {
@@ -354,7 +354,7 @@ describe('discesa completa', () => {
     const state = run.players.get('local')!;
     expect(state.tempers).toEqual([]);
     expect(state.embers).toBe(0);
-    expect(state.xp).toBe(100);
+    expect(state.xp).toBe(104); // 100 boss + 4 luogotenente; i servitori della fixture vengono rimossi senza colpi.
     // Il luogotenente apre la sua pagina del bestiario.
     expect(state.kills.belfry_gargoyle).toBe(1);
     expect(run.seals).toBe(0);

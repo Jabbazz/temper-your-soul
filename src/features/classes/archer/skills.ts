@@ -2,8 +2,9 @@ import { HUNTER_ARROW, SPORE_BURST, WIND_DASH } from '../../items/item-skills';
 import { DUNGEON_ITEM_SKILLS } from '../../items/dungeon-item-skills';
 import type { SkillDefinition } from '../../skills/skill-definition';
 
+export const ARCHER_TUNING = { primaryCooldownMultiplier: 1.15 } as const;
 const marked = (skill: SkillDefinition): SkillDefinition => ({
-  ...skill, manaCost: 0, onHit: { mark: true, penetration: 0.35 },
+  ...skill, cooldown: skill.cooldown * ARCHER_TUNING.primaryCooldownMultiplier, manaCost: 0, onHit: { mark: true, penetration: 0.35 },
   description: 'Freccia gratuita · Marchia il bersaglio per il pet · Ignora il 35% dello scudo',
 });
 export const ARCHER_SKILLS: Readonly<Record<string, SkillDefinition>> = {

@@ -126,7 +126,7 @@ describe('discesa in cooperativa', () => {
     expect(last.status).toBe('won');
     expect(Object.keys(last.rewards).sort()).toEqual(['a', 'b']);
     expect(last.run!.players.a!.tempers).toEqual([]);
-    expect(last.run!.players.a!.xp).toBe(100);
+    expect(last.run!.players.a!.xp).toBe(104); // Boss e luogotenente; la fixture rimuove gli altri servitori senza ucciderli.
     expect(last.run!.players.a!.embers).toBe(0);
     expect(last.run!.victories).toHaveLength(1);
     expect(() => r.chooseTemper('a', 0)).toThrow();

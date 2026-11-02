@@ -1,8 +1,9 @@
+import { InputBindings } from '../../core/input-bindings';
 import { renderAppearancePicker } from './appearance-picker';
 import { renderCharacterPortrait } from './character-portrait';
 import { equipInSlot } from './equipment-actions';
 import type { Character } from '../character/character';
-import { EQUIPMENT_SLOTS, SLOT_LABELS, type EquipmentSlot } from '../items/equipment-slot';
+import { EQUIPMENT_SLOTS, SLOT_LABELS, slotIndex } from '../items/equipment-slot';
 import { familyById } from '../items/item-families';
 import type { Item } from '../items/item';
 import { visibleInventory } from './inventory-view';
@@ -10,14 +11,6 @@ import { el, requireElement } from './dom';
 import { hideItemTooltip, renderItemSlot } from './item-slot';
 import { itemName } from '../items/item';
 import { CLASS_LABELS } from '../character/character-class';
-
-/** Etichette dei comandi per slot (i tasti veri sono nell'Input Map). */
-const SLOT_KEYS: Record<EquipmentSlot, string> = {
-  primary_hand: 'MOUSE SX',
-  secondary_hand: 'MOUSE DX',
-  armor: 'Q',
-  boots: 'E',
-};
 
 /**
  * Schermata dell'equipaggiamento: i 4 slot (uno per skill) e l'inventario. Cambiare un oggetto cambia la skill dello
@@ -32,7 +25,8 @@ export class InventoryScreen {
   private pendingDiscard: string | null = null;
   private character: Character | null = null;
 
-  constructor(private readonly handlers: { readonly onChange: () => void; readonly onBack: () => void }) {
+  constructor(private readonly handlers: { readonly onChange: () => void; readonly onBack: () => void }, private readonly bindings = new InputBindings()) {
+    bindings.changed.connect(()=>{if(this.character)this.renderSlots(this.character);});
     requireElement('inventory-back').addEventListener('click', () => {
       this.pendingDiscard = null;
       this.clearDrag();
@@ -82,7 +76,7 @@ export class InventoryScreen {
         this.clearDrag();
         if (uid && equipInSlot(character, uid, slot)) this.changed();
       });
-      panel.append(el('div', 'slot-title', `${SLOT_LABELS[slot]} · ${SLOT_KEYS[slot]}`));
+      panel.append(el('div', 'slot-title', `${SLOT_LABELS[slot]} · ${this.bindings.labelForSlot(slotIndex(slot))}`));
       const equipped = character.equippedItem(slot);
       const card = equipped === null ? null : renderItemSlot(equipped, { badge: 'Equipaggiato',characterClass:character.characterClass });
       if (card === null) {

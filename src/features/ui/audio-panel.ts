@@ -3,7 +3,7 @@ import { ART_CREDITS, ART_LICENSES } from '../presentation/art-credits';
 import { FONT_CREDITS, FONT_LICENSE_NAME } from './font-credits';
 import type { AudioPlayer } from '../audio/audio-player';
 import { VOLUME_CONTROLS, type VolumeControl } from '../audio/audio-settings';
-import { el, requireElement } from './dom';
+import { el } from './dom';
 
 /** Elenco di crediti: titolo con il link alla fonte, autore e licenza. */
 function creditList<T extends { title: string; author: string; source: string }>(credits: readonly T[], licenseOf: (credit: T) => string): HTMLElement {
@@ -32,44 +32,11 @@ const VOLUME_LABELS: Record<VolumeControl, string> = {
  * Pannello delle impostazioni audio (pulsante "Audio" in alto a destra): acceso/spento, volumi per canale e crediti
  * delle registrazioni. Non conosce le regole del suono: legge e cambia le impostazioni del motore.
  */
-export class AudioPanel {
-  private readonly root = requireElement('audio-panel');
-  private readonly button = requireElement('audio-button');
-
-  constructor(
-    private readonly audio: AudioPlayer,
-    private readonly handlers: { readonly onOpen: () => void },
-  ) {
-    this.button.addEventListener('click', () => (this.isOpen ? this.close() : this.open()));
-    audio.changed.connect(() => this.syncControls());
+export class AudioSettingsView {
+  constructor(private readonly root: HTMLElement, private readonly audio: AudioPlayer) {
+    audio.changed.connect(() => this.syncControls());this.render();
   }
-
-  get isOpen(): boolean {
-    return !this.root.classList.contains('hidden');
-  }
-
-  open(): void {
-    this.render();
-    this.root.classList.remove('hidden');
-    this.button.setAttribute('aria-expanded', 'true');
-    this.handlers.onOpen();
-    this.root.querySelector<HTMLElement>('input')?.focus();
-  }
-
-  close(): void {
-    this.root.classList.add('hidden');
-    this.button.setAttribute('aria-expanded', 'false');
-  }
-
   private render(): void {
-    const header = el('div', 'audio-panel-header');
-    header.append(el('h2', '', 'Audio'));
-    const close = el('button', 'audio-panel-close', '✕');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Chiudi le impostazioni audio');
-    close.addEventListener('click', () => this.close());
-    header.append(close);
-
     const toggle = el('label', 'audio-toggle');
     const checkbox = el('input');
     checkbox.type = 'checkbox';
@@ -94,7 +61,7 @@ export class AudioPanel {
       sliders.append(row);
     }
 
-    this.root.replaceChildren(header, toggle, sliders, this.renderCredits());
+    this.root.replaceChildren(toggle, sliders, this.renderCredits());
     this.syncControls();
   }
 

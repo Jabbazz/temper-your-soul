@@ -83,7 +83,7 @@ La build è in `dist/`, con script classico IIFE e risorse locali: è pubblicabi
 ### Livelli, mana e gear score
 
 - Livello iniziale 1, XP cumulativi per vittoria. Costo del passaggio di livello: `100 + 50 × (livello attuale − 1)`. Per ora salire di livello non concede bonus automatici di potenza.
-- Mana massimo e rigenerazione dipendono dalla classe, più bonus degli oggetti e della rarità. Attacchi primari di Guerriero e Arciere gratuiti; le altre skill hanno un costo; senza mana non parte e non avvia la ricarica. Pausa e fine partita fermano la rigenerazione.
+- Mana massimo e rigenerazione dipendono dalla classe, più bonus degli oggetti e della rarità. Attacchi primari di tutte le classi gratuiti; le altre skill hanno un costo; senza mana non parte e non avvia la ricarica. Pausa e fine partita fermano la rigenerazione.
 - GS per pezzo: `min(100, baseRarità + livelloOggetto − 1)`. Basi 20/40/60/80/100; livello oggetto 1–20. Esempi: Arco novizio bianco livello 1 = 20 GS; Arco del cacciatore verde livello 1 = 40 GS.
 - GS del personaggio = somma dei quattro pezzi equipaggiati compatibili, massimo 400. Gli oggetti solo nello zaino non contano.
 - HUD centrale in basso: vita rossa a sinistra, livello al centro, mana blu a destra, XP sotto e quattro icone skill in ordine **DX / SX / Q / E**.
@@ -307,3 +307,54 @@ Versione main della correzione dei danni: **v0.04.00** (package `0.4.0`), con cr
 ## VFX delle classi · versione 0.5.0
 
 Animazioni PixelLab locali e particelle WebGL con ripiego Canvas 2D; nuove icone con il budget residuo. Autorizzazione specifica del proprietario del 1 novembre 2026. Dettagli, copertura e prove manuali ancora necessarie: [VFX PixelLab](docs/vfx-pixellab.md). Studio animato con Vite: `/vfx-preview.html`.
+
+## Incremento locale 0.5.1
+
+Prima taratura correttiva: Mago più potente e rapido nei proiettili, primaria gratuita; Arciere leggermente meno rapido; nessuna protezione automatica dopo un colpo; quattro boss con HP triplicati. Tutti i valori prima/dopo nel changelog, con dettagli in game-design. Il pulsante Audio diventa un ingranaggio Impostazioni con schede Associazione tasti e Audio. Le associazioni delle quattro skill si salvano per browser e si riflettono su HUD e inventario. Lingua e altre impostazioni saranno aggiunte in seguito. Nuova conferma giocata dell’utente ancora da ricevere.
+
+
+## Progressione dei mob e rifugio · incremento locale 2 novembre 2026
+
+Decisione del proprietario: i mob assegnano XP e hanno il **70%** di possibilità di lasciare oro a terra. Raccolta automatica entro 30 unità, anche durante il combattimento. Valori provvisori per mob (incluso il luogotenente): T1 4 XP / 3 oro, T2 7 XP / 6 oro, T3 10 XP / 9 oro, T4 14 XP / 12 oro. Le autoesplosioni e la rimozione dei servitori non assegnano premi. Il bottino e gli XP dei boss restano aggiuntivi e invariati. In cooperativa ogni membro ottiene XP interi e raccoglie una quota personale da ciascun mucchio; nessun doppione da snapshot ripetuti.
+
+L’oro appartiene alla raccolta dei profili del browser, non al personaggio: resta dopo sconfitte, cambi e rimozioni dei profili. Non è un account cloud. XP e oro raccolti si salvano durante la run. Il permadeath rimane futuro: per ora la sconfitta continua a conservare anche il personaggio e gli oggetti.
+
+Ogni livello dopo il primo concede **+3 HP massimi, +2 MP massimi, +1 difesa, +1 punto percentuale al moltiplicatore di attacco**. Nessuna cura o ricarica automatica al level-up. Curva XP esistente invariata. Il profilo in partita mostra statistiche a sinistra, ritratto equipaggiato al centro, nove caselle a destra (pagine da nove per gli zaini storici più grandi, nessuna perdita o limite retroattivo). In singolo apre la pausa; in cooperativa il mondo continua.
+
+Il rifugio si apre dal menu: WASD per muoversi, **E per interagire** nelle vicinanze. **Scatto predefinito: E → Spazio**; migrazione della vecchia preferenza su E, preservate le altre associazioni valide. Portale animato verso la scelta raid, deposito personale, forgia, fabbro umanoide con incudine e mercante. Riuso delle immagini esistenti, nessuna rigenerazione.
+
+Servizi provvisori: mercante 30 oro per pezzo Comune di classe; forgia 120 oro per creare un pezzo Non comune delle quattro famiglie iniziali di classe, senza materiali in questo incremento. Fabbro: costo 60 × prossimo grado in oro, da +0 a +5; ogni grado aggiunge il 5% delle statistiche passive originali dell’oggetto e +2 punti percentuali al moltiplicatore di attacco. Non cambia la rarità né la scalatura storica del livello oggetto/GS. Deposito personale, nessun oggetto equipaggiato trasferibile: identità e migliorie conservate. Eventuale deposito condiviso, materiali/ricette, bilanciamento e destino degli oggetti depositati col permadeath restano punti aperti.
+
+Salvataggio **v8**, migrazione dei roster v6/v7 e dei personaggi storici; oro di partenza 0. Protocollo cooperativo **9**: riavviare il server e ricaricare tutti i client. Nessun commit o push in questo incremento. Controllo visivo non completato: timeout del browser integrato su localhost e Computer Use interrotto perché non riesce a verificare l’URL di Opera. Nessuna conferma giocata.
+
+Verifica automatica dell’incremento: 752 test in 62 file; prova di mutazione della soglia RNG rilevata (inclusione errata di 0,7) e ripristinata. Tipi e build verificati con `npm run verify`. Prova visiva e giocata ancora necessarie.
+
+
+### Rifugio cittadino a schermo intero · revisione 2 novembre 2026
+Su richiesta del proprietario, sostituita la prima rappresentazione DOM con una vera mappa Canvas a tutto viewport, camera limitata ai confini e raster pixel art con campionamento nearest-neighbor. Nessun titolo o cornice sopra la mappa. Selciato procedurale, mattoni, tetti in ardesia, case perimetrali, casse, griglie, muschio e torce; nessuna risorsa generata o scaricata. Moodboard Ashen Realm usata esclusivamente come riferimento di atmosfera.
+
+Sprite del giocatore e del profilo ottenuti dallo stesso compositore `characterPixels(..., 'game')` della partita, inclusi equipaggiamento, idle e camminata. Ritratti e sprite approvati non modificati. Punti di interesse in pixel art provvisoria: portale con rune animate, deposito con riflesso, forgia con fuoco/fumo, fabbro umanoide con martello/scintille e incudine, mercante animato dietro il bancone.
+
+Case, casse, NPC e strutture hanno collisioni nella simulazione pura del rifugio; passi suddivisi per evitare attraversamenti e scorrimento lungo le superfici. Velocità provvisoria 148 unità/s, raggio giocatore 9 unità, prossimità per E 62 unità. Tooltip contestuale accanto al punto d’interesse, visibile solo entro tale distanza e senza un dialogo aperto. Servizi, costi, oro e progressione invariati.
+
+Verifiche automatiche: collisioni di tutte le strutture, tentativo di attraversare il mercante, moto lungo i muri, raggiungibilità dei cinque punti dalla partenza e griglie dei fotogrammi NPC. Controllo visivo desktop nel browser riuscito su porta 5176; questo supera il precedente impedimento di accesso al server locale, senza costituire una prova giocata dell’utente. Da confermare a mano: qualità visiva rispetto alla moodboard, ritmo delle animazioni, movimento e suggerimenti E sui diversi schermi.
+
+
+### Zaino, deposito e servizi nello stile del menu · 2 novembre 2026
+Pulsante con la sola icona dello zaino nel rifugio (stesso sprite e stile Reliquiario del menu), apre il personaggio con il ritratto illustrato già usato dall’inventario, le statistiche, i quattro slot equipaggiati e lo zaino da nove caselle per pagina. La rappresentazione nella mappa resta lo sprite di gioco. Rimozione, doppio clic e clic destro permettono di modificare l’equipaggiamento solo nei pannelli dell’hub; il profilo di combattimento resta consultivo.
+
+Il deposito apre contemporaneamente due pannelli: 20 caselle a sinistra (4 colonne × 5 righe) e personaggio/zaino a destra. Posizioni persistenti, trasferimenti con puntatore mouse/tocco; alternativa tramite selezione e Sposta o doppio clic. Caselle occupate rifiutate; pezzi indossati da rimuovere prima di riporli; nessun rimpiazzo automatico. Lo spostamento fra caselle libere del deposito è supportato. Capienza massima 20; eventuali oggetti oltre limite provenienti dall’incremento precedente restano conservati e recuperabili. Lo zaino conserva la paginazione dei dati esistenti.
+
+Pannelli, pulsanti, bordi, colori e font riutilizzano gli stili del menu. Mercante, fabbro e forgia mostrano gli sprite esistenti degli oggetti, rarità, GS e tooltip condivisi con l’inventario; costi e regole economiche invariati. Nessuna rigenerazione di asset.
+
+Salvataggio **v9** per le posizioni del deposito, con migrazione v8 e precedenti e oro del roster conservato. Protocollo **10** impedisce di mescolare client incapaci di leggere il nuovo formato del personaggio: riavviare server e ricaricare le schede.
+
+Verifica automatica: **764 test in 65 file**, tipi e build tramite `npm run verify`. Mutazione temporanea del controllo sulle caselle occupate rilevata dal nuovo test e ripristinata. Verifica browser desktop: ritratto originale, deposito e zaino affiancati, drag-and-drop nei due sensi, salvataggio dell’oggetto nella casella 12 dopo ricaricamento, offerte con icone di mercante/fabbro/forgia. Queste sono prove automatiche del browser; conferma giocata dell’utente e prova su touch/responsive restano da fare. Nessun commit o push.
+
+
+### Pubblicazione del ramo · v0.05.01
+Primo commit di `codex/bilanciamento-impostazioni`: taratura del combattimento, impostazioni, progressione dei mob, oro condiviso, rifugio cittadino, servizi e deposito da 20 caselle. Changelog del menu aggiornato per l’intero incremento, incluse le variazioni prima → dopo. Versione package/lock `0.5.1`, salvataggio v9 e protocollo 10. Verifica completa e prove browser desktop; prova giocata della versione combinata e touch/responsive ancora da confermare.
+
+
+### Integrazione main · v0.06.00
+Su richiesta esplicita del proprietario del 2 novembre 2026, il lavoro completo viene integrato e pubblicato direttamente su `origin/main`, nel repository `Jabbazz/temper-your-soul`, senza fork né PR. Questa preferenza sostituisce il precedente flusso tramite fork indicato nella skill locale. Destinazione predefinita del push: origin. Versione package/lock `0.6.0`; changelog main con riepilogo completo e storico v0.05.01 conservato. Salvataggio v9 e protocollo 10; riavviare server cooperativo e ricaricare i client.

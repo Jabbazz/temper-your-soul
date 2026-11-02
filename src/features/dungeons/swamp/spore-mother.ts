@@ -16,7 +16,7 @@ import { SPORE_MOTHER_SUMMONS } from '../../minions/minion-catalog';
  */
 
 export const SPORE_MOTHER_STATS: BossStats = {
-  maxHealth: 2400,
+  maxHealth: 7200,
   phaseTwoThreshold: 0.5,
   // Molto piu' lenta del guardiano (100): il giocatore corre a 177.
   speed: 70,

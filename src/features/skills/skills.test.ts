@@ -142,14 +142,11 @@ describe('passo astrale', () => {
     expect(player.position).toEqual(new Vec2(CRYPT_ARENA.playerMargin, CRYPT_ARENA.playerMargin));
   });
 
-  it('con il colpo appena subito, lo scatto non accorcia l\'invulnerabilita\' (resta 0,65, non 0,55 come nel prototipo)', () => {
-    const { player, ctx } = harness();
-    player.tryHurt(10);
-    expect(player.invulnerableFor).toBeCloseTo(0.65, 10);
-    tryCastSkill(3, ctx);
-    expect(player.invulnerableFor).toBeCloseTo(0.65, 10);
+  it('subire danno non dà protezione, ma lo scatto concede ancora la propria invulnerabilità', () => {
+    const {player,ctx}=harness();player.tryHurt(10);
+    expect(player.invulnerableFor).toBe(0);tryCastSkill(3,ctx);
+    expect(player.invulnerableFor).toBeCloseTo(0.55,10);
   });
-
   it('se l\'invulnerabilita\' rimasta e\' minore, lo scatto la porta a 0,55', () => {
     const { player, ctx } = harness();
     player.invulnerableFor = 0.2;

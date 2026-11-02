@@ -1,3 +1,4 @@
+import { partyHealthMultiplier } from '../combat/party-health';
 import { ClassCombat, type EnemyTarget } from '../classes/class-combat';
 import type { HitEffect } from '../classes/skill-mechanics';
 import type { CharacterClass } from '../character/character-class';
@@ -43,6 +44,7 @@ export type MatchStatus = 'playing' | 'won' | 'lost';
 export interface MatchMember {
   readonly id: string;
   readonly loadout: Loadout;
+  readonly totalXp?: number;
   readonly characterClass?: CharacterClass | null;
   readonly health?: number;
   readonly maxHealth?: number;
@@ -55,6 +57,7 @@ export interface MatchOptions {
   readonly dungeon: DungeonDefinition;
   /** Le skill del giocatore per slot (derivano dall'equipaggiamento). */
   readonly loadout: Loadout;
+  readonly totalXp?: number;
   readonly characterClass?: CharacterClass | null;
   readonly members?: readonly MatchMember[];
   /** La mappa: predefinita quella del dungeon (il duello); le stanze della discesa hanno la propria. */
@@ -184,10 +187,10 @@ export class Match {
     const shaped = (this.arena.solids ?? []).length + (this.arena.chasms ?? []).length > 0;
     this.navGrid = shaped ? new NavGrid(this.arena) : null;
     this.rng = options.rng;
-    const members = options.members ?? [{ id: 'local', loadout: options.loadout, characterClass: options.characterClass }];
+    const members = options.members ?? [{ id: 'local', loadout: options.loadout, totalXp: options.totalXp, characterClass: options.characterClass }];
     this.viewPlayerId = members[0]!.id;
     for (const member of members) {
-      const player = new Player(this.arena, member.loadout, member.maxHealth, member.characterClass);
+      const player = new Player(this.arena, member.loadout, member.maxHealth, member.characterClass, member.totalXp);
       if (member.health !== undefined) player.health.current = Math.max(0, Math.min(player.health.max, member.health));
       if (member.mana !== undefined) player.mana = Math.max(0, Math.min(player.maxMana, member.mana));
       this.players.set(member.id, player);
@@ -452,7 +455,7 @@ export class Match {
   spawnMinion(definition: MinionDefinition, position: Vec2, options: MinionOptions = {}): Minion {
     const inside = clampToArena(this.arena, position, this.arena.playerMargin);
     const placed = definition.flying ? inside : pushOutOfPillars(this.arena, inside, definition.hitRadius);
-    const minion = new Minion(this.mintId(), definition, placed, options);
+    const minion = new Minion(this.mintId(), definition, placed, options.exactHealth ? options : { ...options, maxHealth: Math.round((options.maxHealth ?? definition.maxHealth) * partyHealthMultiplier(this.players.size)) });
     this.minions.push(minion);
     this.events.emit({
       type: 'minion_spawned',

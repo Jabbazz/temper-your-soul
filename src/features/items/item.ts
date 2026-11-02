@@ -17,6 +17,7 @@ export interface Item {
   readonly familyId: string;
   readonly rarity: Rarity;
   /** Livello oggetto, indipendente dal livello del personaggio. Assente nei salvataggi storici = 1. */
+  readonly upgrade?: number;
   readonly level?: number;
 }
 
@@ -24,6 +25,7 @@ export interface Item {
 export interface ItemRoll {
   readonly familyId: string;
   readonly rarity: Rarity;
+  readonly upgrade?: number;
   readonly level?: number;
 }
 
@@ -31,18 +33,25 @@ export interface ItemRoll {
 export function resolveItemSkill(family: ItemFamily, rarity: Rarity): SkillDefinition {
   const skill = scaleSkill(family.skill, rarity);
   return { ...skill, equipmentStats: equipmentStats(family.characterClass, family.slot, rarity),
-    ...(family.slot === 'primary_hand' && family.characterClass !== 'mage' ? { manaCost: 0 } : {}) };
+    ...(family.slot === 'primary_hand' ? { manaCost: 0 } : {}) };
 }
 
 /** Oggetto, famiglia e skill risolta; `undefined` se la famiglia non esiste nel catalogo (dati vecchi o corrotti). */
 export function resolveItem(item: Item): { item: Item; family: ItemFamily; skill: SkillDefinition } | undefined {
   const family = familyById(item.familyId);
   if (family === undefined) return undefined;
-  return { item, family, skill: resolveItemSkill(family, item.rarity) };
+  const skill = resolveItemSkill(family, item.rarity);
+  const upgrade = Math.max(0, Math.min(5, Math.floor(item.upgrade ?? 0)));
+  if (upgrade === 0) return {item, family, skill};
+  const stats = { ...skill.equipmentStats };
+  for (const key of Object.keys(stats) as (keyof typeof stats)[]) stats[key] = (stats[key] ?? 0) * (1 + upgrade * 0.05);
+  stats.abilityPower = (stats.abilityPower ?? 0) + upgrade * 0.02;
+  return { item, family, skill: { ...skill, equipmentStats: stats } };
 }
 
 /** Nome da mostrare: quello della famiglia (la rarita' si mostra a parte, con colore ed etichetta). */
 export function itemName(item: Item): string {
+  if(item.upgrade) return itemName({...item,upgrade:0}) + ` +${item.upgrade}`;
   if(item.rarity==='common' && NOVICE_NAMES[item.familyId])return NOVICE_NAMES[item.familyId]!;
   return familyById(item.familyId)?.name ?? item.familyId;
 }

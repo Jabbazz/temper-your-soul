@@ -74,7 +74,7 @@ sockets.on('connection', ws => {
       const m = raw as Record<string, unknown>;
       if (m.type === 'ping' && typeof m.sent === 'number' && Number.isFinite(m.sent)) { send(ws, { type: 'pong', sent: m.sent }); return; }
       if (m.type === 'enter') {
-        if (m.protocol !== NETWORK.protocolVersion) throw new Error('Il gioco è stato aggiornato: ricarica la pagina prima di creare o accettare un party.');
+        if (m.protocol !== NETWORK.protocolVersion) throw new Error('Client e server usano versioni diverse. Ricarica la pagina; se il messaggio resta, aggiorna e riavvia il server cooperativo.');
         if (client.room) throw new Error('Sei già in un party.');
         if (typeof m.character !== 'string' || m.character.length > 60_000 || (m.code !== undefined && typeof m.code !== 'string')) throw new Error('Personaggio non valido.');
         const code = typeof m.code === 'string' ? m.code : randomBytes(9).toString('hex');

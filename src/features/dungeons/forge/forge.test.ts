@@ -136,7 +136,7 @@ describe('forge: mappa', () => {
 describe('forge: il boss', () => {
   it('ha valori pesanti ma sensati e sei schemi in un ordine fisso che alterna zone e proiettili', () => {
     expect(FORGE_COLOSSUS.stats).toBe(FORGE_COLOSSUS_STATS);
-    expect(FORGE_COLOSSUS_STATS.maxHealth).toBe(3000);
+    expect(FORGE_COLOSSUS_STATS.maxHealth).toBe(9000);
     expect(FORGE_COLOSSUS_STATS.hitRadius).toBeGreaterThanOrEqual(40);
     expect(FORGE_COLOSSUS_STATS.speed).toBeLessThan(GUARDIAN.stats.speed);
     expect(FORGE_COLOSSUS_STATS.contactDistance).toBeLessThanOrEqual(30);

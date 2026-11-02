@@ -158,6 +158,840 @@ const INTEGER_DAMAGE_PREVIEW: ReleaseNotes = {
   };
 
 export const RELEASES: readonly ReleaseNotes[] = [
+  {
+  "version": "0.6.0",
+  "date": "2026-11-02",
+  "changes": [
+    "Rigenerazione MP ridotta uniformemente del 20%: base delle classi, bonus equipaggiamento e contributo della rarità. Riserve MP invariate; i costi cambiano solo per le primarie del Mago, ora gratuite.",
+    "Versione e Changelog ancorati al bordo inferiore della finestra: non scorrono più insieme al menu durante creazione personaggio o ridimensionamento.",
+    "Impostazioni unificate dietro un ingranaggio: schede Associazione tasti e Audio, con mixer e crediti conservati.",
+    "Quattro comandi skill riconfigurabili da tastiera o mouse, salvati per browser; tasti già assegnati scambiati, ripristino predefiniti, HUD e inventario aggiornati insieme.",
+    "Mago: primaria gratuita a ogni rarità, +35% danno diretto e +50% velocità dei proiettili, con gittata invariata. Le spell secondarie, le armature e i teletrasporti mantengono il proprio costo.",
+    "Arciere: tempo tra le primarie aumentato del 15%, senza modificare movimento o due cariche dello scatto.",
+    "Eliminata la protezione dopo il danno: colpi consecutivi e contatto continuato restano pericolosi. Conservate parata e invulnerabilità concessa dalle skill.",
+    "HP dei quattro boss finali triplicati; ripristinato +50% HP per ciascun membro aggiuntivo anche a boss finali e servitori (prima applicato solo ai luogotenenti).",
+    "Messaggio party corretto: un disallineamento può richiedere anche aggiornamento e riavvio del server, non soltanto ricarica della pagina.",
+    "Progressione dai mob: ogni uccisione assegna XP crescenti con il pericolo T1–T4 e ha il 70% di possibilità di lasciare oro a terra, raccolto avvicinandosi entro 30 unità. Anche i luogotenenti concedono questi premi; autoesplosioni e rimozioni dei servitori non ne concedono.",
+    "Oro condiviso fra tutti i personaggi del medesimo salvataggio browser: raccolta e XP salvati durante la run, senza attendere il boss. In cooperativa ogni membro riceve XP interi e può raccogliere la propria quota di ciascun mucchio. Nessun account cloud o permadeath implementato.",
+    "Livelli del personaggio: dopo il primo, ogni livello aggiunge 3 HP massimi, 2 MP massimi, 1 difesa e un punto percentuale al moltiplicatore di attacco. Aumento immediato anche durante la stanza e in cooperativa, senza cura o ricarica automatica. Curva XP e ricompense dei boss invariate.",
+    "Rifugio cittadino a tutto schermo: selciato, mattoni, abitazioni perimetrali, casse e torce in pixel art; portale animato per scegliere i raid, deposito, mercante, forgia e fabbro con incudine. Movimento con collisioni e suggerimento E accanto al punto vicino; sprite equipaggiato di gioco animato nella mappa.",
+    "E riservato alle interazioni e scatto predefinito su Spazio, con migrazione del precedente E e conservazione delle altre associazioni valide. Pulsante con la sola icona dello zaino nell’hub; pannelli e comandi nello stile Reliquiario del menu.",
+    "Personaggio e zaino mostrano il ritratto illustrato già usato nell’inventario, statistiche, quattro slot equipaggiati e nove caselle per pagina. Si rimuovono o equipaggiano oggetti nell’hub; il profilo in partita resta consultivo, con pausa solo in singolo.",
+    "Deposito personale con 20 caselle persistenti: apertura simultanea di deposito a sinistra e personaggio/zaino a destra. Trascinamento con mouse o tocco nei due sensi, spostamento nelle caselle libere, alternativa con selezione e Sposta. Nessun rimpiazzo di caselle occupate, duplicazione o eliminazione di eccedenze storiche.",
+    "Mercante: pezzi Comuni di classe a 30 oro; forgia: pezzi Non comuni delle famiglie iniziali a 120 oro, senza materiali per ora. Fabbro: gradi da +1 a +5, costo 60 × prossimo grado; ciascun grado aggiunge il 5% dei bonus passivi originali dell’oggetto e 2 punti percentuali al moltiplicatore di attacco. Icone, rarità, GS e tooltip condivisi con l’inventario in tutti i servizi. Valori provvisori.",
+    "Salvataggio v9: oro del roster, deposito personale e posizioni delle caselle; migrazioni storiche preservate. Protocollo cooperativo 10, con aggiornamenti dei livelli nella stessa stanza: riavviare il server e ricaricare tutti i client.",
+    "Verifica: 764 test in 65 file, tipi e build; controllo browser desktop di pannelli, icone, trasferimenti nei due sensi e posizione del deposito conservata dopo ricaricamento. Bilanciamento, prova giocata della versione combinata e resa touch/responsive restano da confermare. Nessuna nuova generazione di ritratti o sprite approvati."
+  ],
+  "balanceChanges": [
+    {
+      "label": "Guerriero · Rigenerazione innata",
+      "before": 5,
+      "after": 4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Arciere · Rigenerazione innata",
+      "before": 6,
+      "after": 4.8,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Rigenerazione innata",
+      "before": 10,
+      "after": 8,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Primaria Comune livello 1 · Bonus equipaggiamento",
+      "before": 0.5,
+      "after": 0.4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Secondaria Comune livello 1 · Bonus equipaggiamento",
+      "before": 1,
+      "after": 0.8,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Armatura Comune livello 1 · Bonus equipaggiamento",
+      "before": 1.5,
+      "after": 1.2,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Stivali Comuni livello 1 · Bonus equipaggiamento",
+      "before": 0.5,
+      "after": 0.4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill proiettile · Comune · Recupero passivo",
+      "before": 0.2,
+      "after": 0.16,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill area · Comune · Recupero passivo",
+      "before": 0.8,
+      "after": 0.64,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill scatto · Comune · Recupero passivo",
+      "before": 0.4,
+      "after": 0.32,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill melee · Comune · Recupero passivo",
+      "before": 0.1,
+      "after": 0.08,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill buff · Comune · Recupero passivo",
+      "before": 0.6,
+      "after": 0.48,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill evocazione · Comune · Recupero passivo",
+      "before": 0.8,
+      "after": 0.64,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Rarità · Coefficiente aggiuntivo nella formula (1 / moltiplicatore ricarica − 1) × coefficiente",
+      "before": 8,
+      "after": 6.4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Guerriero · Set Comune livello 1 · Recupero totale",
+      "before": 6.7,
+      "after": 5.36,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Arciere · Set Comune livello 1 · Recupero totale",
+      "before": 8,
+      "after": 6.4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Set Comune livello 1 · Recupero totale",
+      "before": 15.1,
+      "after": 12.08,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Boss finali e servitori · Cooperativa · 2 membri · Moltiplicatore HP",
+      "before": 1,
+      "after": 1.5,
+      "unit": "×"
+    },
+    {
+      "label": "Boss finali e servitori · Cooperativa · 4 membri · Moltiplicatore HP",
+      "before": 1,
+      "after": 2.5,
+      "unit": "×"
+    },
+    {
+      "label": "Lanterna dell’ossario · Comune livello 1 · Danno per proiettile",
+      "before": 44,
+      "after": 59.4,
+      "unit": "HP"
+    },
+    {
+      "label": "Lanterna dell’ossario · Comune livello 1 · Velocità proiettile",
+      "before": 200,
+      "after": 300,
+      "unit": "u/s"
+    },
+    {
+      "label": "Lanterna dell’ossario · Comune livello 1 · Durata proiettile",
+      "before": 3,
+      "after": 2,
+      "unit": "s"
+    },
+    {
+      "label": "Arco di rovi · Comune livello 1 · Ricarica primaria",
+      "before": 0.5,
+      "after": 0.575,
+      "unit": "s"
+    },
+    {
+      "label": "Cuore di brace · Comune livello 1 · Danno per proiettile",
+      "before": 38,
+      "after": 51.3,
+      "unit": "HP"
+    },
+    {
+      "label": "Cuore di brace · Comune livello 1 · Velocità proiettile",
+      "before": 410,
+      "after": 615,
+      "unit": "u/s"
+    },
+    {
+      "label": "Cuore di brace · Comune livello 1 · Durata proiettile",
+      "before": 1.3,
+      "after": 0.866667,
+      "unit": "s"
+    },
+    {
+      "label": "Specchio del ghiacciaio · Comune livello 1 · Danno per proiettile",
+      "before": 27,
+      "after": 36.45,
+      "unit": "HP"
+    },
+    {
+      "label": "Specchio del ghiacciaio · Comune livello 1 · Velocità proiettile",
+      "before": 540,
+      "after": 810,
+      "unit": "u/s"
+    },
+    {
+      "label": "Specchio del ghiacciaio · Comune livello 1 · Durata proiettile",
+      "before": 1.7,
+      "after": 1.133333,
+      "unit": "s"
+    },
+    {
+      "label": "Stivali di brina · Comune livello 1 · Danno esplosione",
+      "before": 65,
+      "after": 87.75,
+      "unit": "HP"
+    },
+    {
+      "label": "Bastone arcano · Comune livello 1 · Danno per proiettile",
+      "before": 19,
+      "after": 25.65,
+      "unit": "HP"
+    },
+    {
+      "label": "Bastone arcano · Comune livello 1 · Velocità proiettile",
+      "before": 440,
+      "after": 660,
+      "unit": "u/s"
+    },
+    {
+      "label": "Bastone arcano · Comune livello 1 · Durata proiettile",
+      "before": 2.5,
+      "after": 1.666667,
+      "unit": "s"
+    },
+    {
+      "label": "Arco del cacciatore · Comune livello 1 · Ricarica primaria",
+      "before": 0.16,
+      "after": 0.184,
+      "unit": "s"
+    },
+    {
+      "label": "Scettro tempestoso · Comune livello 1 · Danno per proiettile",
+      "before": 23,
+      "after": 31.05,
+      "unit": "HP"
+    },
+    {
+      "label": "Scettro tempestoso · Comune livello 1 · Velocità proiettile",
+      "before": 250,
+      "after": 375,
+      "unit": "u/s"
+    },
+    {
+      "label": "Scettro tempestoso · Comune livello 1 · Durata proiettile",
+      "before": 3,
+      "after": 2,
+      "unit": "s"
+    },
+    {
+      "label": "Grimorio del gelo · Comune livello 1 · Danno per proiettile",
+      "before": 100,
+      "after": 135,
+      "unit": "HP"
+    },
+    {
+      "label": "Grimorio del gelo · Comune livello 1 · Velocità proiettile",
+      "before": 310,
+      "after": 465,
+      "unit": "u/s"
+    },
+    {
+      "label": "Grimorio del gelo · Comune livello 1 · Durata proiettile",
+      "before": 2.5,
+      "after": 1.666667,
+      "unit": "s"
+    },
+    {
+      "label": "Mantello della meteora · Comune livello 1 · Danno area",
+      "before": 210,
+      "after": 283.5,
+      "unit": "HP"
+    },
+    {
+      "label": "Stivali astrali · Comune livello 1 · Danno esplosione",
+      "before": 65,
+      "after": 87.75,
+      "unit": "HP"
+    },
+    {
+      "label": "Velo di bufera · Comune livello 1 · Danno area",
+      "before": 110,
+      "after": 148.5,
+      "unit": "HP"
+    },
+    {
+      "label": "Staffa arcana · Comune livello 1 · Primaria",
+      "before": 2,
+      "after": 0,
+      "unit": "MP/lancio"
+    },
+    {
+      "label": "Scettro tempestoso · Comune livello 1 · Primaria",
+      "before": 5,
+      "after": 0,
+      "unit": "MP/lancio"
+    },
+    {
+      "label": "Tutte le classi · Invulnerabilità dopo il danno",
+      "before": 0.65,
+      "after": 0,
+      "unit": "s"
+    },
+    {
+      "label": "Guardiano della cripta · Singolo · Entrambe le fasi",
+      "before": 1800,
+      "after": 5400,
+      "unit": "HP"
+    },
+    {
+      "label": "Madre delle spore · Singolo · Entrambe le fasi",
+      "before": 2400,
+      "after": 7200,
+      "unit": "HP"
+    },
+    {
+      "label": "Colosso della fornace · Singolo · Entrambe le fasi",
+      "before": 3000,
+      "after": 9000,
+      "unit": "HP"
+    },
+    {
+      "label": "Custode del ghiaccio · Singolo · Entrambe le fasi",
+      "before": 3600,
+      "after": 10800,
+      "unit": "HP"
+    },
+    {
+      "label": "Mob e luogotenenti · tutti i dungeon · Probabilità di drop oro",
+      "before": 0,
+      "after": 70,
+      "unit": "%"
+    },
+    {
+      "label": "Mob e luogotenenti · T1 Cripta · Esperienza per uccisione",
+      "before": 0,
+      "after": 4,
+      "unit": "XP"
+    },
+    {
+      "label": "Mob e luogotenenti · T1 Cripta · Oro quando avviene il drop",
+      "before": 0,
+      "after": 3,
+      "unit": "oro"
+    },
+    {
+      "label": "Mob e luogotenenti · T2 Palude · Esperienza per uccisione",
+      "before": 0,
+      "after": 7,
+      "unit": "XP"
+    },
+    {
+      "label": "Mob e luogotenenti · T2 Palude · Oro quando avviene il drop",
+      "before": 0,
+      "after": 6,
+      "unit": "oro"
+    },
+    {
+      "label": "Mob e luogotenenti · T3 Fucina · Esperienza per uccisione",
+      "before": 0,
+      "after": 10,
+      "unit": "XP"
+    },
+    {
+      "label": "Mob e luogotenenti · T3 Fucina · Oro quando avviene il drop",
+      "before": 0,
+      "after": 9,
+      "unit": "oro"
+    },
+    {
+      "label": "Mob e luogotenenti · T4 Ghiacciaio · Esperienza per uccisione",
+      "before": 0,
+      "after": 14,
+      "unit": "XP"
+    },
+    {
+      "label": "Mob e luogotenenti · T4 Ghiacciaio · Oro quando avviene il drop",
+      "before": 0,
+      "after": 12,
+      "unit": "oro"
+    },
+    {
+      "label": "Personaggio · ogni livello dopo il primo · Vita massima",
+      "before": 0,
+      "after": 3,
+      "unit": "HP/livello"
+    },
+    {
+      "label": "Personaggio · ogni livello dopo il primo · Mana massimo",
+      "before": 0,
+      "after": 2,
+      "unit": "MP/livello"
+    },
+    {
+      "label": "Personaggio · ogni livello dopo il primo · Difesa",
+      "before": 0,
+      "after": 1,
+      "unit": "punti/livello"
+    },
+    {
+      "label": "Personaggio · ogni livello dopo il primo · Moltiplicatore attacco",
+      "before": 0,
+      "after": 1,
+      "unit": "punti percentuali/livello"
+    },
+    {
+      "label": "Fabbro · ogni grado +1…+5 · Aumento dei bonus passivi originali del pezzo",
+      "before": 0,
+      "after": 5,
+      "unit": "%/grado"
+    },
+    {
+      "label": "Fabbro · ogni grado +1…+5 · Bonus al moltiplicatore attacco",
+      "before": 0,
+      "after": 2,
+      "unit": "punti percentuali/grado"
+    }
+  ]
+},
+  {
+  "version": "0.5.1",
+  "date": "2026-11-02",
+  "changes": [
+    "Rigenerazione MP ridotta uniformemente del 20%: base delle classi, bonus equipaggiamento e contributo della rarità. Riserve MP invariate; i costi cambiano solo per le primarie del Mago, ora gratuite.",
+    "Versione e Changelog ancorati al bordo inferiore della finestra: non scorrono più insieme al menu durante creazione personaggio o ridimensionamento.",
+    "Impostazioni unificate dietro un ingranaggio: schede Associazione tasti e Audio, con mixer e crediti conservati.",
+    "Quattro comandi skill riconfigurabili da tastiera o mouse, salvati per browser; tasti già assegnati scambiati, ripristino predefiniti, HUD e inventario aggiornati insieme.",
+    "Mago: primaria gratuita a ogni rarità, +35% danno diretto e +50% velocità dei proiettili, con gittata invariata. Le spell secondarie, le armature e i teletrasporti mantengono il proprio costo.",
+    "Arciere: tempo tra le primarie aumentato del 15%, senza modificare movimento o due cariche dello scatto.",
+    "Eliminata la protezione dopo il danno: colpi consecutivi e contatto continuato restano pericolosi. Conservate parata e invulnerabilità concessa dalle skill.",
+    "HP dei quattro boss finali triplicati; ripristinato +50% HP per ciascun membro aggiuntivo anche a boss finali e servitori (prima applicato solo ai luogotenenti).",
+    "Messaggio party corretto: un disallineamento può richiedere anche aggiornamento e riavvio del server, non soltanto ricarica della pagina.",
+    "Progressione dai mob: ogni uccisione assegna XP crescenti con il pericolo T1–T4 e ha il 70% di possibilità di lasciare oro a terra, raccolto avvicinandosi entro 30 unità. Anche i luogotenenti concedono questi premi; autoesplosioni e rimozioni dei servitori non ne concedono.",
+    "Oro condiviso fra tutti i personaggi del medesimo salvataggio browser: raccolta e XP salvati durante la run, senza attendere il boss. In cooperativa ogni membro riceve XP interi e può raccogliere la propria quota di ciascun mucchio. Nessun account cloud o permadeath implementato.",
+    "Livelli del personaggio: dopo il primo, ogni livello aggiunge 3 HP massimi, 2 MP massimi, 1 difesa e un punto percentuale al moltiplicatore di attacco. Aumento immediato anche durante la stanza e in cooperativa, senza cura o ricarica automatica. Curva XP e ricompense dei boss invariate.",
+    "Rifugio cittadino a tutto schermo: selciato, mattoni, abitazioni perimetrali, casse e torce in pixel art; portale animato per scegliere i raid, deposito, mercante, forgia e fabbro con incudine. Movimento con collisioni e suggerimento E accanto al punto vicino; sprite equipaggiato di gioco animato nella mappa.",
+    "E riservato alle interazioni e scatto predefinito su Spazio, con migrazione del precedente E e conservazione delle altre associazioni valide. Pulsante con la sola icona dello zaino nell’hub; pannelli e comandi nello stile Reliquiario del menu.",
+    "Personaggio e zaino mostrano il ritratto illustrato già usato nell’inventario, statistiche, quattro slot equipaggiati e nove caselle per pagina. Si rimuovono o equipaggiano oggetti nell’hub; il profilo in partita resta consultivo, con pausa solo in singolo.",
+    "Deposito personale con 20 caselle persistenti: apertura simultanea di deposito a sinistra e personaggio/zaino a destra. Trascinamento con mouse o tocco nei due sensi, spostamento nelle caselle libere, alternativa con selezione e Sposta. Nessun rimpiazzo di caselle occupate, duplicazione o eliminazione di eccedenze storiche.",
+    "Mercante: pezzi Comuni di classe a 30 oro; forgia: pezzi Non comuni delle famiglie iniziali a 120 oro, senza materiali per ora. Fabbro: gradi da +1 a +5, costo 60 × prossimo grado; ciascun grado aggiunge il 5% dei bonus passivi originali dell’oggetto e 2 punti percentuali al moltiplicatore di attacco. Icone, rarità, GS e tooltip condivisi con l’inventario in tutti i servizi. Valori provvisori.",
+    "Salvataggio v9: oro del roster, deposito personale e posizioni delle caselle; migrazioni storiche preservate. Protocollo cooperativo 10, con aggiornamenti dei livelli nella stessa stanza: riavviare il server e ricaricare tutti i client.",
+    "Verifica: 764 test in 65 file, tipi e build; controllo browser desktop di pannelli, icone, trasferimenti nei due sensi e posizione del deposito conservata dopo ricaricamento. Bilanciamento, prova giocata della versione combinata e resa touch/responsive restano da confermare. Nessuna nuova generazione di ritratti o sprite approvati."
+  ],
+  "balanceChanges": [
+    {
+      "label": "Guerriero · Rigenerazione innata",
+      "before": 5,
+      "after": 4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Arciere · Rigenerazione innata",
+      "before": 6,
+      "after": 4.8,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Rigenerazione innata",
+      "before": 10,
+      "after": 8,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Primaria Comune livello 1 · Bonus equipaggiamento",
+      "before": 0.5,
+      "after": 0.4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Secondaria Comune livello 1 · Bonus equipaggiamento",
+      "before": 1,
+      "after": 0.8,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Armatura Comune livello 1 · Bonus equipaggiamento",
+      "before": 1.5,
+      "after": 1.2,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Stivali Comuni livello 1 · Bonus equipaggiamento",
+      "before": 0.5,
+      "after": 0.4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill proiettile · Comune · Recupero passivo",
+      "before": 0.2,
+      "after": 0.16,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill area · Comune · Recupero passivo",
+      "before": 0.8,
+      "after": 0.64,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill scatto · Comune · Recupero passivo",
+      "before": 0.4,
+      "after": 0.32,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill melee · Comune · Recupero passivo",
+      "before": 0.1,
+      "after": 0.08,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill buff · Comune · Recupero passivo",
+      "before": 0.6,
+      "after": 0.48,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Skill evocazione · Comune · Recupero passivo",
+      "before": 0.8,
+      "after": 0.64,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Rarità · Coefficiente aggiuntivo nella formula (1 / moltiplicatore ricarica − 1) × coefficiente",
+      "before": 8,
+      "after": 6.4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Guerriero · Set Comune livello 1 · Recupero totale",
+      "before": 6.7,
+      "after": 5.36,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Arciere · Set Comune livello 1 · Recupero totale",
+      "before": 8,
+      "after": 6.4,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Mago · Set Comune livello 1 · Recupero totale",
+      "before": 15.1,
+      "after": 12.08,
+      "unit": "MP/s"
+    },
+    {
+      "label": "Boss finali e servitori · Cooperativa · 2 membri · Moltiplicatore HP",
+      "before": 1,
+      "after": 1.5,
+      "unit": "×"
+    },
+    {
+      "label": "Boss finali e servitori · Cooperativa · 4 membri · Moltiplicatore HP",
+      "before": 1,
+      "after": 2.5,
+      "unit": "×"
+    },
+    {
+      "label": "Lanterna dell’ossario · Comune livello 1 · Danno per proiettile",
+      "before": 44,
+      "after": 59.4,
+      "unit": "HP"
+    },
+    {
+      "label": "Lanterna dell’ossario · Comune livello 1 · Velocità proiettile",
+      "before": 200,
+      "after": 300,
+      "unit": "u/s"
+    },
+    {
+      "label": "Lanterna dell’ossario · Comune livello 1 · Durata proiettile",
+      "before": 3,
+      "after": 2,
+      "unit": "s"
+    },
+    {
+      "label": "Arco di rovi · Comune livello 1 · Ricarica primaria",
+      "before": 0.5,
+      "after": 0.575,
+      "unit": "s"
+    },
+    {
+      "label": "Cuore di brace · Comune livello 1 · Danno per proiettile",
+      "before": 38,
+      "after": 51.3,
+      "unit": "HP"
+    },
+    {
+      "label": "Cuore di brace · Comune livello 1 · Velocità proiettile",
+      "before": 410,
+      "after": 615,
+      "unit": "u/s"
+    },
+    {
+      "label": "Cuore di brace · Comune livello 1 · Durata proiettile",
+      "before": 1.3,
+      "after": 0.866667,
+      "unit": "s"
+    },
+    {
+      "label": "Specchio del ghiacciaio · Comune livello 1 · Danno per proiettile",
+      "before": 27,
+      "after": 36.45,
+      "unit": "HP"
+    },
+    {
+      "label": "Specchio del ghiacciaio · Comune livello 1 · Velocità proiettile",
+      "before": 540,
+      "after": 810,
+      "unit": "u/s"
+    },
+    {
+      "label": "Specchio del ghiacciaio · Comune livello 1 · Durata proiettile",
+      "before": 1.7,
+      "after": 1.133333,
+      "unit": "s"
+    },
+    {
+      "label": "Stivali di brina · Comune livello 1 · Danno esplosione",
+      "before": 65,
+      "after": 87.75,
+      "unit": "HP"
+    },
+    {
+      "label": "Bastone arcano · Comune livello 1 · Danno per proiettile",
+      "before": 19,
+      "after": 25.65,
+      "unit": "HP"
+    },
+    {
+      "label": "Bastone arcano · Comune livello 1 · Velocità proiettile",
+      "before": 440,
+      "after": 660,
+      "unit": "u/s"
+    },
+    {
+      "label": "Bastone arcano · Comune livello 1 · Durata proiettile",
+      "before": 2.5,
+      "after": 1.666667,
+      "unit": "s"
+    },
+    {
+      "label": "Arco del cacciatore · Comune livello 1 · Ricarica primaria",
+      "before": 0.16,
+      "after": 0.184,
+      "unit": "s"
+    },
+    {
+      "label": "Scettro tempestoso · Comune livello 1 · Danno per proiettile",
+      "before": 23,
+      "after": 31.05,
+      "unit": "HP"
+    },
+    {
+      "label": "Scettro tempestoso · Comune livello 1 · Velocità proiettile",
+      "before": 250,
+      "after": 375,
+      "unit": "u/s"
+    },
+    {
+      "label": "Scettro tempestoso · Comune livello 1 · Durata proiettile",
+      "before": 3,
+      "after": 2,
+      "unit": "s"
+    },
+    {
+      "label": "Grimorio del gelo · Comune livello 1 · Danno per proiettile",
+      "before": 100,
+      "after": 135,
+      "unit": "HP"
+    },
+    {
+      "label": "Grimorio del gelo · Comune livello 1 · Velocità proiettile",
+      "before": 310,
+      "after": 465,
+      "unit": "u/s"
+    },
+    {
+      "label": "Grimorio del gelo · Comune livello 1 · Durata proiettile",
+      "before": 2.5,
+      "after": 1.666667,
+      "unit": "s"
+    },
+    {
+      "label": "Mantello della meteora · Comune livello 1 · Danno area",
+      "before": 210,
+      "after": 283.5,
+      "unit": "HP"
+    },
+    {
+      "label": "Stivali astrali · Comune livello 1 · Danno esplosione",
+      "before": 65,
+      "after": 87.75,
+      "unit": "HP"
+    },
+    {
+      "label": "Velo di bufera · Comune livello 1 · Danno area",
+      "before": 110,
+      "after": 148.5,
+      "unit": "HP"
+    },
+    {
+      "label": "Staffa arcana · Comune livello 1 · Primaria",
+      "before": 2,
+      "after": 0,
+      "unit": "MP/lancio"
+    },
+    {
+      "label": "Scettro tempestoso · Comune livello 1 · Primaria",
+      "before": 5,
+      "after": 0,
+      "unit": "MP/lancio"
+    },
+    {
+      "label": "Tutte le classi · Invulnerabilità dopo il danno",
+      "before": 0.65,
+      "after": 0,
+      "unit": "s"
+    },
+    {
+      "label": "Guardiano della cripta · Singolo · Entrambe le fasi",
+      "before": 1800,
+      "after": 5400,
+      "unit": "HP"
+    },
+    {
+      "label": "Madre delle spore · Singolo · Entrambe le fasi",
+      "before": 2400,
+      "after": 7200,
+      "unit": "HP"
+    },
+    {
+      "label": "Colosso della fornace · Singolo · Entrambe le fasi",
+      "before": 3000,
+      "after": 9000,
+      "unit": "HP"
+    },
+    {
+      "label": "Custode del ghiaccio · Singolo · Entrambe le fasi",
+      "before": 3600,
+      "after": 10800,
+      "unit": "HP"
+    },
+    {
+      "label": "Mob e luogotenenti · tutti i dungeon · Probabilità di drop oro",
+      "before": 0,
+      "after": 70,
+      "unit": "%"
+    },
+    {
+      "label": "Mob e luogotenenti · T1 Cripta · Esperienza per uccisione",
+      "before": 0,
+      "after": 4,
+      "unit": "XP"
+    },
+    {
+      "label": "Mob e luogotenenti · T1 Cripta · Oro quando avviene il drop",
+      "before": 0,
+      "after": 3,
+      "unit": "oro"
+    },
+    {
+      "label": "Mob e luogotenenti · T2 Palude · Esperienza per uccisione",
+      "before": 0,
+      "after": 7,
+      "unit": "XP"
+    },
+    {
+      "label": "Mob e luogotenenti · T2 Palude · Oro quando avviene il drop",
+      "before": 0,
+      "after": 6,
+      "unit": "oro"
+    },
+    {
+      "label": "Mob e luogotenenti · T3 Fucina · Esperienza per uccisione",
+      "before": 0,
+      "after": 10,
+      "unit": "XP"
+    },
+    {
+      "label": "Mob e luogotenenti · T3 Fucina · Oro quando avviene il drop",
+      "before": 0,
+      "after": 9,
+      "unit": "oro"
+    },
+    {
+      "label": "Mob e luogotenenti · T4 Ghiacciaio · Esperienza per uccisione",
+      "before": 0,
+      "after": 14,
+      "unit": "XP"
+    },
+    {
+      "label": "Mob e luogotenenti · T4 Ghiacciaio · Oro quando avviene il drop",
+      "before": 0,
+      "after": 12,
+      "unit": "oro"
+    },
+    {
+      "label": "Personaggio · ogni livello dopo il primo · Vita massima",
+      "before": 0,
+      "after": 3,
+      "unit": "HP/livello"
+    },
+    {
+      "label": "Personaggio · ogni livello dopo il primo · Mana massimo",
+      "before": 0,
+      "after": 2,
+      "unit": "MP/livello"
+    },
+    {
+      "label": "Personaggio · ogni livello dopo il primo · Difesa",
+      "before": 0,
+      "after": 1,
+      "unit": "punti/livello"
+    },
+    {
+      "label": "Personaggio · ogni livello dopo il primo · Moltiplicatore attacco",
+      "before": 0,
+      "after": 1,
+      "unit": "punti percentuali/livello"
+    },
+    {
+      "label": "Fabbro · ogni grado +1…+5 · Aumento dei bonus passivi originali del pezzo",
+      "before": 0,
+      "after": 5,
+      "unit": "%/grado"
+    },
+    {
+      "label": "Fabbro · ogni grado +1…+5 · Bonus al moltiplicatore attacco",
+      "before": 0,
+      "after": 2,
+      "unit": "punti percentuali/grado"
+    }
+  ]
+},
   { version: '0.5.0', date: '2026-11-01', changes: [
     'Corretti gli effetti personali fermi a terra: fendente e parata seguono il proprietario, buff disegnati una sola volta. Vecchi archi, cerchi e barriere esclusi quando gli atlanti sono pronti. Fendente ritagliato nel raggio e arco autorevoli.',
     'Corretta la preda intoccabile nella Caccia della palude: le prede iniziano esposte, conservando fuga ed evocazione. I nemici ordinari mantengono il comportamento originale.',

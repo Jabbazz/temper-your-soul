@@ -47,7 +47,7 @@ describe('otto nuovi kit dungeon',()=>{
     }
     const h=harness('rime_boots'), start=h.player.position;
     expect(tryCastSkill(0,h.ctx)).toBe(true);expect(h.player.position.distanceTo(start)).toBe(165);
-    expect(h.zones[0]).toMatchObject({damage:65,delay:0,visual:'mage_blink_burst'});
+    expect(h.zones[0]).toMatchObject({damage:87.75,delay:0,visual:'mage_blink_burst'});
   });
   it('kit completo nelle due versioni di corpo: icona, spell, strato indossato e ritratto dedicato',()=>{
     expect(DUNGEON_PORTRAIT_IDS.length).toBe(Object.keys(DUNGEON_ITEM_SKILLS).length);

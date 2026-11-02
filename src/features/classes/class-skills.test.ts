@@ -145,7 +145,7 @@ describe('Mago: stati e canalizzazione', () => {
     const match = fixture('mage'); match.boss!.position = new Vec2(650, 500);
     cast(match, 'mage', 3);
     expect(match.player.position.x).toBe(625); expect(match.player.rush).toBeNull();
-    expect(match.boss!.health.current).toBe(9931);
+    expect(match.boss!.health.current).toBe(9907);
     expect(match.classCombat.statuses.has('boss', 'exposed')).toBe(true);
   });
 });

@@ -5,6 +5,7 @@ export interface CharacterProfile {readonly id:string;readonly character:Charact
 /** Inventari, XP e record restano separati. Gli id dei personaggi non vengono riutilizzati. */
 export class CharacterRoster {
   readonly profiles:CharacterProfile[]=[];
+  gold=0;
   activeId:string|null=null;
   nextCharacterNumber=1;
   get active():CharacterProfile|null {return this.profiles.find(p=>p.id===this.activeId)??null;}
@@ -22,7 +23,7 @@ export class CharacterRoster {
   }
 }
 export function serializeRoster(roster:CharacterRoster):string {
-  return JSON.stringify({version:SAVE_VERSION,format:'character-roster',activeId:roster.activeId,nextCharacterNumber:roster.nextCharacterNumber,characters:roster.profiles.map(p=>({id:p.id,character:JSON.parse(serializeCharacter(p.character)) as unknown}))});
+  return JSON.stringify({version:SAVE_VERSION,format:'character-roster',gold:roster.gold,activeId:roster.activeId,nextCharacterNumber:roster.nextCharacterNumber,characters:roster.profiles.map(p=>({id:p.id,character:JSON.parse(serializeCharacter(p.character)) as unknown}))});
 }
 /** I salvataggi singoli v1–v5 vengono adottati senza cambiare il personaggio. Un roster invalido non si ripara perdendo profili. */
 export function deserializeRoster(text:string):CharacterRoster|null {
@@ -32,7 +33,8 @@ export function deserializeRoster(text:string):CharacterRoster|null {
   if(data.format!=='character-roster'){
     const character=deserializeCharacter(text);if(!character)return null;roster.add(character);return roster;
   }
-  if(data.version!==SAVE_VERSION||!Array.isArray(data.characters))return null;
+  if(typeof data.version!=='number'||data.version<6||data.version>SAVE_VERSION||!Number.isInteger(data.version)||!Array.isArray(data.characters))return null;
+  if(data.version>=8){if(typeof data.gold!=='number'||!Number.isSafeInteger(data.gold)||data.gold<0)return null;roster.gold=data.gold;}
   let highest=0;
   for(const entry of data.characters){
     if(typeof entry!=='object'||entry===null||Array.isArray(entry))return null;

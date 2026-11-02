@@ -15,7 +15,7 @@ import { GUARDIAN_SUMMONS } from '../minions/minion-catalog';
  */
 
 export const GUARDIAN_STATS: BossStats = {
-  maxHealth: 1800,
+  maxHealth: 5400,
   phaseTwoThreshold: 0.5,
   speed: 100,
   slowedSpeed: 30,

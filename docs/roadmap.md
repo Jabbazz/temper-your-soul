@@ -327,3 +327,39 @@ Il compito e il diario sono in `docs/compito-grafica.md`, le regole nuove da con
 ### Incremento locale: VFX di classe con PixelLab
 
 Atlanti locali, particelle WebGL con fallback e icone secondo budget autorizzato. Copertura e verifiche in [vfx-pixellab.md](vfx-pixellab.md); approvazione manuale di leggibilità e prestazioni ancora da fare. Revisione di mob, boss e personaggi rimandata.
+
+### Incremento locale 0.5.1 · classi, boss e impostazioni
+
+Implementati primaria del Mago gratuita, potenza/velocità maggiori a gittata invariata, lieve riduzione della frequenza dell’Arciere, rimozione della protezione dopo il danno e HP triplicati dei quattro boss. Ingranaggio con due schede, associazioni persistenti e aggiornamento HUD/inventario. Dettagli e numeri in game-design e changelog. Prove automatiche e controlli tecnici nel browser distinti dalla nuova prova giocata del proprietario ancora necessaria. Punti aperti: taratura della letalità del contatto, confronto delle classi a parità di rarità, futura scheda lingua/impostazioni generiche.
+
+### Recupero MP · 2 novembre 2026
+
+Dopo il primo riscontro positivo sul bilanciamento, recupero MP ridotto del 20% su tutte le fonti, rarità compresa. Nessuna variazione a costi o riserve; primarie ancora gratuite. Test per tutte le classi/rarità e per recupero a passo fisso; nuova conferma giocata del consumo da ricevere.
+
+
+### 2 novembre 2026 · progressione e rifugio locali
+Implementati oro del roster, drop dei mob al 70%, XP durante la run, bonus per livello, profilo 3×3 e rifugio con servizi. Dettagli e valori provvisori in game-design. Autorizzato dal proprietario l’intervento nelle logiche dell’inventario; sprite riutilizzati. Da provare a mano: raccolta in combattimento e dopo sconfitta/ricaricamento, oro fra personaggi, E/Spazio, nove caselle e pagine, ritratto, tutti i servizi, passaggio al raid e cooperativa con level-up. Da decidere: taratura economia, ricette/materiali, deposito condiviso e futura perdita dei beni al permadeath. Verifica visiva bloccata dagli strumenti, nessuna conferma manuale.
+
+Verifica automatica dell’incremento: 752 test in 62 file; prova di mutazione della soglia RNG rilevata (inclusione errata di 0,7) e ripristinata. Tipi e build verificati con `npm run verify`. Prova visiva e giocata ancora necessarie.
+
+
+### Rifugio cittadino a schermo intero · revisione 2 novembre 2026
+Su richiesta del proprietario, sostituita la prima rappresentazione DOM con una vera mappa Canvas a tutto viewport, camera limitata ai confini e raster pixel art con campionamento nearest-neighbor. Nessun titolo o cornice sopra la mappa. Selciato procedurale, mattoni, tetti in ardesia, case perimetrali, casse, griglie, muschio e torce; nessuna risorsa generata o scaricata. Moodboard Ashen Realm usata esclusivamente come riferimento di atmosfera.
+
+Sprite del giocatore e del profilo ottenuti dallo stesso compositore `characterPixels(..., 'game')` della partita, inclusi equipaggiamento, idle e camminata. Ritratti e sprite approvati non modificati. Punti di interesse in pixel art provvisoria: portale con rune animate, deposito con riflesso, forgia con fuoco/fumo, fabbro umanoide con martello/scintille e incudine, mercante animato dietro il bancone.
+
+Case, casse, NPC e strutture hanno collisioni nella simulazione pura del rifugio; passi suddivisi per evitare attraversamenti e scorrimento lungo le superfici. Velocità provvisoria 148 unità/s, raggio giocatore 9 unità, prossimità per E 62 unità. Tooltip contestuale accanto al punto d’interesse, visibile solo entro tale distanza e senza un dialogo aperto. Servizi, costi, oro e progressione invariati.
+
+Verifiche automatiche: collisioni di tutte le strutture, tentativo di attraversare il mercante, moto lungo i muri, raggiungibilità dei cinque punti dalla partenza e griglie dei fotogrammi NPC. Controllo visivo desktop nel browser riuscito su porta 5176; questo supera il precedente impedimento di accesso al server locale, senza costituire una prova giocata dell’utente. Da confermare a mano: qualità visiva rispetto alla moodboard, ritmo delle animazioni, movimento e suggerimenti E sui diversi schermi.
+
+
+### Zaino, deposito e servizi nello stile del menu · 2 novembre 2026
+Pulsante con la sola icona dello zaino nel rifugio (stesso sprite e stile Reliquiario del menu), apre il personaggio con il ritratto illustrato già usato dall’inventario, le statistiche, i quattro slot equipaggiati e lo zaino da nove caselle per pagina. La rappresentazione nella mappa resta lo sprite di gioco. Rimozione, doppio clic e clic destro permettono di modificare l’equipaggiamento solo nei pannelli dell’hub; il profilo di combattimento resta consultivo.
+
+Il deposito apre contemporaneamente due pannelli: 20 caselle a sinistra (4 colonne × 5 righe) e personaggio/zaino a destra. Posizioni persistenti, trasferimenti con puntatore mouse/tocco; alternativa tramite selezione e Sposta o doppio clic. Caselle occupate rifiutate; pezzi indossati da rimuovere prima di riporli; nessun rimpiazzo automatico. Lo spostamento fra caselle libere del deposito è supportato. Capienza massima 20; eventuali oggetti oltre limite provenienti dall’incremento precedente restano conservati e recuperabili. Lo zaino conserva la paginazione dei dati esistenti.
+
+Pannelli, pulsanti, bordi, colori e font riutilizzano gli stili del menu. Mercante, fabbro e forgia mostrano gli sprite esistenti degli oggetti, rarità, GS e tooltip condivisi con l’inventario; costi e regole economiche invariati. Nessuna rigenerazione di asset.
+
+Salvataggio **v9** per le posizioni del deposito, con migrazione v8 e precedenti e oro del roster conservato. Protocollo **10** impedisce di mescolare client incapaci di leggere il nuovo formato del personaggio: riavviare server e ricaricare le schede.
+
+Verifica automatica: **764 test in 65 file**, tipi e build tramite `npm run verify`. Mutazione temporanea del controllo sulle caselle occupate rilevata dal nuovo test e ripristinata. Verifica browser desktop: ritratto originale, deposito e zaino affiancati, drag-and-drop nei due sensi, salvataggio dell’oggetto nella casella 12 dopo ricaricamento, offerte con icone di mercante/fabbro/forgia. Queste sono prove automatiche del browser; conferma giocata dell’utente e prova su touch/responsive restano da fare. Nessun commit o push.

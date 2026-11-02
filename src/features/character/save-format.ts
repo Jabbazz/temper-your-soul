@@ -1,3 +1,4 @@
+import { normalizeStoragePositions, STORAGE_CAPACITY } from './character-storage';
 import { dungeonById } from '../dungeons/dungeons';
 import { EQUIPMENT_SLOTS } from '../items/equipment-slot';
 import { familyById } from '../items/item-families';
@@ -13,9 +14,10 @@ import { cleanItemLevel } from '../items/gear-score';
 
 /**
  * Versione del formato di salvataggio. Se cambia la struttura, alzarla e aggiungere la migrazione in `deserializeCharacter`.
+ * v9: posizioni persistenti nelle 20 caselle del deposito; v8: oro condiviso e deposito.
  * v7: braci, benedizioni dell'Altare, bestiario, record delle discese e del Pellegrinaggio (vuoti nei salvataggi vecchi).
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 9;
 
 /**
  * Tetto per i numeri degli `uid` (`i1`, `i2`, ...): lascia un ampio margine sotto 2^53, oltre cui gli interi non sono
@@ -32,7 +34,9 @@ export function serializeCharacter(character: Character): string {
     totalXp: character.totalXp,
     bodyType: character.bodyType,
     characterClass: character.characterClass,
-    items: character.inventory.map(({ uid, familyId, rarity,level }) => ({ uid, familyId, rarity,...(cleanItemLevel(level)>1?{level:cleanItemLevel(level)}:{}) })),
+    storedUids: character.storage.map(item => item.uid),
+    storagePositions: character.storagePositions,
+    items: [...character.inventory, ...character.storage].map(({ uid, familyId, rarity,level,upgrade }) => ({ uid, familyId, rarity,...(upgrade?{upgrade}:{}),...(cleanItemLevel(level)>1?{level:cleanItemLevel(level)}:{}) })),
     equipped: Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, character.equipped[slot]])),
     records: character.records,
     nextItemNumber: character.nextItemNumber,
@@ -85,7 +89,8 @@ export function deserializeCharacter(text: string): Character | null {
     if (typeof familyId !== 'string' || familyById(familyId) === undefined || !isRarity(rarity)) continue;
     seen.add(uid);
     const level=cleanItemLevel(raw.level);
-    const item: Item = { uid, familyId, rarity, ...(level>1?{level}:{}) };
+    const upgrade=typeof raw.upgrade==='number'&&Number.isInteger(raw.upgrade)?Math.max(0,Math.min(5,raw.upgrade)):0;
+    const item: Item = { uid, familyId, rarity, ...(upgrade?{upgrade}:{}), ...(level>1?{level}:{}) };
     character.inventory.push(item);
   }
 
@@ -123,6 +128,18 @@ export function deserializeCharacter(text: string): Character | null {
     character.equipped = starter.equipped;
     character.nextItemNumber = Math.max(character.nextItemNumber, starter.nextItemNumber);
   }
+  if (version >= 8 && Array.isArray(data.storedUids)) {
+    const stored = new Set(data.storedUids.filter((id): id is string => typeof id === 'string'));
+    character.storage = character.inventory.filter(item => stored.has(item.uid) && !Object.values(character.equipped).includes(item.uid));
+    const ids = new Set(character.storage.map(item => item.uid));
+    character.inventory = character.inventory.filter(item => !ids.has(item.uid));
+  }
+  if(version>=9 && isObject(data.storagePositions)) {
+    for(const [uid,index] of Object.entries(data.storagePositions)) {
+      if(typeof index==='number'&&Number.isInteger(index)&&index>=0&&index<STORAGE_CAPACITY&&character.storage.some(item=>item.uid===uid))character.storagePositions[uid]=index;
+    }
+  }
+  normalizeStoragePositions(character);
   character.reconcileEquipment();
   return character;
 }

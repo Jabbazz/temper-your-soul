@@ -1,3 +1,4 @@
+import { tuneMageSkill } from './tuning';
 import { ARCANE_BOLT, FROST_ORB, METEOR, ASTRAL_STEP } from '../../skills/mage-skills';
 import { STORM_BOLT, BLIZZARD_BURST } from '../../items/item-skills';
 import { DUNGEON_ITEM_SKILLS } from '../../items/dungeon-item-skills';
@@ -26,7 +27,7 @@ const blink = (skill: SkillDefinition): SkillDefinition => {
   return { ...skill, name: 'Traslazione esplosiva', description: 'Teletrasporto · Esplosione immediata all’arrivo',
     effect: { ...skill.effect, explosion: { team: 'player', radius: 85, delay: 0, damage: 65, visual: 'mage_blink_burst', onHit: ELEMENT_HITS.wind } } };
 };
-export const MAGE_CLASS_SKILLS: Readonly<Record<string, SkillDefinition>> = {
+const BASE_MAGE_CLASS_SKILLS: Readonly<Record<string, SkillDefinition>> = {
   arcane_staff: elemental(ARCANE_BOLT, ELEMENT_HITS.fire, 'Dardo di fuoco', 0.15),
   storm_scepter: elemental(STORM_BOLT, ELEMENT_HITS.wind, 'Dardo del vento', 0.15),
   frost_grimoire: elemental(FROST_ORB, ELEMENT_HITS.water, 'Globo d’acqua'),
@@ -42,3 +43,7 @@ export const MAGE_CLASS_SKILLS: Readonly<Record<string, SkillDefinition>> = {
   astral_boots: blink(ASTRAL_STEP),
   rime_boots: blink(DUNGEON_ITEM_SKILLS.rime_boots),
 };
+
+export const MAGE_CLASS_SKILLS: Readonly<Record<string, SkillDefinition>> = Object.fromEntries(
+  Object.entries(BASE_MAGE_CLASS_SKILLS).map(([id, skill]) => [id, tuneMageSkill(skill)]),
+);

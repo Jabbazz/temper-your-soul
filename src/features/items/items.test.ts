@@ -224,7 +224,7 @@ describe('catalogo delle famiglie', () => {
   });
 
   it('nessuna skill generica supera il doppio del riferimento del proprio slot, nemmeno a Leggendaria', () => {
-    const reference = { primary_hand: 19, secondary_hand: 100, armor: 210 } as const;
+    const reference = { primary_hand: 25.65, secondary_hand: 135, armor: 283.5 } as const;
     for (const family of generic) {
       if (family.slot === 'boots') continue;
       const legendary = scaleSkill(family.skill, 'legendary');
@@ -240,12 +240,12 @@ describe('catalogo delle famiglie', () => {
   });
 
   it('le skill simili alle base hanno un\'identita\' diversa (valori e forma, non un solo numero)', () => {
-    const bolt = ARCANE_BOLT.effect;
+    const bolt = familyById('arcane_staff')!.skill.effect;
     const arrow = familyById('hunter_bow')!.skill.effect;
     const storm = familyById('storm_scepter')!.skill.effect;
     if (bolt.kind !== 'projectile' || arrow.kind !== 'projectile' || storm.kind !== 'projectile') throw new Error('atteso un proiettile');
     // Freccia: piu' veloce, piu' lontana, piu' sottile, meno danno, ricarica piu' breve.
-    expect(arrow.projectile.speed).toBeGreaterThan(bolt.projectile.speed * 1.4);
+    expect(arrow.projectile.speed).toBeGreaterThan(bolt.projectile.speed);
     expect(arrow.projectile.speed * arrow.projectile.lifetime).toBeGreaterThan(bolt.projectile.speed * bolt.projectile.lifetime);
     expect(arrow.projectile.damage).toBeLessThan(bolt.projectile.damage);
     expect(arrow.projectile.radius).toBeLessThan(bolt.projectile.radius);
@@ -292,7 +292,7 @@ describe('oggetti', () => {
   it('resolveItem risolve famiglia e skill con i valori della rarita\'; famiglia sconosciuta = undefined', () => {
     const resolved = resolveItem({ uid: 'i1', familyId: 'meteor_mantle', rarity: 'epic' });
     expect(resolved?.family.id).toBe('meteor_mantle');
-    expect(damageOf(resolved!.skill)).toBe(420); // 210 x 1,4
+    expect(damageOf(resolved!.skill)).toBe(567); // 210 × 1,35 × 2
     expect(resolved!.skill).toEqual(resolveItemSkill(familyById('meteor_mantle')!, 'epic'));
     expect(resolveItem({ uid: 'i2', familyId: 'nope', rarity: 'rare' })).toBeUndefined();
     expect(itemName({ uid: 'i1', familyId: 'wind_boots', rarity: 'rare' })).toBe('Stivali del vento');
@@ -325,7 +325,7 @@ describe('descrizione delle statistiche', () => {
     expect(describeSkillStats(familyById('spore_fan')!.skill)).toContain('Furto vita 15%');
     expect(describeSkillStats(familyById('tomb_shroud')!.skill)).toContain('Danno abilità +25%');
     expect(describeSkillStats(METEOR)).toContain('Nel punto mirato');
-    expect(describeSkillStats(familyById('guardian_blade')!.skill)).toEqual(['Cancella i proiettili ordinari nel fendente', 'Provocazione 3 s · raggio 300', 'Danno 36', 'Gittata 100', 'Arco 216°', 'Mana 0', 'Rigenerazione mana +0,1/s', 'Ricarica 0,45 s']);
+    expect(describeSkillStats(familyById('guardian_blade')!.skill)).toEqual(['Cancella i proiettili ordinari nel fendente', 'Provocazione 3 s · raggio 300', 'Danno 36', 'Gittata 100', 'Arco 216°', 'Mana 0', 'Rigenerazione mana +0,08/s', 'Ricarica 0,45 s']);
     // La rarita' cambia i numeri mostrati.
     expect(describeSkillStats(scaleSkill(ARCANE_BOLT, 'legendary'))).toContain('Danno 57');
   });

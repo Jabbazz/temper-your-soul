@@ -1,3 +1,4 @@
+import { levelProgress } from '../character/progression';
 import type { CharacterClass } from '../character/character-class';
 import type { EquipmentSlot } from '../items/equipment-slot';
 import type { Loadout } from '../skills/skill-definition';
@@ -28,12 +29,12 @@ export const CLASS_PROFILES: Readonly<Record<CharacterClass, ClassProfile>> = {
 
 /** Compatibilità per fixture prive di identità; il gioco passa sempre la classe esplicita. */
 export const NEUTRAL_STATS: CombatStats = {
-  maxHealth: 100, armor: 0, maxMana: 100, manaRegeneration: 8,
+  maxHealth: 100, armor: 0, maxMana: 100, manaRegeneration: 6.4,
   moveSpeed: 177, attackSpeed: 0, abilityPower: 0,
 };
 
 /** Nessuna statistica viene salvata: si ricalcola da classe e oggetti equipaggiati. */
-export function resolveCombatStats(characterClass: CharacterClass | null, loadout: Loadout): CombatStats {
+export function resolveCombatStats(characterClass: CharacterClass | null, loadout: Loadout, totalXp = 0): CombatStats {
   const stats = { ...(characterClass ? CLASS_PROFILES[characterClass].base : NEUTRAL_STATS) };
   for (const skill of loadout) {
     if (!skill?.equipmentStats) continue;
@@ -41,10 +42,16 @@ export function resolveCombatStats(characterClass: CharacterClass | null, loadou
       stats[key] += skill.equipmentStats[key] ?? 0;
     }
   }
+  const gained = levelProgress(totalXp).level - 1;
+  stats.maxHealth += gained * LEVEL_STATS.health;
+  stats.maxMana += gained * LEVEL_STATS.mana;
+  stats.armor += gained * LEVEL_STATS.armor;
+  stats.abilityPower += gained * LEVEL_STATS.attack;
   return stats;
 }
 
 /** Difesa a rendimenti decrescenti: 100 difesa dimezza il danno. Valore provvisorio. */
+export const LEVEL_STATS = { health: 3, mana: 2, armor: 1, attack: 0.01 } as const;
 export const ARMOR_CONSTANT = 100;
 export function damageAfterArmor(damage: number, armor: number): number {
   return Math.max(0, damage) * ARMOR_CONSTANT / (ARMOR_CONSTANT + Math.max(0, armor));
