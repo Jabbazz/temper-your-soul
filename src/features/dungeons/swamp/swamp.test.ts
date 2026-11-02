@@ -110,7 +110,7 @@ describe('swamp: boss e testi', () => {
     expect(SPORE_MOTHER.name).toBe('MADRE DELLE SPORE');
     expect(SPORE_MOTHER.art).toBe('spore_mother');
     expect(SPORE_MOTHER.stats).toBe(SPORE_MOTHER_STATS);
-    expect(SPORE_MOTHER_STATS.maxHealth).toBe(2400);
+    expect(SPORE_MOTHER_STATS.maxHealth).toBe(7200);
     expect(SPORE_MOTHER_STATS.speed).toBeLessThan(GUARDIAN.stats.speed);
     expect(SPORE_MOTHER.patterns.map((pattern) => pattern.id)).toEqual(ORDER);
     expect(SPORE_MOTHER_STATS.attackInterval.rage).toBeLessThan(SPORE_MOTHER_STATS.attackInterval.normal);

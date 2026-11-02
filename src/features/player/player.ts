@@ -17,16 +17,16 @@ export const PLAYER_STATS = {
   /** Velocita' di movimento in unita' al secondo. */
   moveSpeed: 177,
   /** Secondi di invulnerabilita' dopo aver subito un colpo. */
-  hitInvulnerability: 0.65,
+  hitInvulnerability: 0,
   /** Frazione della velocita' da rallentato (melma, gelo dei servitori). */
   slowFactor: 0.6,
 } as const;
 
 export class Player {
   mana: number;
-  readonly maxMana: number;
+  maxMana: number;
   manaRegeneration: number;
-  readonly stats: CombatStats;
+  stats: CombatStats;
   position: Vec2;
   /** Punto del mondo verso cui si mira (sempre l'ultimo ricevuto). */
   aim: Vec2;
@@ -57,10 +57,11 @@ export class Player {
     readonly baseLoadout: Loadout,
     maxHealth?: number,
     readonly characterClass: CharacterClass | null = null,
+    public totalXp = 0,
   ) {
     this.position = arena.playerSpawn;
     this.aim = arena.playerSpawn;
-    this.stats = resolveCombatStats(characterClass, baseLoadout);
+    this.stats = resolveCombatStats(characterClass, baseLoadout, totalXp);
     this.health = new Health(maxHealth ?? this.stats.maxHealth);
     this.maxMana = this.stats.maxMana;
     this.mana = this.maxMana;
@@ -68,6 +69,14 @@ export class Player {
     this.skillBar = new SkillBar(baseLoadout.map((skill, slot) => skill && slot === 0
       ? { ...skill, cooldown: skill.cooldown / (1 + this.stats.attackSpeed) } : skill));
     this.manaRegeneration += baseLoadout.reduce((sum, skill) => sum + (skill ? manaBonus(skill) : 0), 0);
+  }
+
+  setExperience(total: number): void {
+    if (total === this.totalXp) return;
+    this.totalXp = total;
+    this.stats = resolveCombatStats(this.characterClass, this.baseLoadout, total);
+    this.health.max = this.stats.maxHealth;
+    this.maxMana = this.stats.maxMana;
   }
 
   get isInvulnerable(): boolean {
@@ -92,14 +101,14 @@ export class Player {
   }
 
   /**
-   * Subisce un colpo. Restituisce false (nessun effetto) se e' invulnerabile; altrimenti toglie vita e avvia
-   * l'invulnerabilita' dopo il colpo.
+   * Subisce un colpo. Restituisce false (nessun effetto) se e' invulnerabile; altrimenti toglie vita
+   * senza concedere invulnerabilita' aggiuntiva dopo il colpo.
    */
   tryHurt(amount: number, unblockable = false): boolean {
     if (this.guarding) { this.buffs = this.buffs.filter(buff => !buff.guard); return true; }
     if (this.isInvulnerable && !unblockable) return false;
     this.health.takeDamage(damageAfterArmor(amount, this.stats.armor + this.buffValue('armor')));
-    this.invulnerableFor = PLAYER_STATS.hitInvulnerability;
+    this.invulnerableFor = Math.max(this.invulnerableFor, PLAYER_STATS.hitInvulnerability);
     return true;
   }
 }

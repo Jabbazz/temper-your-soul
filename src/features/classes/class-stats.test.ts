@@ -41,12 +41,12 @@ describe('ruoli di classe: prima taratura', () => {
     expect(player('mage').manaRegeneration).toBeGreaterThan(player('warrior').manaRegeneration);
   });
 
-  it('la difesa riduce il danno effettivo, senza modificare la durata di invulnerabilità', () => {
+  it('la difesa riduce il danno effettivo, anche su colpi consecutivi, senza invulnerabilità gratuita', () => {
     const tank = player('warrior');
     expect(tank.tryHurt(70)).toBe(true);
     expect(tank.health.current).toBeCloseTo(150);
-    expect(tank.tryHurt(70)).toBe(false);
-    expect(tank.health.current).toBeCloseTo(150);
+    expect(tank.tryHurt(70)).toBe(true);
+    expect(tank.health.current).toBeCloseTo(100);
   });
 
   it('bonus e tooltip migliorano con la rarità senza mutare la famiglia', () => {
@@ -57,20 +57,17 @@ describe('ruoli di classe: prima taratura', () => {
     expect(family).toEqual(before);
   });
 
-  it('a mana zero guerriero e arciere attaccano; il mago attende il mana, poi lo spende', () => {
-    for (const kind of ['warrior', 'archer', 'mage'] as const) {
-      const match = new Match({ rng: new SeededRng(1), dungeon: CRYPT, ...member(kind) });
-      match.player.mana = 0;
-      match.step(0, { move: Vec2.ZERO, aimOffset: new Vec2(200, 0), skills: [true] });
-      expect(match.player.skillBar.isReady(0), kind).toBe(kind === 'mage');
-      if (kind === 'mage') {
-        match.player.mana = 10;
-        match.step(0, { move: Vec2.ZERO, aimOffset: new Vec2(200, 0), skills: [true] });
-        expect(match.player.mana).toBe(8);
-      } else expect(match.player.mana).toBe(0);
+  it('a mana zero tutte le classi usano la primaria, ma le spell del mago richiedono ancora mana', () => {
+    for(const kind of ['warrior','archer','mage'] as const){
+      const match=new Match({rng:new SeededRng(1),dungeon:CRYPT,...member(kind)});match.player.mana=0;
+      match.step(0,{move:Vec2.ZERO,aimOffset:new Vec2(200,0),skills:[true]});
+      expect(match.player.skillBar.isReady(0),kind).toBe(false);expect(match.player.mana).toBe(0);
+      if(kind==='mage'){
+        match.step(0,{move:Vec2.ZERO,aimOffset:new Vec2(200,0),skills:[false,true]});
+        expect(match.player.skillBar.isReady(1)).toBe(true);
+      }
     }
   });
-
   it('la cadenza primaria e il movimento dell’arciere aumentano davvero nella simulazione', () => {
     const archer = player('archer'), base = member('archer').loadout[0]!;
     archer.skillBar.start(0);
@@ -88,7 +85,7 @@ describe('ruoli di classe: prima taratura', () => {
     })).toBe(true);
     if (base.effect.kind !== 'projectile') throw new Error('Atteso proiettile');
     expect(damage).toBeCloseTo(base.effect.projectile.damage * 1.07);
-    expect(base.effect.projectile.damage).toBe(19);
+    expect(base.effect.projectile.damage).toBeCloseTo(25.65);
   });
 
   it('report e evento registrano il danno ridotto dalla difesa', () => {

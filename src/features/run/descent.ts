@@ -1,3 +1,4 @@
+import { bossForParty } from '../combat/party-health';
 import { SeededRng, type Rng } from '../../core/rng';
 import { PROGRESSION } from '../character/progression';
 import type { ItemRoll } from '../items/item';
@@ -33,6 +34,7 @@ export type RunMode = 'descent' | 'pilgrimage';
 export interface RunMemberSetup {
   readonly id: string;
   readonly loadout: Loadout;
+  readonly totalXp?: number;
   readonly characterClass?: CharacterClass | null;
   readonly blessings?: BlessingLevels;
 }
@@ -40,6 +42,8 @@ export interface RunMemberSetup {
 /** Cio' che un giocatore porta da una stanza all'altra. */
 export interface RunPlayerState {
   readonly characterClass: CharacterClass | null;
+  totalXp: number;
+  gold: number;
   health: number;
   maxHealth: number;
   mana: number;
@@ -98,6 +102,7 @@ export interface RunView {
   readonly players: Readonly<Record<string, {
     readonly tempers: readonly TemperPick[];
     readonly embers: number;
+    readonly gold?: number;
     readonly xp: number;
     readonly maxHealth: number;
     readonly secondLife: boolean;
@@ -134,6 +139,7 @@ export class DescentRun {
   readonly rewards = new Map<string, ItemRoll[]>();
   match!: Match;
   encounter!: RoomEncounter;
+  private roomGranted = new Map<string, {xp:number;gold:number}>();
   private readonly seen = new Set<string>();
   private readonly seed: number;
   private roomIndex = 0;
@@ -151,10 +157,11 @@ export class DescentRun {
     this.dungeons = options.mode === 'pilgrimage' ? ['crypt', 'swamp', 'forge', 'glacier'].map((id) => dungeonById(id)!) : [start];
 
     for (const member of options.members) {
-      const stats = resolveCombatStats(member.characterClass ?? null, member.loadout);
+      const stats = resolveCombatStats(member.characterClass ?? null, member.loadout, member.totalXp);
       const maxHealth = stats.maxHealth;
       this.players.set(member.id, {
         characterClass: member.characterClass ?? null,
+        totalXp: member.totalXp ?? 0, gold: 0,
         health: maxHealth,
         maxHealth,
         mana: stats.maxMana,
@@ -209,12 +216,14 @@ export class DescentRun {
 
   /** Costruisce la partita della stanza dietro la porta scelta. */
   private enter(option: DoorOption): void {
+    this.roomGranted.clear();
     this.roomIndex++;
     const dungeon = this.dungeon;
     const template = this.pickTemplate(option.kind);
     const members = new Map<string, RoomMember>();
     const matchMembers: MatchMember[] = [];
     for (const [id, state] of this.players) {
+      state.maxHealth = resolveCombatStats(state.characterClass, state.baseLoadout, state.totalXp + state.xp).maxHealth;
       members.set(id, {
         loadout: state.baseLoadout,
         tempers: state.tempers,
@@ -222,7 +231,7 @@ export class DescentRun {
         secondLife: state.secondLife,
         ...(state.startingTemper && this.stage === 0 ? { extraOffers: 1 } : {}),
       });
-      matchMembers.push({ id, characterClass: state.characterClass, loadout: state.baseLoadout, health: state.health, maxHealth: state.maxHealth, mana: state.mana });
+      matchMembers.push({ totalXp: state.totalXp + state.xp, id, characterClass: state.characterClass, loadout: state.baseLoadout, health: state.health, maxHealth: state.maxHealth, mana: state.mana });
     }
     // La vena della stanza (e l'eventuale ospite o Incursione) dal seme della discesa e dal numero della stanza.
     const roomSeed = (this.seed + Math.imul(this.roomIndex, 7907)) >>> 0;
@@ -239,7 +248,7 @@ export class DescentRun {
       bestiary: veinBestiary(dungeon.id, this.roomVein, roomSeed),
     });
     const boss = option.kind === 'boss'
-      ? dungeon.boss
+      ? bossForParty(dungeon.boss, this.players.size)
       : option.kind === 'lieutenant'
         ? scaledLieutenant(veinLieutenant(dungeon.id, this.veins.deep), this.players.size)
         : null;
@@ -279,6 +288,7 @@ export class DescentRun {
     const match = this.match;
     const encounter = this.encounter;
     this.seconds += match.time;
+    this.syncProgress();
     this.collect(match, encounter);
     if (match.status === 'lost') {
       this.status = 'lost';
@@ -337,7 +347,18 @@ export class DescentRun {
     return table;
   }
 
+  syncProgress(): void {
+    for (const [id,state] of this.players) {
+      const xp=this.encounter.grants.xp.get(id) ?? 0, gold=this.encounter.grants.gold.get(id) ?? 0;
+      const previous=this.roomGranted.get(id) ?? {xp:0,gold:0};
+      state.xp += xp-previous.xp; state.gold += gold-previous.gold;
+      this.roomGranted.set(id,{xp,gold});
+      state.maxHealth=this.match.players.get(id)?.health.max ?? state.maxHealth;
+    }
+  }
+
   view(): RunView {
+    this.syncProgress();
     return {
       mode: this.mode,
       dungeonId: this.dungeon.id,
@@ -354,7 +375,7 @@ export class DescentRun {
       players: Object.fromEntries(
         [...this.players].map(([id, state]) => [
           id,
-          { tempers: [...state.tempers], embers: state.embers, xp: state.xp, maxHealth: state.maxHealth, secondLife: state.secondLife, kills: { ...state.kills } },
+          { tempers: [...state.tempers], embers: state.embers, gold: state.gold, xp: state.xp, maxHealth: state.maxHealth, secondLife: state.secondLife, kills: { ...state.kills } },
         ]),
       ),
       victories: [...this.victories],

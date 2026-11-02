@@ -168,7 +168,7 @@ describe('ghiacciaio: il Custode', () => {
     expect(FROST_WARDEN.patterns.map((pattern) => pattern.id)).toEqual([
       'shard_volley', 'ice_spikes', 'blink_strike', 'blizzard', 'frost_nova', 'glacial_charge',
     ]);
-    expect(FROST_WARDEN.stats.maxHealth).toBe(3600);
+    expect(FROST_WARDEN.stats.maxHealth).toBe(10800);
     // Agile: piu' veloce del guardiano (100) e quasi quanto il giocatore, attacchi piu' ravvicinati.
     expect(FROST_WARDEN.stats.speed).toBeGreaterThan(100);
     expect(FROST_WARDEN.stats.attackInterval.normal).toBeLessThan(2.15);

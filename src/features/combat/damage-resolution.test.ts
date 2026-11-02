@@ -36,16 +36,16 @@ it('rarità, potenza e vulnerabilità vengono calcolate prima di arrotondare; HP
   const skill = match.player.baseLoadout[0]!;
   expect(skill.effect.kind).toBe('projectile');
   if (skill.effect.kind !== 'projectile') throw new Error('Atteso proiettile');
-  expect(skill.effect.projectile.damage).toBe(28.5);
+  expect(skill.effect.projectile.damage).toBeCloseTo(38.475);
   const damage = skill.effect.projectile.damage * (1 + match.player.stats.abilityPower);
-  expect(damage).toBeCloseTo(31.4925);
+  expect(damage).toBeCloseTo(42.514875);
   match.projectiles.push(new Projectile(1000, { ...skill.effect.projectile, speed: 0, damage }, match.boss!.position, 0));
   match.step(0, idle);
-  // floor(19 × 1,5 × 1,105 × 1,2) = 37. Arrotondare prima produrrebbe un risultato diverso.
-  expect(match.boss!.health.current).toBe(9963);
-  expect(events.find(event => event.type === 'damage_dealt')).toMatchObject({ target: 'boss', amount: 37 });
-  expect(match.report.get('local')!.damageDealt).toBe(37);
-  expect(effects.texts.some(text => text.text === '37')).toBe(true);
+  // floor(19 × 1,35 × 1,5 × 1,105 × 1,2) = 51. Arrotondare prima produrrebbe un risultato diverso.
+  expect(match.boss!.health.current).toBe(9949);
+  expect(events.find(event => event.type === 'damage_dealt')).toMatchObject({ target: 'boss', amount: 51 });
+  expect(match.report.get('local')!.damageDealt).toBe(51);
+  expect(effects.texts.some(text => text.text === '51')).toBe(true);
 });
 
 it('il danno subito viene arrotondato dopo la difesa, usando lo stesso intero per HP e report', () => {

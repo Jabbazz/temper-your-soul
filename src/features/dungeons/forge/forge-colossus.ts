@@ -7,7 +7,7 @@ import { FORGE_COLOSSUS_SUMMONS } from '../../minions/minion-catalog';
  * la vita segue la progressione dei boss (cripta 1800, palude 2400, fucina 3000, ghiacciaio 3600).
  */
 export const FORGE_COLOSSUS_STATS: BossStats = {
-  maxHealth: 3000,
+  maxHealth: 9000,
   phaseTwoThreshold: 0.5,
   speed: 82,
   slowedSpeed: 26,

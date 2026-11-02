@@ -1,3 +1,4 @@
+import { InputBindings, SKILL_BINDING_ACTIONS } from './input-bindings';
 import { Signal } from './signal';
 import { Vec2 } from './vec2';
 
@@ -11,6 +12,7 @@ export type Action =
   | 'skill_2'
   | 'skill_3'
   | 'skill_4'
+  | 'interact'
   | 'pause'
   | 'restart'
   | 'toggle_audio'
@@ -20,30 +22,12 @@ export type Action =
   | 'toggle_minimap';
 
 /** Le azioni delle skill, nell'ordine degli slot. */
-export const SKILL_ACTIONS: readonly Action[] = ['skill_1', 'skill_2', 'skill_3', 'skill_4'];
+export const SKILL_ACTIONS: readonly Action[] = SKILL_BINDING_ACTIONS;
 
 /**
  * Tasti legati per posizione fisica (`KeyboardEvent.code`), indipendenti dal layout della tastiera.
  * Il pulsante sinistro del mouse e' `Mouse0`, il destro `Mouse2`.
  */
-const BINDINGS: Record<string, Action> = {
-  KeyW: 'move_up',
-  KeyS: 'move_down',
-  KeyA: 'move_left',
-  KeyD: 'move_right',
-  Mouse0: 'skill_1',
-  Mouse2: 'skill_2',
-  KeyQ: 'skill_3',
-  KeyE: 'skill_4',
-  Escape: 'pause',
-  KeyR: 'restart',
-  KeyM: 'toggle_audio',
-  KeyF: 'toggle_fullscreen',
-  F2: 'toggle_performance',
-  /** Tenuto premuto: la mappa della discesa. */
-  Tab: 'show_map',
-  KeyN: 'toggle_minimap',
-};
 
 /** Vero se la pressione e' una scorciatoia del browser (Ctrl+R, Ctrl+F, Alt+...): il gioco la lascia al browser. */
 export function isBrowserShortcut(event: { ctrlKey: boolean; metaKey: boolean; altKey: boolean }): boolean {
@@ -55,9 +39,10 @@ export function isBrowserShortcut(event: { ctrlKey: boolean; metaKey: boolean; a
  * (che farebbe scorrere la pagina) solo se il focus non e' su un pulsante, altrimenti non lo attiverebbe. Il Tab
  * apre la mappa solo in partita (`inMatch`): nei menu resta al browser, che ci sposta il focus tra i pulsanti.
  */
-export function blocksBrowserDefault(code: string, onButton: boolean, inMatch = false): boolean {
+export function blocksBrowserDefault(code: string, onButton: boolean, inMatch = false, bindings = new InputBindings()): boolean {
   if (code === 'Tab') return inMatch;
-  if (code in BINDINGS) return true;
+  if (code === 'Space' && onButton && !inMatch) return false;
+  if (bindings.actionFor(code)) return true;
   return code === 'Space' && !onButton;
 }
 
@@ -67,6 +52,9 @@ function isButtonTarget(target: EventTarget | null): boolean {
 }
 
 export class Input {
+  readonly bindings = new InputBindings();
+  suspended = false;
+  constructor() { this.bindings.changed.connect(() => this.releaseAll()); }
   /** Emesso a ogni nuova pressione di un'azione (non per la ripetizione automatica dei tasti). */
   readonly actionPressed = new Signal<[Action]>();
   /** Posizione del puntatore normalizzata sul canvas: (0, 0) angolo alto a sinistra, (1, 1) angolo basso a destra. */
@@ -79,8 +67,8 @@ export class Input {
   private latched = new Set<Action>();
 
   isActionPressed(action: Action): boolean {
-    for (const [code, bound] of Object.entries(BINDINGS)) {
-      if (bound === action && this.held.has(code)) return true;
+    for (const code of this.held) {
+      if (this.bindings.actionFor(code) === action) return true;
     }
     return false;
   }
@@ -104,9 +92,10 @@ export class Input {
 
   /** Registra la pressione di `code` (tasto o `Mouse0`/`Mouse2`). Usato dagli ascoltatori DOM e dai test. */
   press(code: string, repeat = false): void {
+    if (this.suspended) return;
     const wasHeld = this.held.has(code);
     this.held.add(code);
-    const action = BINDINGS[code];
+    const action = this.bindings.actionFor(code);
     if (action !== undefined && !wasHeld && !repeat) {
       this.latched.add(action);
       this.actionPressed.emit(action);
@@ -131,10 +120,10 @@ export class Input {
       else this.release('Mouse2');
     };
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (isBrowserShortcut(event)) return;
+      if (this.suspended || isBrowserShortcut(event)) return;
       // I nomi e i controlli dei menu devono ricevere i propri tasti, anche WASD, F, M e Spazio.
       if(event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
-      if (blocksBrowserDefault(event.code, isButtonTarget(event.target), this.inMatch)) event.preventDefault();
+      if (blocksBrowserDefault(event.code, isButtonTarget(event.target), this.inMatch, this.bindings)) event.preventDefault();
       this.press(event.code, event.repeat);
     };
     const onKeyUp = (event: KeyboardEvent): void => this.release(event.code);

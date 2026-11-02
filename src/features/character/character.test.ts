@@ -135,7 +135,7 @@ describe('Character', () => {
     const effect = loadout[0]!.effect;
     if (effect.kind !== 'projectile') throw new Error('atteso un proiettile');
     expect(effect.projectile.damage).toBe(21); // 14 x 1,25 = 17,5 -> 18
-    expect(loadout[0]!.cooldown).toBeCloseTo(0.16 * 0.9, 10);
+    expect(loadout[0]!.cooldown).toBeCloseTo(0.16 * 1.15 * 0.9, 10);
   });
 
   it('addRolls conia uid unici e stabili e non li riusa mai, nemmeno dopo uno scarto', () => {
@@ -202,7 +202,7 @@ describe('formato di salvataggio', () => {
     expect(JSON.parse(text)).toMatchObject({ version: SAVE_VERSION, nextItemNumber: character.nextItemNumber });
     expect(Object.keys(JSON.parse(text)).sort()).toEqual([
       'bestiary', 'blessings', 'bodyType', 'characterClass', 'descents', 'embers', 'equipped', 'items', 'name', 'nextItemNumber',
-      'pilgrimage', 'records', 'starterPending', 'totalXp', 'version',
+      'pilgrimage', 'records', 'starterPending', 'storagePositions', 'storedUids', 'totalXp', 'version',
     ]);
   });
 

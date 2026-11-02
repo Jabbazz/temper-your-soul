@@ -77,13 +77,13 @@ describe('Input', () => {
     expect(input.isActionPressed('move_up')).toBe(false);
   });
 
-  it('mouse sinistro e destro sono le skill 1 e 2; Q ed E le skill 3 e 4', () => {
+  it('mouse sinistro e destro sono le skill 1 e 2; Q e Spazio le skill 3 e 4', () => {
     const input = new Input();
     const pairs: Array<[string, Action]> = [
       ['Mouse0', 'skill_1'],
       ['Mouse2', 'skill_2'],
       ['KeyQ', 'skill_3'],
-      ['KeyE', 'skill_4'],
+      ['Space', 'skill_4'],
     ];
     expect(SKILL_ACTIONS).toEqual(pairs.map(([, action]) => action));
     for (const [code, action] of pairs) {

@@ -19,7 +19,7 @@ export class NetworkView {
 
   constructor(authoritative: Match) {
     this.match = new Match({ dungeon: authoritative.dungeon, arena: authoritative.arena, boss: authoritative.boss?.definition ?? null, rng: new SeededRng(1), loadout: authoritative.player.skillBar.skills,
-      members: [...authoritative.players].map(([id, player]) => ({ id, loadout: player.baseLoadout, characterClass: player.characterClass, maxHealth: player.health.max })) });
+      members: [...authoritative.players].map(([id, player]) => ({ id, loadout: player.baseLoadout, totalXp: player.totalXp, characterClass: player.characterClass, maxHealth: player.health.max })) });
     this.match.viewPlayerId = authoritative.viewPlayerId;
   }
 

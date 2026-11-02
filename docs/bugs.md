@@ -271,3 +271,25 @@ Correzione: le prede iniziano `idle`, esposte e attive, senza ereditare gli stat
 ## VFX personali fermi e duplicati (1 novembre 2026)
 
 Segnalazione giocata dell’utente: cerchi di primaria Guerriero e buff Arciere lasciati nel punto del lancio, vecchi fendenti/barriere sovrapposti agli atlanti PixelLab. Corretto: il fendente e il lampo di parata seguono il proprietario (anche remoto); i buff vengono disegnati soltanto dallo stato persistente, nella posizione attuale. Eliminati i doppi anelli, archi e flash quando il relativo asset è pronto; i disegni precedenti restano soltanto come ripiego di caricamento. Il settore visivo del fendente usa raggio e arco dell’evento autorevole e viene ritagliato entro quel settore. Danno e cancellazione proiettili restano istantanei al lancio: lo sprite in dissolvenza non aggiunge colpi durante il movimento. Test di regressione su ancoraggio, buff senza duplicati e ripiego. Nuova conferma giocata dell’utente ancora da ricevere.
+
+## Messaggio party fuorviante per disallineamento client/server (1 novembre 2026)
+
+Segnalato il messaggio di ricarica anche con il numero di versione aggiornato nel menu. Il controllo riguarda il protocollo di rete, non il numero mostrato: un processo server vecchio o un client in cache può mantenere un protocollo diverso. Verificato sul servizio attivo: protocollo 8 accettato e creazione party riuscita, protocollo 7 rifiutato. Messaggio aggiornato per indicare anche aggiornamento e riavvio del server cooperativo quando la ricarica non basta. Non alterato il controllo di compatibilità.
+
+## Scaling HP cooperativo applicato solo ai luogotenenti (1 novembre 2026)
+
+Rilevato dal nuovo test di bilanciamento: boss finali in Duello/Discesa e servitori non ricevevano il +50% HP per membro aggiuntivo già previsto, mentre i luogotenenti sì. Unificato il fattore in `combat/party-health.ts`, applicato ai dati del boss all’ingresso e alle nascite dei servitori. La replica continua a leggere gli HP esatti del server senza riscalarli. Test del Duello a due membri: boss Cripta 8.100 HP, servitore base 100 → 150 HP, stessa vita dopo replica. Luogotenenti senza doppio aumento.
+
+## Footer versione e changelog che risale scorrendo il menu (1 novembre 2026)
+
+Segnalazione dell’utente con screenshot: durante creazione personaggio e ridimensionamento, la fascia inferiore rimaneva a metà della finestra. Il footer `fixed` era discendente di `.screen`, che ha `backdrop-filter` e scorrimento: quel filtro stabilisce il containing block anche per i discendenti fissi. Spostato il footer come fratello della schermata menu, fuori dal contenitore filtrato, conservando la visibilità solo nel menu e lo spazio riservato a fine contenuto. Controllo tecnico nel browser di coordinate durante scorrimento e ridimensionamento; nuova conferma visiva del proprietario ancora da ricevere.
+
+
+### Limiti dell’incremento progressione/rifugio · 2 novembre 2026
+- Controllo UI automatico non completato: localhost va in timeout nel browser integrato; Computer Use Windows interrotto perché l’URL corrente non è verificabile. Aspetto, ridimensionamento e flussi DOM richiedono conferma manuale.
+- Oro condiviso solo fra i profili del medesimo salvataggio browser/origine, nessuna identità cloud o economia protetta. Come per gli altri progressi, scritture simultanee da più schede non sono transazioni: evitare due run contemporanee sullo stesso salvataggio.
+- L’hub è locale e personale; la simulazione cooperativa dei raid resta autorevole sul server. Deposito e servizi non sono una mappa multiplayer condivisa.
+
+Aggiornamento rifugio 2 novembre: controllo desktop nel browser ora riuscito usando il server locale sulla porta 5176. Restano da confermare dall’utente aspetto, controlli e resa responsive. La precedente nota sul mancato controllo visivo resta storica.
+
+Deposito, 2 novembre: durante la prova browser il trascinamento HTML nativo non trasferiva l’oggetto. Sostituito con Pointer Events e verificato il trasferimento nei due sensi e il salvataggio della posizione. La resa su dispositivi touch è ancora da confermare.

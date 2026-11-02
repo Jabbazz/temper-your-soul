@@ -27,7 +27,7 @@ import type { SnapshotFrame } from './snapshot-codec';
  * Valori di rete provvisori: simulazione 60 Hz, snapshot e input 30 Hz. Protocollo 7: skill e stati di classe; classe nel setup; la discesa (stanze, porte, premi,
  * tempre) e i servitori compatti (tipo alla nascita, poi posizione e stato).
  */
-export const NETWORK = { protocolVersion: 8, capacity: 4, step: 1 / 60, snapshotSteps: 2, inputMs: 1000 / 30, staleInputMs: 350, maxBufferedBytes: 512_000 } as const;
+export const NETWORK = { protocolVersion: 10, capacity: 4, step: 1 / 60, snapshotSteps: 2, inputMs: 1000 / 30, staleInputMs: 350, maxBufferedBytes: 512_000 } as const;
 
 /** Come il party entra nel dungeon: la Discesa, il Duello con il solo boss, il Pellegrinaggio dei quattro dungeon. */
 export type PartyMode = 'descent' | 'duel' | 'pilgrimage';
@@ -46,6 +46,7 @@ export interface BattleSetup {
   /** Vita massima del boss (il luogotenente cresce con il gruppo). */
   readonly bossHealth: number | null;
   readonly maxHealth: Readonly<Record<string, number>>;
+  readonly experience?: Readonly<Record<string, number>>;
   readonly classes?: Readonly<Record<string, CharacterClass | null>>;
 }
 
@@ -115,6 +116,7 @@ export function setupOf(match: Match): BattleSetup {
     arena: match.arena === match.dungeon.arena ? null : match.arena.id,
     boss: match.boss?.definition.id ?? null,
     bossHealth: match.boss?.health.max ?? null,
+    experience: Object.fromEntries([...match.players].map(([id, player]) => [id, player.totalXp])),
     classes: Object.fromEntries([...match.players].map(([id, player]) => [id, player.characterClass])),
     maxHealth: Object.fromEntries([...match.players].map(([id, player]) => [id, player.health.max])),
   };
@@ -134,7 +136,7 @@ export function replicaMatch(dungeon: DungeonDefinition, setup: BattleSetup, mem
     rng: new SeededRng(1),
     dungeon,
     loadout: members[0]?.loadout ?? [],
-    members: members.map((member) => ({ ...member, characterClass: setup.classes?.[member.id] ?? null, ...(setup.maxHealth[member.id] !== undefined ? { maxHealth: setup.maxHealth[member.id] } : {}) })),
+    members: members.map((member) => ({ ...member, totalXp: setup.experience?.[member.id] ?? 0, characterClass: setup.classes?.[member.id] ?? null, ...(setup.maxHealth[member.id] !== undefined ? { maxHealth: setup.maxHealth[member.id] } : {}) })),
     ...(template !== undefined ? { arena: roomArena(template, dungeon.arena.theme) } : {}),
     boss,
   });
@@ -190,6 +192,7 @@ export function applySnapshot(match: Match, snapshot: BattleSnapshot): void {
   match.classCombat.remote = snapshot.classState ?? null;
   for (const state of snapshot.players) {
     const p = match.players.get(state.id); if (!p) continue;
+    if (snapshot.setup.experience?.[state.id] !== undefined) p.setExperience(snapshot.setup.experience[state.id]!);
     p.position = state.position; p.aim = state.aim; p.health.current = state.health; p.mana = state.mana;
     p.invulnerableFor = state.invulnerableFor; p.moving = state.moving; p.skillBar.restoreCooldowns(state.cooldowns, snapshot.classState?.players.find(entry => entry.id === state.id)?.charges);
   }

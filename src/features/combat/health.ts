@@ -2,7 +2,7 @@
 export class Health {
   private value: number;
   private healingRemainder = 0;
-  readonly max: number;
+  max: number;
 
   constructor(max: number) {
     this.max = Math.floor(max);

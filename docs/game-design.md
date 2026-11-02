@@ -564,3 +564,58 @@ Regole nuove, proposte a Jabbaz: valgono solo in otto stanze nuove, due per dung
 ### Direzione VFX · 1 novembre 2026
 
 PixelLab scelto dal proprietario per effetti e icone: guerriero oro/rame, mago colori elementali, arciere salvia con artigli cremisi. Particelle additive WebGL con fallback Canvas 2D. Resta aperta la taratura estetica di opacità/dimensioni nelle stanze affollate; nessuna variazione delle regole di combattimento. [Dettagli](vfx-pixellab.md).
+
+## Seconda taratura delle classi e impostazioni (incremento 0.5.1, 1 novembre 2026)
+
+Decisione del proprietario dopo la prova giocata: primaria del Mago gratuita a ogni rarità; le spell restano a mana. Per compensare la minore mobilità rispetto all’Arciere, +35% danno diretto alle skill del Mago e +50% velocità ai proiettili. La durata in volo si divide per 1,5: la gittata resta invariata. Nessuna modifica al danno periodico elementale o alla mobilità innata. Arciere: ricarica base di entrambe le primarie moltiplicata per 1,15, compreso l’Arco di rovi. Rarità e bonus di frequenza continuano ad applicarsi dopo questa base.
+
+Esempi Comuni livello 1 prima dei bonus: dardo 19 → 25,65 HP e 440 → 660 u/s; scettro 23 → 31,05 HP e 250 → 375 u/s; globo 100 → 135 HP e 310 → 465 u/s; meteora 210 → 283,5 HP; esplosione degli stivali 65 → 87,75 HP. Il danno effettivo continua a essere arrotondato per difetto solo alla fine dei modificatori. Arco del cacciatore: 0,16 → 0,184 s base (set Comune: circa 0,1333 → 0,1533 s); Arco di rovi: 0,5 → 0,575 s base. Valori provvisori, da confermare giocando.
+
+Invulnerabilità dopo il danno: 0,65 → 0 s. Colpi multipli nello stesso passo e contatto continuato possono ferire consecutivamente. Restano scatti, teletrasporti e parata difensiva: rimuovere gli i-frame dopo il danno non cancella le protezioni delle skill. Attenzione di taratura ancora aperta: la permanenza a contatto è molto più punitiva, perché il danno può applicarsi a ogni passo fisso.
+
+Boss finali, singolo ed entrambe le fasi: Cripta 1.800 → 5.400 HP; Palude 2.400 → 7.200 HP; Fucina 3.000 → 9.000 HP; Ghiacciaio 3.600 → 10.800 HP. In cooperativa si applica il moltiplicatore `1 + 0,5 × (membri − 1)`. Il controllo ha rilevato che prima il fattore era applicato solo ai luogotenenti: ripristinato anche per boss finali e servitori. Nessun doppio aumento ai luogotenenti; replica con gli HP esatti del server.
+
+Pannello Impostazioni con ingranaggio e schede Associazione tasti / Audio. Le quattro skill sono rimappabili a tasti fisici o pulsanti del mouse supportati; i comandi fissi restano riservati, i doppioni tra skill vengono scambiati. Salvataggio locale separato dai personaggi, ripristino predefiniti e etichette coerenti in HUD/inventario. Il pannello sospende l’input di combattimento mentre si catturano i tasti; in singolo mette in pausa, in cooperativa il mondo continua. Crediti esistenti conservati nella scheda Audio. Lingua e altre schede generiche rimandate.
+
+### Riduzione moderata del recupero MP · 2 novembre 2026
+
+Dopo la prova giocata il proprietario giudica le classi più equilibrate, ma segnala assenza di pressione sul mana. Ridotto uniformemente del 20% il recupero: Guerriero innato 5 → 4, Arciere 6 → 4,8, Mago 10 → 8 MP/s. I bonus passivi delle skill e quelli del profilo equipaggiamento del Mago scendono nello stesso rapporto; coefficiente del recupero aggiuntivo da rarità 8 → 6,4. Formula invariata, soltanto coefficiente ridotto: `(1 / moltiplicatoreRicarica − 1) × 6,4 + bonusSkill`. In questo modo anche l’intero set Leggendario conserva la riduzione del 20%, senza recuperare indirettamente tutto il mana attraverso la rarità.
+
+Set Comuni livello 1: Guerriero 6,7 → 5,36 MP/s; Arciere 8 → 6,4; Mago 15,1 → 12,08. Costi delle spell, mana massimo e primarie gratuite invariati. Valori provvisori: nuova prova giocata necessaria, soprattutto tra set Comune e Leggendario e durante uso continuo delle spell.
+
+
+## Progressione dei mob e rifugio · incremento locale 2 novembre 2026
+
+Decisione del proprietario: i mob assegnano XP e hanno il **70%** di possibilità di lasciare oro a terra. Raccolta automatica entro 30 unità, anche durante il combattimento. Valori provvisori per mob (incluso il luogotenente): T1 4 XP / 3 oro, T2 7 XP / 6 oro, T3 10 XP / 9 oro, T4 14 XP / 12 oro. Le autoesplosioni e la rimozione dei servitori non assegnano premi. Il bottino e gli XP dei boss restano aggiuntivi e invariati. In cooperativa ogni membro ottiene XP interi e raccoglie una quota personale da ciascun mucchio; nessun doppione da snapshot ripetuti.
+
+L’oro appartiene alla raccolta dei profili del browser, non al personaggio: resta dopo sconfitte, cambi e rimozioni dei profili. Non è un account cloud. XP e oro raccolti si salvano durante la run. Il permadeath rimane futuro: per ora la sconfitta continua a conservare anche il personaggio e gli oggetti.
+
+Ogni livello dopo il primo concede **+3 HP massimi, +2 MP massimi, +1 difesa, +1 punto percentuale al moltiplicatore di attacco**. Nessuna cura o ricarica automatica al level-up. Curva XP esistente invariata. Il profilo in partita mostra statistiche a sinistra, ritratto equipaggiato al centro, nove caselle a destra (pagine da nove per gli zaini storici più grandi, nessuna perdita o limite retroattivo). In singolo apre la pausa; in cooperativa il mondo continua.
+
+Il rifugio si apre dal menu: WASD per muoversi, **E per interagire** nelle vicinanze. **Scatto predefinito: E → Spazio**; migrazione della vecchia preferenza su E, preservate le altre associazioni valide. Portale animato verso la scelta raid, deposito personale, forgia, fabbro umanoide con incudine e mercante. Riuso delle immagini esistenti, nessuna rigenerazione.
+
+Servizi provvisori: mercante 30 oro per pezzo Comune di classe; forgia 120 oro per creare un pezzo Non comune delle quattro famiglie iniziali di classe, senza materiali in questo incremento. Fabbro: costo 60 × prossimo grado in oro, da +0 a +5; ogni grado aggiunge il 5% delle statistiche passive originali dell’oggetto e +2 punti percentuali al moltiplicatore di attacco. Non cambia la rarità né la scalatura storica del livello oggetto/GS. Deposito personale, nessun oggetto equipaggiato trasferibile: identità e migliorie conservate. Eventuale deposito condiviso, materiali/ricette, bilanciamento e destino degli oggetti depositati col permadeath restano punti aperti.
+
+Salvataggio **v8**, migrazione dei roster v6/v7 e dei personaggi storici; oro di partenza 0. Protocollo cooperativo **9**: riavviare il server e ricaricare tutti i client. Nessun commit o push in questo incremento. Controllo visivo non completato: timeout del browser integrato su localhost e Computer Use interrotto perché non riesce a verificare l’URL di Opera. Nessuna conferma giocata.
+
+
+### Rifugio cittadino a schermo intero · revisione 2 novembre 2026
+Su richiesta del proprietario, sostituita la prima rappresentazione DOM con una vera mappa Canvas a tutto viewport, camera limitata ai confini e raster pixel art con campionamento nearest-neighbor. Nessun titolo o cornice sopra la mappa. Selciato procedurale, mattoni, tetti in ardesia, case perimetrali, casse, griglie, muschio e torce; nessuna risorsa generata o scaricata. Moodboard Ashen Realm usata esclusivamente come riferimento di atmosfera.
+
+Sprite del giocatore e del profilo ottenuti dallo stesso compositore `characterPixels(..., 'game')` della partita, inclusi equipaggiamento, idle e camminata. Ritratti e sprite approvati non modificati. Punti di interesse in pixel art provvisoria: portale con rune animate, deposito con riflesso, forgia con fuoco/fumo, fabbro umanoide con martello/scintille e incudine, mercante animato dietro il bancone.
+
+Case, casse, NPC e strutture hanno collisioni nella simulazione pura del rifugio; passi suddivisi per evitare attraversamenti e scorrimento lungo le superfici. Velocità provvisoria 148 unità/s, raggio giocatore 9 unità, prossimità per E 62 unità. Tooltip contestuale accanto al punto d’interesse, visibile solo entro tale distanza e senza un dialogo aperto. Servizi, costi, oro e progressione invariati.
+
+Verifiche automatiche: collisioni di tutte le strutture, tentativo di attraversare il mercante, moto lungo i muri, raggiungibilità dei cinque punti dalla partenza e griglie dei fotogrammi NPC. Controllo visivo desktop nel browser riuscito su porta 5176; questo supera il precedente impedimento di accesso al server locale, senza costituire una prova giocata dell’utente. Da confermare a mano: qualità visiva rispetto alla moodboard, ritmo delle animazioni, movimento e suggerimenti E sui diversi schermi.
+
+
+### Zaino, deposito e servizi nello stile del menu · 2 novembre 2026
+Pulsante con la sola icona dello zaino nel rifugio (stesso sprite e stile Reliquiario del menu), apre il personaggio con il ritratto illustrato già usato dall’inventario, le statistiche, i quattro slot equipaggiati e lo zaino da nove caselle per pagina. La rappresentazione nella mappa resta lo sprite di gioco. Rimozione, doppio clic e clic destro permettono di modificare l’equipaggiamento solo nei pannelli dell’hub; il profilo di combattimento resta consultivo.
+
+Il deposito apre contemporaneamente due pannelli: 20 caselle a sinistra (4 colonne × 5 righe) e personaggio/zaino a destra. Posizioni persistenti, trasferimenti con puntatore mouse/tocco; alternativa tramite selezione e Sposta o doppio clic. Caselle occupate rifiutate; pezzi indossati da rimuovere prima di riporli; nessun rimpiazzo automatico. Lo spostamento fra caselle libere del deposito è supportato. Capienza massima 20; eventuali oggetti oltre limite provenienti dall’incremento precedente restano conservati e recuperabili. Lo zaino conserva la paginazione dei dati esistenti.
+
+Pannelli, pulsanti, bordi, colori e font riutilizzano gli stili del menu. Mercante, fabbro e forgia mostrano gli sprite esistenti degli oggetti, rarità, GS e tooltip condivisi con l’inventario; costi e regole economiche invariati. Nessuna rigenerazione di asset.
+
+Salvataggio **v9** per le posizioni del deposito, con migrazione v8 e precedenti e oro del roster conservato. Protocollo **10** impedisce di mescolare client incapaci di leggere il nuovo formato del personaggio: riavviare server e ricaricare le schede.
+
+Verifica automatica: **764 test in 65 file**, tipi e build tramite `npm run verify`. Mutazione temporanea del controllo sulle caselle occupate rilevata dal nuovo test e ripristinata. Verifica browser desktop: ritratto originale, deposito e zaino affiancati, drag-and-drop nei due sensi, salvataggio dell’oggetto nella casella 12 dopo ricaricamento, offerte con icone di mercante/fabbro/forgia. Queste sono prove automatiche del browser; conferma giocata dell’utente e prova su touch/responsive restano da fare. Nessun commit o push.

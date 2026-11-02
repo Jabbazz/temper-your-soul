@@ -80,7 +80,7 @@ describe('servitori: evocazione', () => {
 });
 
 describe('servitori: comportamento', () => {
-  it('chi insegue si avvicina e ferisce a contatto, rispettando l\'invulnerabilita\' dopo il colpo', () => {
+  it('chi insegue si avvicina e ferisce a contatto, senza invulnerabilità dopo il colpo', () => {
     const match = createQuietMatch(1);
     const events = recordEvents(match);
     match.player.position = new Vec2(1600, 1400);
@@ -92,8 +92,8 @@ describe('servitori: comportamento', () => {
     const hits = eventsOfType(events, 'damage_dealt').filter((event) => event.target === 'player');
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]).toMatchObject({ amount: SPORELING.contactDamage, source: { kind: 'minion', name: SPORELING.name } });
-    // Al massimo un colpo ogni 0,65 s di invulnerabilita'.
-    expect(hits.length).toBeLessThanOrEqual(Math.ceil(2.5 / 0.65));
+    expect(hits.length).toBeGreaterThan(4);
+    expect(match.player.isInvulnerable).toBe(false);
   });
 
   it('il kamikaze esplode al contatto: ferisce, muore e lo dice', () => {

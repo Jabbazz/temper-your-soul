@@ -1,3 +1,4 @@
+import { bossForParty } from '../combat/party-health';
 import { centered } from '../../core/rng';
 import { TAU, Vec2 } from '../../core/vec2';
 import { clampToArena, pushOutOfPillars } from '../arena/arena';
@@ -253,7 +254,5 @@ export const LIEUTENANTS: Readonly<Record<string, BossDefinition>> = {
 
 /** Il luogotenente con la vita scalata per il gruppo: +50% per ogni giocatore in piu'. */
 export function scaledLieutenant(definition: BossDefinition, players: number): BossDefinition {
-  const factor = 1 + 0.5 * Math.max(0, players - 1);
-  if (factor === 1) return definition;
-  return { ...definition, stats: { ...definition.stats, maxHealth: Math.round(definition.stats.maxHealth * factor) } };
+  return bossForParty(definition, players);
 }

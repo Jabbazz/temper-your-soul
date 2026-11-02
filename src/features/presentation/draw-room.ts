@@ -31,6 +31,7 @@ const GATES: Readonly<Record<ArenaThemeId, { readonly bar: string; readonly fram
 
 /** Icone dei premi: pixel art 7x7. */
 const PICKUP_ICONS: Readonly<Record<PickupKind, { readonly frame: SpriteFrame; readonly palette: Palette; readonly label: string }>> = {
+  gold: { frame: ['..aaa..','.abbba.','abcccba','abcdcba','abcccba','.abbba.','..aaa..'], palette: {a:'#654419',b:'#c58c29',c:'#f2c85d',d:'#fff1b4'}, label: 'Oro' },
   temper: { frame: ['..aaa..', '.abcba.', 'abcdcba', 'abcccba', '.aeeea.', '..aea..', '.aaaaa.'], palette: { a: '#2a1a14', b: '#ff9a3d', c: '#ffd04a', d: '#fff6e0', e: '#6a6474' }, label: 'Tempra' },
   embers: { frame: ['...a...', '..aba..', '.abcba.', 'abcdcba', 'abcccba', '.abbba.', '..aaa..'], palette: { a: '#3a1408', b: '#ff6a1a', c: '#ffb04a', d: '#fff0b0' }, label: 'Braci' },
   heal: { frame: ['..aaa..', '...a...', '..aba..', '.abbba.', 'abcbbba', 'abbbbba', '.aaaaa.'], palette: { a: '#2a1418', b: '#d53640', c: '#ffb0b0' }, label: 'Ristoro' },

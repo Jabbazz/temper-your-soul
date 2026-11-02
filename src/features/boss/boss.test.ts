@@ -88,10 +88,10 @@ describe('fasi', () => {
     const boss = createBoss();
     boss.attackTimer = Infinity;
     const { ctx, events } = createBossHarness();
-    boss.health.current = 900;
+    boss.health.current = boss.health.max / 2;
     boss.step(STEP, ctx);
     expect(boss.phase).toBe(1);
-    boss.health.current = 899;
+    boss.health.current = boss.health.max / 2 - 1;
     boss.step(STEP, ctx);
     boss.step(STEP, ctx);
     expect(boss.phase).toBe(2);
@@ -105,7 +105,7 @@ describe('fasi', () => {
     boss.health.current = 100;
     const { ctx } = createBossHarness();
     boss.step(STEP, ctx);
-    boss.health.current = 1800;
+    boss.health.current = boss.health.max;
     boss.step(STEP, ctx);
     expect(boss.phase).toBe(2);
   });
