@@ -1,8 +1,21 @@
 # Risorse libere: fonti valutate
 
-**Grafica · 10 novembre 2026:** fonti, candidati e ricette grafiche sotto sono un archivio di provenienza, non riferimenti per nuovi asset. La grafica si produce esclusivamente con PixelLab MCP secondo [canone-grafico.md](canone-grafico.md). Le regole di audio e font restano separate; conservare i font approvati.
+**Grafica:** fonti, candidati e ricette grafiche sotto sono un archivio di provenienza, non riferimenti per nuovi asset. La grafica si produce esclusivamente con PixelLab MCP secondo [canone-grafico.md](canone-grafico.md). Le regole di audio e font restano separate; conservare i font approvati.
 
-Ricerca del 31 ottobre 2026, solo pagine web, nessun download. **V** = verificato aprendo la pagina; **D** = dedotto (tag, descrizione, fonti terze). Regole in [prompt-di-progetto.md](prompt-di-progetto.md), sezione 5. Il primo lotto è nel progetto (vedi sotto). Ogni nuovo scaricamento va proposto all'utente (nome, fonte, dimensione) e registrato in `src/features/audio/audio-credits.ts`.
+## Regole su risorse e licenze
+
+Spostate qui dal vecchio prompt di progetto (31 ottobre 2026), rimosso dal repository; la skill `tys-risorse-libere` le applica.
+
+1. **Audio e font:** CC0, pubblico dominio, CC BY 3.0/4.0 (crediti obbligatori), OFL per i caratteri. **Escluse:** NC, ND, «solo uso personale», licenze poco chiare, pagine che contraddicono il file scaricato. Nel dubbio si scarta.
+2. **Niente IA generativa per audio e musica:** l'audio deve essere registrato (strumenti veri, orchestra, coro, field recording, foley).
+3. **Ogni file ha i crediti** nel catalogo: titolo, autore, fonte, licenza, data di consultazione. Un test fallisce se un file non ha crediti. I crediti CC BY sono visibili nel gioco (pannello Audio).
+4. **Peso:** effetti in mp3 mono 96–128 kbps; musiche in mp3 stereo 128 kbps, preferibilmente sotto i 3 MB. Le musiche partono solo quando servono.
+5. **Niente CDN né richieste di rete in gioco:** i file stanno in `src/assets/` e Vite li copia nella build.
+6. Prima di scaricare si chiede all'utente (nome, fonte, dimensione).
+
+## Fonti valutate
+
+Ricerca del 31 ottobre 2026, solo pagine web, nessun download. **V** = verificato aprendo la pagina; **D** = dedotto (tag, descrizione, fonti terze). Il primo lotto è nel progetto (vedi sotto). Ogni nuovo scaricamento va proposto all'utente (nome, fonte, dimensione) e registrato in `src/features/audio/audio-credits.ts`.
 
 Che una registrazione sia "vera" lo si ricava dalla descrizione dell'autore, non dall'ascolto: va confermato ascoltando, prima di inserirla.
 
@@ -247,7 +260,7 @@ Le tre licenze OFL scaricate pesano circa 4 KB ciascuna; nel progetto ci sono le
 
 > **Tolto dal gioco il 5 novembre 2026**, insieme ai crediti e agli script di preparazione: sostituito dagli sprite del generatore locale. La sezione resta come registro delle fonti valutate.
 
-Il proprietario ha richiesto esplicitamente VFX delle skill e poi icone oggetto generati con PixelLab, entro 39 generazioni. Gli output sono registrati come `PixelLab-output`, con i termini del servizio e senza dichiararli CC0. Nessuna generazione di personaggi, boss o mob in questo incremento. Vedere [dettagli e provenienza](vfx-pixellab.md).
+Il proprietario ha richiesto esplicitamente VFX delle skill e poi icone oggetto generati con PixelLab, entro 39 generazioni. Gli output sono registrati come `PixelLab-output`, con i termini del servizio e senza dichiararli CC0. Nessuna generazione di personaggi, boss o mob in questo incremento. Il documento di dettaglio (`vfx-pixellab.md`) è stato rimosso: resta nella storia Git.
 
 ## Eccezione proposta: boss e luogotenenti generati in locale (3 novembre 2026)
 
@@ -255,4 +268,4 @@ Su richiesta dell'utente, con un generatore sul suo PC: SDXL 1.0 base ([OpenRAIL
 
 ## Eccezione proposta: mob e mappe generati in locale (4 novembre 2026)
 
-Stesso generatore, stesse licenze e stessa decisione aperta dei boss qui sopra: **decide il proprietario.** Copre gli 88 mob (v0.11.05) e i fogli delle mappe dei quattro dungeon. Il nodo `tools/arte/comfyui/tile_circolare.py` e' scritto per il progetto, non scaricato. Mob a mano e tile di prima non sono stati tolti: restano con `?mob=classici` e `?tile=classici`. Inventario e candidati scelti in [produzione-grafica.md](produzione-grafica.md).
+Stesso generatore, stesse licenze e stessa decisione aperta dei boss qui sopra: **decide il proprietario.** Copre gli 88 mob (v0.11.05) e i fogli delle mappe dei quattro dungeon. Il nodo `tools/arte/comfyui/tile_circolare.py` e' scritto per il progetto, non scaricato. Mob a mano e tile di prima non sono stati tolti: restano con `?mob=classici` e `?tile=classici`. L'inventario dei candidati scelti (`produzione-grafica.md`) è stato rimosso: resta nella storia Git.

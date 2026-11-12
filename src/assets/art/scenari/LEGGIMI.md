@@ -18,4 +18,4 @@ Cripta: ardesia e cremisi, con statue, ossari, sarcofagi. Palude: gotico sommers
 
 Generate in locale con SDXL 1.0 e Pixel Art XL, prompt e scelte in `scenari-prompts.json` e `scenari-progetto.json` degli strumenti esterni (README · Strumenti esterni). Gli originali restano fuori dal progetto, nella cartella di lavoro esterna di chi le ha generate.
 
-Licenze: SDXL 1.0 OpenRAIL++-M, Pixel Art XL OpenRAIL-M. Scelta del proprietario se tenerli: vedi `docs/produzione-grafica.md`.
+Licenze: SDXL 1.0 OpenRAIL++-M, Pixel Art XL OpenRAIL-M. Scelta del proprietario se tenerli: vedi `docs/produzione-grafica.md` (documento rimosso, nella storia Git).

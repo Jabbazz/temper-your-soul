@@ -1,5 +1,5 @@
 /*
- * Crediti delle registrazioni usate dal gioco. Regole (docs/prompt-di-progetto.md, sezione 5): solo registrazioni vere
+ * Crediti delle registrazioni usate dal gioco. Regole (docs/risorse-libere.md, «Regole su risorse e licenze»): solo registrazioni vere
  * (strumenti, voci, ambienti, foley), mai audio generato da IA; licenze CC0, pubblico dominio o CC BY. NC e ND non sono
  * ammesse: il tipo `AudioLicense` non le prevede e i test del catalogo rifiutano file senza credito.
  */

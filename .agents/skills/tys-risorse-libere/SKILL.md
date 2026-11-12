@@ -5,7 +5,7 @@ description: Cercare, valutare, scaricare (con permesso), convertire e registrar
 
 # Audio e caratteri liberi per Temper your soul
 
-Regole complete in `docs/prompt-di-progetto.md` (sezione 5); fonti già valutate in `docs/risorse-libere.md`. Per grafica, immagini e UI seguire invece `tys-grafica-pixellab` e `docs/canone-grafico.md`: produzione e ritocchi solo PixelLab MCP; gli elenchi grafici storici non sono fonti per nuovi asset.
+Regole complete e fonti già valutate in `docs/risorse-libere.md`. Per grafica, immagini e UI seguire invece `tys-grafica-pixellab` e `docs/canone-grafico.md`: produzione e ritocchi solo PixelLab MCP; gli elenchi grafici storici non sono fonti per nuovi asset.
 
 ## Criteri (rigidi)
 
@@ -30,7 +30,7 @@ Regole complete in `docs/prompt-di-progetto.md` (sezione 5); fonti già valutate
    - credito in `src/features/audio/audio-credits.ts` (titolo, autore, fonte, licenza, consultato il, modifiche);
    - riferimento nel catalogo `src/features/audio/audio-catalog.ts`: `asset(new URL('../../assets/audio/…', import.meta.url).href, '<credito>', …)` (più crediti se il file unisce più registrazioni);
    - `npm run verify`: i test del catalogo falliscono se un file manca, pesa troppo, non ha credito o ha una licenza non ammessa.
-   - Script di supporto (scaricamento da Freesound, analisi, conversione con ffmpeg): fuori dal repository, vedi README · Strumenti esterni.
+   - Script di supporto (scaricamento da Freesound, analisi, conversione con ffmpeg): fuori dal repository, vedi `AGENTS.md` · Programmi esterni e file generati.
 6. **Provare nel browser** (`npm run dev`): volume relativo, assenza di scatti negli anelli, nessun errore in console. Il giudizio finale sul suono spetta all'utente.
 
 ## Caratteri e instradamento grafica

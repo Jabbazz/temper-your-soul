@@ -17,13 +17,15 @@ Su richiesta del proprietario la cooperativa a inviti diventa un mondo pubblico:
 
 La versione del gioco è letta da `package.json` e mostrata solo nel menu principale, in piccolo al centro in basso (`v0.02.00`). Il pulsante Changelog in basso a sinistra apre le note dell’ultimo aggiornamento, incluse nella build. Le note precedenti restano in `src/release-notes.ts`; i cambiamenti numerici riportano etichetta, valori prima/dopo e unità. La [procedura di versioning](versioning.md) è obbligatoria per gli agenti a ogni PR o commit diretto a main autorizzato. Nessuna modifica a danni o progressione in questo incremento; versioni di rete e salvataggi indipendenti. Prova visiva a carico dell’utente.
 
-## Canone grafico e oggetti indossati · 10 novembre 2026
+## Canone grafico e oggetti indossati · 12 novembre 2026
 
-Decisione del proprietario: [canone grafico PixelLab](canone-grafico.md), fonte unica per persone e agenti. Gioco 2D top-down ortogonale; sprite/layer e tile nativi 64×64, ambiente su griglia seamless e palette esistente. Grafica di immagini e UI prodotta esclusivamente con PixelLab MCP; testi e font approvati conservati.
+Decisione del proprietario: [canone grafico](canone-grafico.md), fonte unica per persone e agenti; sostituisce il canone del 10 novembre. Grafica prodotta con PixelLab MCP; testi e font approvati conservati.
 
-Personaggi e nemici hanno otto direzioni; ogni nemico ha attacco e morte animati nelle otto direzioni. Equipaggiamenti intercambiabili per tutti i pezzi compatibili con corpo e classe, senza incorporare definitivamente armi e armature nella base. Ogni pezzo cambia l'aspetto in gioco. Primaria nella destra anatomica, secondaria nella sinistra, anche cambiando direzione; non specchiare tutta la figura scambiando le mani.
+Personaggi giocabili: corpi PixelLab 64×64 a mani vuote, in quattro direzioni (fronte, dietro, destra, sinistra) scelte dalla posizione del mouse; nel rifugio dalla direzione di marcia. Animazioni: riposo, camminata, attacco e attacco in movimento (attaccando o usando una skill mentre ci si sposta le gambe continuano il passo). L'arma primaria è un livello separato impugnato nella mano: in combattimento ruota a 360° verso il mouse, nel rifugio e nelle anteprime sta a riposo. Armatura e stivali ricolorano il corpo con la tinta del pezzo; l'orlo dell'armatura ha il colore della rarità, cappello del Mago e rifiniture il colore d'accento. Tileset delle mappe 32×32 seamless.
 
-Pose, pivot, agganci, frame e profondità sono condivisi fra corpo e strati. Nessuna nuova regola di equipaggiamento, hitbox o formato di salvataggio deriva dalle misure delle immagini. La direttiva sostituisce i precedenti riferimenti artistici; non avvia generazioni o sostituzioni degli asset correnti. Produzione e approvazione dei primi campioni, verifica della modularità e tileset restano da eseguire.
+Nessuna regola di equipaggiamento, hitbox o formato di salvataggio deriva dalle immagini. Valori estetici provvisori e regolabili in `presentation/pixellab-hero.ts` (`HERO_WEAPON`, durata del riposo) e `presentation/hero-tint.ts` (`HERO_TINT`, `HERO_TINT_ZONES`).
+
+Punti aperti: nuovi sprite delle armi e degli altri equipaggiamenti (oggi l'arma usa i disegni precedenti; la mano secondaria non è disegnata sui nuovi corpi); regole grafiche per nemici, boss, icone, effetti e interfaccia; ritratti illustrati e figure dei menu con l'arma.
 
 Le sezioni datate sotto descrivono lo storico delle implementazioni; le loro vecchie indicazioni grafiche non si applicano alle nuove richieste.
 
@@ -436,7 +438,7 @@ Verifica: 605 test, tipi e build; regressioni su difesa, rarità/potenza/vulnera
 
 ## Grafica: fasi 1–4 dello studio (ramo `feature/grafica-fasi`, da approvare)
 
-Seguono la fase 0, con lo stesso vincolo: solo aspetto e chiarezza, nessun numero di bilanciamento toccato. Il compito e lo stato delle fasi sono in `docs/compito-grafica.md`.
+Seguono la fase 0, con lo stesso vincolo: solo aspetto e chiarezza, nessun numero di bilanciamento toccato. Il compito e lo stato delle fasi sono in `docs/compito-grafica.md` (documento rimosso, nella storia Git).
 
 - **Luce** (`presentation/lights.ts`).
     - Le luci si raccolgono mentre si disegna l'ambiente: torce, bracieri, crepe, rune, funghi, cristalli, porte aperte e premi.
@@ -573,13 +575,13 @@ Regole nuove, proposte a Jabbaz: valgono solo in otto stanze nuove, due per dung
 
 ### Direzione VFX · 1 novembre 2026
 
-PixelLab scelto dal proprietario per effetti e icone: guerriero oro/rame, mago colori elementali, arciere salvia con artigli cremisi. Particelle additive WebGL con fallback Canvas 2D. Resta aperta la taratura estetica di opacità/dimensioni nelle stanze affollate; nessuna variazione delle regole di combattimento. [Dettagli](vfx-pixellab.md).
+PixelLab scelto dal proprietario per effetti e icone: guerriero oro/rame, mago colori elementali, arciere salvia con artigli cremisi. Particelle additive WebGL con fallback Canvas 2D. Resta aperta la taratura estetica di opacità/dimensioni nelle stanze affollate; nessuna variazione delle regole di combattimento. Dettagli (documento rimosso, nella storia Git).
 
 ### Revisione VFX Hi-bit · 3 novembre 2026
 
 Richiesta del proprietario: più particelle, sangue dopo i colpi subiti, morte dei nemici animata, buff continui e sprite delle skill più incisivi. Nuovi atlanti raster locali nel codice per le sedici animazioni delle tre classi; nessuna generazione consumata. Sangue cremisi con gravità e macchie per creature/giocatori, schegge per ossa/costrutti, energia per spiriti; nessun sangue per un impatto senza danno. Morti dei servitori tramite sagoma esistente, lampo/cedimento/dissolvenza; le resurrezioni non duplicano il corpo. Buff, scatti e stati emettono dalla posizione autorevole attuale anche in cooperativa, con frequenza indipendente dagli FPS.
 
-Budget estetico provvisorio: massimo 3.800 particelle complessive, 180 macchie e 48 morti animate. Raggi e settore del fendente continuano a provenire dalla simulazione; danni, ricariche, salvataggi e protocollo invariati. Direzione Reliquiario conservata. Restano aperte intensità e prestazioni con sciami/party, leggibilità nei quattro dungeon e qualità percepita: fotogrammi raster controllati, prova nel browser e conferma giocata ancora necessarie. [Valori, verifica e limiti](vfx-pixellab.md#revisione-hi-bit--incremento-locale-3-novembre-2026).
+Budget estetico provvisorio: massimo 3.800 particelle complessive, 180 macchie e 48 morti animate. Raggi e settore del fendente continuano a provenire dalla simulazione; danni, ricariche, salvataggi e protocollo invariati. Direzione Reliquiario conservata. Restano aperte intensità e prestazioni con sciami/party, leggibilità nei quattro dungeon e qualità percepita: fotogrammi raster controllati, prova nel browser e conferma giocata ancora necessarie. Valori, verifica e limiti (documento rimosso, nella storia Git).
 
 ## Seconda taratura delle classi e impostazioni (incremento 0.5.1, 1 novembre 2026)
 
@@ -693,31 +695,31 @@ Le card senza GS sufficiente sono opacizzate. Discesa conserva il nome e aria-di
 
 Richiesta del proprietario: `+N XP` in Silkscreen sopra ogni mob/luogotenente che assegna esperienza, con quantità effettiva e solo il proprio premio in cooperativa. Tarature XP invariate; nessun premio aggiuntivo per autoesplosioni, rimozioni o resurrezioni. Il boss finale conserva il riepilogo già previsto. Etichette a 8 pixel interni, 1,2 s di durata e contorno scuro.
 
-HUB nella palette carbone, cenere, ferro e rosso fuoco ispirata all’immagine fornita: vetrate e tendaggi cremisi, strutture e tetti scuri, luci rosse. Portale Hi-bit con arco a sesto acuto definito, rune, bracieri e vortice rosso verso un centro nero; 32 frame a 16 FPS. Nessuna risorsa generata/importata, revisione dei personaggi o modifica a collisioni/servizi. [Valori, verifiche e conferma giocata ancora necessaria](hub-rosso-xp.md).
+HUB nella palette carbone, cenere, ferro e rosso fuoco ispirata all’immagine fornita: vetrate e tendaggi cremisi, strutture e tetti scuri, luci rosse. Portale Hi-bit con arco a sesto acuto definito, rune, bracieri e vortice rosso verso un centro nero; 32 frame a 16 FPS. Nessuna risorsa generata/importata, revisione dei personaggi o modifica a collisioni/servizi. Valori, verifiche e conferma giocata ancora necessaria (documento rimosso, nella storia Git).
 
 ### Ricompense e compagno · revisione 3 novembre 2026
 
 Indicazione esplicita del proprietario: XP **sopra il personaggio**, con ancoraggio alla sua posizione durante il movimento. Oro non più a terra: emissione dal corpo del nemico, attrazione dopo 0,5 s e volo provvisorio di 0,4 s, poi accredito autorevole per ciascun destinatario vivo. Requisito 30 unità di prossimità → nessuna distanza richiesta; probabilità 70% e quantità T1/T2/T3/T4 3/6/9/12 invariate. Consegne in viaggio chiuse al cambio stanza, senza doppioni né nuovi premi per KO/autoesplosioni/despawn. Protocollo 13 → 14, salvataggi invariati.
 
-Lupo: corretta la mancata acquisizione con bersaglio nullo. Caccia autonoma nel raggio provvisorio di 480 unità; marchio e preda precedente prioritari, salto dopo l’uccisione ancora 180 unità. Danno, cadenza, durata e movimento su ostacoli invariati. Prototipi A/B/C del personaggio, maschile/femminile per tre classi, autorizzati solo come anteprima separata; scelta e integrazione da fare. [Specifiche e verifiche](ricompense-lupo-prototipi.md).
+Lupo: corretta la mancata acquisizione con bersaglio nullo. Caccia autonoma nel raggio provvisorio di 480 unità; marchio e preda precedente prioritari, salto dopo l’uccisione ancora 180 unità. Danno, cadenza, durata e movimento su ostacoli invariati. Prototipi A/B/C del personaggio, maschile/femminile per tre classi, autorizzati solo come anteprima separata; scelta e integrazione da fare. Specifiche e verifiche (documento rimosso, nella storia Git).
 
 
 ### Scelta sprite C e modularità · decisione 3 novembre 2026
 
 L’utente sceglie **C · Cacciatore d’ombre** nelle due versioni e autorizza l’uso nel gioco, correggendo la camminata inversa. Corpo carbone/cuoio/cenere, sciarpa e spallaccio asimmetrico; i tre profili di classe mantengono tratti propri. Ogni pezzo equipaggiato cambia visibilmente il personaggio: i 25 id e slot esistenti restano stabili, con armi e secondarie ridisegnate, scudo e faretra coerenti con le classi attuali, armature adattate al busto e stivali ai piedi articolati. Per ogni classe/slot, le famiglie condividono gesto e presa; varia il disegno dell’oggetto. Rimuovere il pezzo mostra la base, senza armi fittizie. Le icone Hi-bit 32×32 derivano dagli stessi disegni indossati.
 
-Cammino a dodici frame con piede sollevato in avanzamento e appoggio in arretramento. La mira continua a scegliere il lato; indietreggiare inverte solo il ciclo estetico. Tarature estetiche provvisorie: corpo 48 px, frame 64×64 con margine 8 px, 14 FPS di cammino, posa visiva di attacco **0,16 → 0,30 s**, cache **256 → 512 frame**. Non cambia alcun tempo/danno di combattimento, equipaggiamento, ricompensa, salvataggio o protocollo. Ritratti illustrati ancora secondo la direzione precedente; la richiesta riguarda gli sprite. Conferma giocata di ritmo, prese e leggibilità da ricevere. [Specifica](sprite-c-equipaggiamento.md).
+Cammino a dodici frame con piede sollevato in avanzamento e appoggio in arretramento. La mira continua a scegliere il lato; indietreggiare inverte solo il ciclo estetico. Tarature estetiche provvisorie: corpo 48 px, frame 64×64 con margine 8 px, 14 FPS di cammino, posa visiva di attacco **0,16 → 0,30 s**, cache **256 → 512 frame**. Non cambia alcun tempo/danno di combattimento, equipaggiamento, ricompensa, salvataggio o protocollo. Ritratti illustrati ancora secondo la direzione precedente; la richiesta riguarda gli sprite. Conferma giocata di ritmo, prese e leggibilità da ricevere. Specifica (documento rimosso, nella storia Git).
 
 
 ### Primarie senza particelle e testi premio · 3 novembre 2026
 
-Decisione esplicita: rimuovere soltanto particelle di lancio e scia delle primarie delle tre classi; conservare gli altri effetti. Fendente, freccia e dardi elementali ricevono animazioni Hi-bit locali; onda visiva di 0,24 s attorno all’Arciere durante il tiro. Nessun cambiamento a danno, settore, hitbox, gittata o cadenza. XP 8 → 16 px, distanza righe 12 → 24 unità, stesso Silkscreen; nuovo testo +N oro da 16 px all’accredito effettivo, sopra il destinatario. Regole economiche, salvataggio v10 e protocollo 14 invariati. Nuovi interventi grafici vincolati allo stile Hi-bit e alla palette cupa con accenti elementali: requisito in AGENTS.md/CLAUDE.md. [Dettagli e verifiche](attacchi-base-hi-bit.md).
+Decisione esplicita: rimuovere soltanto particelle di lancio e scia delle primarie delle tre classi; conservare gli altri effetti. Fendente, freccia e dardi elementali ricevono animazioni Hi-bit locali; onda visiva di 0,24 s attorno all’Arciere durante il tiro. Nessun cambiamento a danno, settore, hitbox, gittata o cadenza. XP 8 → 16 px, distanza righe 12 → 24 unità, stesso Silkscreen; nuovo testo +N oro da 16 px all’accredito effettivo, sopra il destinatario. Regole economiche, salvataggio v10 e protocollo 14 invariati. Nuovi interventi grafici vincolati allo stile Hi-bit e alla palette cupa con accenti elementali: requisito in AGENTS.md/CLAUDE.md. Dettagli e verifiche (documento rimosso, nella storia Git).
 
 ## Menu del rifugio · proposta del ramo `feature/menu-rifugio`, 3 novembre 2026
 
 Proposta da approvare. Lo sfondo del menu è il rifugio a pezzi: cortile vuoto più una struttura per file (cattedrale, deposito, fucina, mercante, cancello, due tratti di mura), posizionati da una tabella in `presentation/menu-layout.ts`. Portale, fiamme, fumo e luci si muovono nel codice (`presentation/menu-scene.ts`). I comandi stanno negli angoli in basso, azioni a sinistra e accessi a destra; il centro resta scena.
 
-**Immagini generate con l'IA, su richiesta dell'utente:** cortile e strutture vengono dal modello locale di pixel art, a partire da una tavola dell'utente. L'eccezione del proprietario in `docs/vfx-pixellab.md` copre solo effetti e icone: questi sfondi vanno approvati da Jabbaz prima di entrare nel gioco ufficiale. Provenienza in `src/assets/art/menu/LEGGIMI.md`.
+**Immagini generate con l'IA, su richiesta dell'utente:** cortile e strutture vengono dal modello locale di pixel art, a partire da una tavola dell'utente. L'eccezione del proprietario in `docs/vfx-pixellab.md` (documento rimosso, nella storia Git) copre solo effetti e icone: questi sfondi vanno approvati da Jabbaz prima di entrare nel gioco ufficiale. Provenienza in `src/assets/art/menu/LEGGIMI.md`.
 
 - **Comandi principali:** Continua, Nuovo personaggio, Impostazioni. **Accessi:** Scegli dungeon, Personaggi, Inventario, Deposito, Forgia, Mercante, Cooperativa. Il modello è in `ui/menu-model.ts`, senza DOM e coperto da test.
 - **Luoghi del rifugio:** Inventario, Deposito, Forgia e Mercante entrano nel rifugio e aprono il pannello esistente; da soli il giocatore sta davanti alla postazione, in un rifugio condiviso la posizione resta del server. Il Fabbro resta raggiungibile a piedi: il brief non lo elenca fra gli accessi.

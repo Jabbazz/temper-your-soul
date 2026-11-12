@@ -13,20 +13,23 @@ import archerSheet from '../../assets/characters/hero-pixellab-64/archer.png?inl
 import mageSheet from '../../assets/characters/hero-pixellab-64/mage.png?inline';
 
 /*
- * Corpi PixelLab 64×64 dei tre personaggi giocabili: quattro direzioni scelte dalla mira, tre animazioni
- * (riposo, camminata, attacco) generate da un solo movimento a scheletro per tutte le direzioni.
+ * Corpi PixelLab 64×64 dei tre personaggi giocabili: quattro direzioni scelte dalla mira, quattro animazioni
+ * (riposo, camminata, attacco, attacco in movimento) generate da un solo movimento a scheletro per tutte le direzioni.
  * Il corpo è a mani vuote: armi ed equipaggiamento saranno livelli separati. Solo aspetto.
  */
 
 export const HERO_DIRECTIONS = ['south', 'east', 'north', 'west'] as const;
 export type HeroDirection = (typeof HERO_DIRECTIONS)[number];
-export const HERO_CLIPS = ['idle', 'walk', 'attack'] as const;
+/** Le animazioni di ogni classe; `attack_move` è l'attacco mentre si cammina (le gambe continuano il passo). */
+export const HERO_CLIPS = ['idle', 'walk', 'attack', 'attack_move'] as const;
 export type HeroClip = (typeof HERO_CLIPS)[number];
 
 interface ClipRow { readonly row: number; readonly frames: number; readonly hands: readonly (readonly number[])[] }
 type HeroClips = Readonly<Record<HeroClip, Readonly<Record<HeroDirection, ClipRow>>>>;
 
 /** Cella del foglio, appoggio dei piedi nella cella e durata provvisoria del ciclo di riposo (regolabile). */
+/** I piedi del corpo stanno sotto il centro di collisione del personaggio, in unità di mondo. */
+export const HERO_FEET_OFFSET = 14;
 export const HERO_SHEET = { cell: manifest.cell, feetX: manifest.pivot[0]!, feetY: manifest.pivot[1]!, idleSeconds: 1.2 } as const;
 
 const CLIPS: Readonly<Record<CharacterClass, HeroClips>> = {
@@ -68,7 +71,8 @@ export function heroHandAnchor(kind: CharacterClass, clip: HeroClip, direction: 
 
 /** Indirizzo e misure del foglio di una classe, per le figure dei menu. */
 export function heroSheetSource(kind: CharacterClass): { readonly url: string; readonly width: number; readonly height: number } {
-  return { url: URLS[kind], width: manifest.sheet[0]!, height: manifest.sheet[1]! };
+  const [width, height] = manifest.heroes[kind].sheet;
+  return { url: URLS[kind], width: width!, height: height! };
 }
 
 /*
@@ -175,7 +179,7 @@ export function drawHeroSheet(ctx: CanvasRenderingContext2D, appearance: Charact
   const kind = heroClassOf(appearance), image = sheetImage(URLS[kind]);
   if (image === null) return false;
   const direction = heroDirectionFromAim(aimX, aimY), aim = weaponAtRest ? null : Math.atan2(aimY, aimX), weapon = appearance.equipment.primary_hand;
-  const attack = clip === 'attack' ? ((phase % 1) + 1) % 1 : null;
+  const attack = clip === 'attack' || clip === 'attack_move' ? ((phase % 1) + 1) % 1 : null;
   const hand = heroHandAnchor(kind, clip, direction, phase);
   if (weapon !== undefined && direction === 'north') drawHeroWeapon(ctx, weapon, hand, aim, direction, attack, feetOffsetY);
   const { sx, sy, size } = heroSheetFrame(kind, clip, direction, phase);

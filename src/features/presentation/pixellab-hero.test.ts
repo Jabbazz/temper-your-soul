@@ -14,7 +14,7 @@ describe('corpi PixelLab 64×64', () => {
     expect(heroDirectionFromAim(-5, -5)).toBe('west');
   });
 
-  it('ogni classe ha riposo, camminata e attacco nelle quattro direzioni', () => {
+  it('ogni classe ha riposo, camminata, attacco e attacco in movimento nelle quattro direzioni', () => {
     for (const kind of CHARACTER_CLASSES) for (const clip of HERO_CLIPS) for (const direction of HERO_DIRECTIONS) {
       const entry = manifest.heroes[kind].clips[clip][direction];
       expect(entry.frames, `${kind} ${clip} ${direction}`).toBeGreaterThanOrEqual(6);
@@ -89,6 +89,24 @@ describe('corpi PixelLab 64×64', () => {
     for (const kind of CHARACTER_CLASSES) for (const direction of ['south', 'north'] as const) {
       const hand = heroHandAnchor(kind, 'idle', direction, 0);
       expect(heroWeaponRestMirror(direction, hand.x)).toBe(hand.x < 0 ? -1 : 1);
+    }
+  });
+
+  it('l’attacco in movimento ha righe proprie, distinte dall’attacco da fermo', () => {
+    for (const kind of CHARACTER_CLASSES) for (const direction of HERO_DIRECTIONS) {
+      const { attack, attack_move: moving } = manifest.heroes[kind].clips;
+      expect(moving[direction].row, `${kind} ${direction}`).not.toBe(attack[direction].row);
+      expect(heroSheetFrame(kind, 'attack_move', direction, 0).sy).toBe(moving[direction].row * HERO_SHEET.cell);
+    }
+  });
+
+  it('il foglio di ogni classe contiene tutte le righe dichiarate', () => {
+    for (const kind of CHARACTER_CLASSES) {
+      const { sheet, clips } = manifest.heroes[kind];
+      const rows = Object.values(clips).flatMap((clip) => Object.values(clip).map((entry) => entry.row));
+      expect(sheet[0]).toBe(8 * HERO_SHEET.cell);
+      expect(Math.max(...rows) + 1).toBe(sheet[1]! / HERO_SHEET.cell);
+      expect(new Set(rows).size).toBe(rows.length);
     }
   });
 });

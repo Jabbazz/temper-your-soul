@@ -1,141 +1,102 @@
-# Canone grafico PixelLab
+# Canone grafico
 
-Direttiva del proprietario · 10 novembre 2026. Fonte unica per persone e agenti AI che producono grafica per **Temper your soul**. Sostituisce le precedenti direzioni artistiche, tavole di riferimento e ricette di produzione. I documenti grafici precedenti descrivono soltanto lo storico degli asset esistenti.
+Regole decise dal proprietario il 12 novembre 2026. Fonte unica per persone e agenti AI che producono grafica per **Temper your soul**: sostituisce tutte le direzioni artistiche, i formati e le ricette precedenti. Gli asset già nel gioco restano fino a sostituzione approvata, ma non sono riferimenti per nuove produzioni.
 
-Questo incremento definisce il canone e il flusso di lavoro: non genera immagini e non certifica che gli asset attuali siano già conformi. Il rifacimento avverrà per lotti richiesti dall'utente.
+Scrivere o leggere questo documento non avvia generazioni: ogni lotto va richiesto dall'utente.
 
-## Strumento di produzione
+## Strumento
 
-- **PixelLab, tramite l'MCP integrato nel progetto, è lo strumento obbligatorio per creare o modificare sprite, equipaggiamenti, tile, scenari, immagini, icone, cursori, illustrazioni, VFX raster e componenti grafici della UI.** Anche i ritocchi ai pixel passano dagli strumenti PixelLab, inclusi i workbench quando adatti.
-- Non usare altri generatori, rendering 3D, editor di immagini, pacchetti grafici di terzi o disegni procedurali in codice come alternativa per produrre queste immagini. Gli asset già presenti rimangono utilizzabili durante la migrazione; non diventano riferimenti artistici per nuove produzioni.
-- Se PixelLab manca nell'ambiente del collaboratore, avvisare: **«Per mantenere il canone del progetto è consigliato usare PixelLab tramite l'MCP integrato. Collega PixelLab prima di produrre nuovi asset grafici.»** Proseguire con specifiche e codice indipendenti dagli asset; non sostituire di nascosto lo strumento. Una deroga richiede una nuova indicazione esplicita del proprietario.
-- Impaginazione DOM/CSS, accessibilità, testi, composizione dei layer, caricamento e rendering restano codice del gioco. Conservare i font approvati, incluso Silkscreen: PixelLab produce la grafica dell'interfaccia, mentre etichette e testi localizzabili restano testo reale.
-- PixelLab è uno strumento di sviluppo: il gioco distribuisce asset locali, senza chiavi né chiamate al servizio nel browser. Questa direttiva riguarda la grafica; non cambia le regole dell'audio.
+- **PixelLab, tramite MCP, è lo strumento obbligatorio** per creare o ritoccare sprite, equipaggiamenti, tile, immagini, icone e grafica dell'interfaccia. Niente altri generatori, rendering 3D o pacchetti grafici di terzi come alternativa.
+- Se PixelLab non è collegato, avvisare il collaboratore e farlo collegare prima della produzione; nel frattempo si può proseguire solo con il lavoro che non dipende dagli asset.
+- Impaginazione DOM/CSS, testi, caricamento, composizione dei livelli e rendering restano codice del gioco. I font approvati si conservano.
+- PixelLab è uno strumento di sviluppo: il gioco distribuisce asset locali, senza chiavi né chiamate al servizio nel browser.
 
-## Identità fantasy
+## Stile e palette
 
-Lo stile è **fantasy medievale**, anche nei corpi base e negli abiti iniziali: tuniche, mantelli, cappucci, cuoio, lacci, cinture, bracciali e stivali devono rendere leggibile la classe. Niente jeans/denim, canottiere o T-shirt moderne, cerniere, scarpe da ginnastica o dettagli contemporanei. Una base modulare indossa abiti semplici fantasy: la modularità non giustifica un aspetto moderno o privo di identità.
+- Pixel art 2D fantasy medievale, vista dall'alto. Pixel interi, contorni nitidi, campionamento nearest-neighbor.
+- Palette del gioco: dark fantasy cupo (carbone, cenere, pietra, ferro, cuoio), con cremisi e rosso fuoco come accenti; gli elementi restano distinguibili fra loro. I valori stanno nel codice: `src/features/presentation/hub-palette.ts` (`HUB_COLORS`, ambiente) e `src/features/presentation/shadow-equipment.ts` (materiali dei pezzi di equipaggiamento).
 
-Per l'**Arciere**, dopo il chiarimento del proprietario del 10 novembre 2026: **arco nella destra anatomica e faretra sulla schiena**. La faretra equipaggiata è uno strato posteriore, non un oggetto da tenere in mano. Durante il tiro la sinistra tende la corda. Negli altri casi la regola generale sulle mani resta valida. Gli indossabili restano separabili e cambiano con gli slot effettivamente equipaggiati.
+## Personaggi giocabili
 
-L’Arciere maschio mantiene **il cappuccio alzato in tutte le otto viste e in ogni fotogramma**, anche in SE e durante il tiro. Busto, cintura, gambe e stivali devono avere sagome complete e collegate: i ritagli degli arti non possono cancellare porzioni degli abiti. Nelle viste posteriori il mantello copre le braccia che passano davanti al torace; nessun avambraccio o mano deve apparire sulla schiena. HUB, partita e anteprime devono condividere queste stesse sagome e profondità.
+- Guerriero, Arciere e Mago: sprite PixelLab **64×64**, modalità pro, vista `low top-down`.
+- **Corpo a mani vuote.** Armi ed equipaggiamento non si disegnano nel corpo.
+- **Quattro direzioni:** fronte, dietro, destra, sinistra (`south`, `north`, `east`, `west`), scelte dalla posizione del mouse.
+- **Animazioni: solo riposo, camminata e attacco**, semplici e naturali: il Guerriero dà una spadata, il Mago spinge in avanti la punta dello scettro, l'Arciere tende e rilascia la corda con due mani. In più l'«attacco in movimento», usato quando si attacca mentre ci si sposta: le gambe continuano il passo mentre le braccia colpiscono.
+- Le animazioni si fanno con `animate_character` in modalità `skeleton-v3` e mosse di libreria: vedi la ricetta sotto.
 
-## Vista, pixel e misure
+## Arma ed equipaggiamento
 
-| Risorsa | Requisito |
-| --- | --- |
-| Mondo, HUB e dungeon | 2D top-down ortogonale, stessa vista e scala visiva tra ambiente e attori |
-| Personaggi e nemici, inclusi boss | Ogni fotogramma nativo è **64×64 px**, con sfondo trasparente |
-| Equipaggiamenti indossati | Layer trasparenti **64×64 px**, registrati sui fotogrammi del corpo |
-| Tileset e mappe | Ogni tile è **64×64 px**; le mappe sono composizioni su questa griglia |
-| Fogli e atlanti | Possono essere più grandi: ogni cella di sprite o tile resta 64×64, senza ridimensionamenti frazionari |
-| Icone e moduli UI | Stessa pixel art e palette; icone su cella 64×64. Pannelli e immagini composte hanno dimensioni dichiarate nel brief, con bordi alla stessa densità di pixel |
+- **Arma primaria:** livello separato dal corpo, impugnato nella mano. In combattimento ruota a 360° attorno al personaggio verso il mouse; nel rifugio e nelle anteprime sta a riposo.
+- La mano che impugna è quella delle mosse generate, misurata fotogramma per fotogramma nel manifest: destra per il Guerriero, sinistra per Arciere e Mago.
+- **Armatura e stivali** ricolorano il corpo via codice: i pixel prendono la tinta del pezzo indossato conservando la propria luminosità; l'orlo dell'armatura ha il colore della rarità. La sagoma non cambia.
+- Le armi e gli altri equipaggiamenti saranno rifatti in una sessione futura, adattandoli a questi corpi. Fino ad allora i disegni attuali degli oggetti restano quelli di `shadow-equipment.ts`.
 
-Niente isometria, prospettiva inclinata del terreno, asset 3D o pittorici. Pixel interi, contorni nitidi, campionamento nearest-neighbor; niente sfocatura o antialiasing incorporati nei raster. Stessa densità di dettaglio, proporzioni e direzione della luce tra richieste. Il primo campione approvato fissa l'inclinazione della vista top-down e l'illuminazione da riutilizzare.
+## Mappe
 
-La cella 64×64 non impone che la sagoma riempia il riquadro: lasciare spazio per movimento, armi e morte senza tagli. Non trasformare automaticamente un tile in una hitbox da 64 unità: scala di presentazione e collisioni della simulazione restano distinte. Dimensioni dello schermo e della mappa completa non sono limitate a 64×64.
+- Tileset **32×32 seamless** in pixel art, prodotti con PixelLab. Un tile ripetibile deve combaciare sui due assi: controllarlo affiancando più copie prima di integrarlo.
+- La misura dei tile non cambia collisioni, unità di mondo o regole.
 
-## Palette condivisa
+## Non ancora deciso
 
-Conservare la palette attuale, senza riprendere le vecchie tavole stilistiche: dark fantasy cupo, materiali carbone, cenere, pietra, ferro, cuoio e tessuto scuri; cremisi e rosso fuoco come accenti localizzati. La pelle conserva colori naturali. Evitare superfici interamente luminose e filtri rossi applicati a tutto il personaggio.
+Per nemici, boss, icone, effetti e grafica dell'interfaccia il 12 novembre non sono state fissate regole nuove: restano gli asset esistenti. Prima di produrre un lotto di questo tipo chiedere al proprietario formato, direzioni e animazioni; non riprendere le regole dei canoni precedenti.
 
-La base dell'ambiente proviene da `src/features/presentation/hub-palette.ts` (`HUB_COLORS`):
+## Costi e ambito
 
-| Uso | Colori esistenti |
-| --- | --- |
-| Nero e ombra | `#0c0b0e`, `#101014`, `#1b191d` |
-| Pietra e cenere | `#353436`, `#49474a`, `#686569`, `#8a8081` |
-| Ferro | `#28272b`, `#655f63` |
-| Cremisi e fuoco | `#40121c`, `#8d2431`, `#cf3c3b`, `#f05b3c`, `#ffad72` |
-| Testo chiaro | `#ddd1c9` |
+- **Non sprecare generazioni.** Niente prove multiple, varianti esplorative, confronti fra candidati o animazioni non richieste: il primo output è quello valido, salvo richiesta dell'utente.
+- Prima un personaggio pilota, mostrato all'utente; gli altri solo dopo la sua approvazione.
+- Prima di un lotto controllare saldo e costo del tool scelto (`search_help(tool="...")`, gratuito).
+- La grafica rappresenta le regole, non le cambia: nessuna modifica a hitbox, danni, gittate, cadenze, slot o salvataggi per adattarli alle immagini.
 
-Materiali dell'equipaggiamento e accenti per elemento provengono da `src/features/presentation/shadow-equipment.ts`. Leggere le voci pertinenti e includere i relativi codici esadecimali nel brief: fuoco, acqua/ghiaccio, terra/natura e vento/energia restano distinguibili. Non ridurre ogni elemento al rosso. I dungeon condividono la base e differiscono per materiali e accenti già associati al loro tema.
+## Ricetta PixelLab per i personaggi giocabili
 
-Passare la palette esplicita ai tool che la supportano; negli altri inserirla nel brief e verificarla sull'output. Un prompt non garantisce il rispetto dei colori. Un'estensione della palette va proposta al proprietario prima di diventare riferimento per altri asset. In caso di variazioni future, i file di palette del gioco sono la fonte dei valori.
+### Sprite base
 
-## Personaggi ed equipaggiamento modulare
+- `create_character` con `mode="pro"`, `size=64`, `view="low top-down"`: 10 generazioni. Produce sempre otto direzioni; il gioco ne usa quattro.
+- Corpo a mani vuote.
+- Per rifare uno sprite a un'altra dimensione conservandone l'aspetto, passare la vista `south` approvata come `concept_image_url`.
 
-- Personaggi giocanti e nemici hanno **otto direzioni**: `south`, `south-west`, `west`, `north-west`, `north`, `north-east`, `east`, `south-east`. Registrare esplicitamente l'ordine nell'atlante; adattare i nomi all'API senza dedurlo dall'indice.
-- Il corpo base deve poter indossare tutti gli equipaggiamenti compatibili con quel corpo e con la classe. Non incorporare definitivamente l'armatura o l'arma nel corpo. I vincoli di classe del gioco rimangono validi.
-- Ogni pezzo equipaggiato deve cambiare l'aspetto dello sprite in gioco; rimuoverlo ripristina la parte base. Preparare layer distinti per i pezzi e gli slot effettivamente supportati, estendibili a nuovi pezzi senza rigenerare tutte le combinazioni complete.
-- **Mano primaria sempre destra anatomica; mano secondaria sempre sinistra anatomica**, indipendentemente dalla direzione dello sguardo e dal lato dello schermo. Vale per armi, scudi, tomi e altri oggetti secondari tenuti in mano. La faretra dell’Arciere resta sulla schiena e segue il suo slot senza occupare la sinistra. Nelle armi a due mani la destra mantiene la presa primaria e la sinistra il supporto; questo non introduce nuovi slot o regole di equipaggiamento.
-- **Non specchiare l'intero personaggio equipaggiato per ottenere le direzioni mancanti:** scambierebbe le mani. Un eventuale riuso di parti simmetriche deve mantenere anatomia, impugnature e luce corrette, verificabili nella composizione finale.
-- Per ciascun corpo, direzione e animazione condividere griglia, pivot ai piedi, proporzioni, pose, numero di frame e tempi tra base e layer. Documentare agganci di mani, spalle, busto e piedi; le coordinate si fissano sul primo campione approvato, non si inventano per ogni oggetto.
-- Gestire gli strati anteriori e posteriori secondo posa e direzione: braccia, impugnature, lama, scudo e mantelli devono poter passare davanti o dietro al corpo. Nessun ritaglio deve cancellare dita, volto o pezzi di equipaggiamento.
-- HUB, combattimento e anteprima dello sprite devono utilizzare lo stesso contratto di composizione. Le icone devono rappresentare lo stesso oggetto, ma non sostituiscono i layer indossabili.
+### Animazioni
 
-## Impugnature, postura e uso delle armi
+- Sempre `animate_character` con `mode="skeleton-v3"` e una mossa di libreria in `move`: un solo movimento 3D proiettato su tutte le direzioni, quindi pose coerenti fra fronte, lati e dietro.
 
-Ogni arma deve essere impugnata nel suo punto di presa reale e seguire mano, polso e braccio. Non basta incollare un’immagine ruotata vicino al personaggio. Dimensioni, baricentro, inclinazione a riposo e gesto devono risultare plausibili nelle otto direzioni. Annotare impugnatura e agganci nei metadati; non spostare l’arma fuori dalla mano per farla rientrare nel frame.
+| Animazione | Mossa | Fotogrammi |
+| --- | --- | --- |
+| Riposo | `idle` | 6 |
+| Camminata | `walk` | 8 |
+| Attacco del Guerriero | `slash` | 8 |
+| Attacco dell'Arciere | `shoot_bow` (gesto a due mani) | 8 |
+| Attacco del Mago | `cast` (una mano spinta in avanti) | 8 |
 
-**Arciere:** destra sull’impugnatura centrale dell’arco, sinistra sulla corda; faretra fissata alla schiena con le frecce visibili sopra la spalla. A riposo e durante la camminata, arco abbassato e inclinato naturalmente verso il basso. Nel tiro: sollevamento, braccio dell’arco che si distende, sinistra che tende la corda verso il viso, rilascio e recupero. Corda e flettenti devono reagire al gesto; nessuna arma sospesa, presa sulla corda al posto dell’impugnatura o arco permanentemente verticale a lato del corpo.
+- Costo indicativo: 3 generazioni per direzione, quindi 36 per personaggio (tre animazioni in quattro direzioni). L'attacco in movimento costa altre 12 generazioni per personaggio.
+- I fotogrammi escono su una tela 80×80, uguale per tutte le animazioni.
+- Al massimo 8 lavori contemporanei: lanciare due animazioni alla volta (2 × 4 direzioni) e attendere con `wait_for_jobs`.
+- La prima chiamata `skeleton-v3` senza `move` né `poses` è gratuita e restituisce l'elenco delle mosse.
 
-Per nuove armi o pose, studiare riferimenti anatomici reali prima della produzione PixelLab, adattandoli alla classe e alla visuale del gioco. Le foto sono riferimenti del gesto, non fonti per lo stile o asset da importare. Riferimenti consultati il 10 novembre 2026: [Online Archery Academy: impugnatura, corda e arco abbassato](https://www.onlinearcheryacademy.com/archery-hand-position-set/), [World Archery: mano dell’arco e componenti](https://www.worldarchery.sport/fr/node/101217), [ODFW: presa e trazione](https://myodfw.com/learn/tip/gripping-and-shooting-bow). Le pose d'esempio vanno adattate per mantenere l'arco nella destra anatomica scelta dal proprietario.
+### Attacco in movimento
 
-Chiarimento del proprietario, 11 novembre 2026: **a riposo la corda dell’arco sta sul lato superiore e il corpo in legno/impugnatura sul lato inferiore**. Ribaltare il solo oggetto dove serve, senza specchiare il personaggio o scambiare le mani. La sinistra segue la nuova posizione della corda; nel tiro l’arco conserva l’orientamento verso il bersaglio.
+- Una sola chiamata `skeleton-v3`: `move={"name": "walk"}` più `poses` che sovrascrivono soltanto braccio e busto (`right_hand`, `right_elbow`, `chest`, `lean`) con le pose dell'attacco indicate dalla guida gratuita del personaggio; l'ultimo fotogramma, senza campi, torna al passo. Così le gambe continuano a camminare mentre il braccio colpisce.
+- Animazione chiamata `attack_move`, 8 fotogrammi. Descrizioni usate (solo il gesto, mani vuote): Guerriero «walks while swinging empty right arm»; Arciere «walks while pulling right arm back, empty hands» (braccio sinistro teso, destra alla guancia); Mago «walks while extending empty left arm forward» (mani raccolte al petto, poi la sinistra in avanti).
 
-## Animazioni
+### Integrazione nel gioco
 
-Ogni nemico, inclusi mob, luogotenenti e boss, deve avere **attacco e morte animati in tutte e otto le direzioni**. Produrre anche riposo e movimento per le entità che si muovono. Il contratto dei personaggi giocanti comprende riposo, movimento, attacchi e morte; gli equipaggiamenti seguono tutte le pose utilizzate.
+Scaricare l'esportazione a foglio del personaggio (zip «spritesheet»), estrarla nella cartella di lavoro esterna in `warrior/`, `archer/`, `mage/` e lanciare `node tools/arte/prepara-fogli-eroi.mjs <cartella>`: copia i fogli e rigenera il manifest (righe, fotogrammi, mano dell'arma su ogni fotogramma). Il gioco si aspetta in ogni classe i clip `idle`, `walk`, `attack` e `attack_move`.
 
-Attacco leggibile con preparazione, colpo e recupero; morte riconoscibile e con conclusione stabile. La morte è una sequenza dedicata, non soltanto la sparizione del primo frame. Durata, numero di fotogrammi, frequenza e loop sono dichiarati per ogni animazione e mantenuti uguali nei relativi layer. Nessun numero di frame o FPS globale è deciso da questa direttiva.
+### Da non fare
 
-Le animazioni rappresentano gli eventi della simulazione: non decidono quando applicare danni, non aggiungono hitbox e non cambiano velocità, gittate o ricariche. Gli effetti runtime già esistenti possono restare; un nuovo VFX raster segue PixelLab.
+- Non animare gli attacchi con la sola descrizione testuale (modalità v3 senza mossa): ogni direzione inventa un gesto diverso e compaiono armi sdoppiate e movimenti casuali delle mani.
+- Non usare mosse o animazioni predefinite di pugni e calci (`punch`, `cross-punch` e simili) per simulare un attacco.
+- Non scrivere nomi di armi o magie in `action_description` quando lo sprite è a mani vuote: il modello le disegna. Descrivere solo il gesto del corpo. Hanno funzionato «swings empty right arm» (Guerriero), «pulls right arm back, empty hands» con `shoot_bow` (Arciere) ed «extends empty right arm forward» con `cast` (Mago, resta al più qualche pixel di scintilla in un fotogramma). PixelLab non ha un parametro che garantisca le mani vuote e `palette` non impedisce gli oggetti.
 
-## Tileset e costruzione delle mappe
+### Controllo
 
-- Pavimenti, pareti, bordi, angoli, passaggi, acqua e decorazioni usano celle native 64×64, allineate alla stessa griglia nelle mappe dell'HUB e dei dungeon.
-- I terreni ripetibili devono essere **seamless** sugli assi orizzontale e verticale. Le transizioni fra materiali devono avere bordi e angoli compatibili; non basta che due texture siano seamless separatamente.
-- Produrre varianti che condividano bordi, scala dei materiali, palette e luce per evitare cuciture, scacchiere evidenti e cambi di densità. Gli oggetti estesi si compongono di celle 64×64 registrate, senza stirare un tile.
-- Controllare una composizione ripetuta almeno 3×3 e una piccola stanza con transizioni, angoli interni/esterni, porte e ostacoli. Percorsi e limiti percorribili devono risultare leggibili.
-- Conservare identificativi dei tile, adiacenze, ordine nell'atlante e origine della griglia nei metadati. Una mappa nuova riusa il tileset approvato; una nuova richiesta non riparte da una palette o una vista diversa.
+Dopo ogni animazione controllare **tutti** i fotogrammi, non uno a campione: `pixelart_workbench` con `join character:<id>:<direzione>:<id del gruppo> ... --as rows` restituisce gratis un foglio con tutte le direzioni.
 
-## Brief comune da passare a PixelLab
+## Cosa entra nel repository
 
-Compilare questo brief per ogni richiesta, allegando soltanto riferimenti approvati secondo questo canone:
+Valgono le regole «Programmi esterni e file generati» di [AGENTS.md](../AGENTS.md): si genera e si prova nella cartella di lavoro esterna, si mostra all'utente e si integra solo dopo la sua approvazione esplicita.
 
-```text
-Progetto: Temper your soul. Canone PixelLab del 10 novembre 2026.
-Stile fantasy medievale leggibile: abiti, materiali e sagoma coerenti con la classe;
-niente jeans, denim, T-shirt, canottiere o dettagli moderni.
-Grafica 2D top-down ortogonale in pixel art; pixel netti, niente isometria,
-3D, aspetto pittorico, blur o antialiasing. Palette dark fantasy condivisa.
-Risorsa e id: [soggetto, ruolo e id stabile].
-Dimensioni: [sprite/layer: frame 64x64; tile: 64x64; composizione UI: misure].
-Palette esatta: [hex dalla base e dagli accenti pertinenti del gioco].
-Riferimenti canonici: [id PixelLab o immagini approvate; stessa vista,
-proporzioni, luce e densità di dettaglio].
-Attori: otto direzioni; primaria nella destra anatomica, secondaria nella
-sinistra anatomica per gli oggetti tenuti in mano. Arciere: arco a destra,
-faretra sulla schiena e sinistra che tende la corda. Non specchiare la composizione.
-Modularità: [corpo di riferimento, parte separata, agganci, layer davanti/dietro].
-Impugnatura e gesto: [punto di presa reale, postura a riposo, mani e riferimento anatomico].
-Arciere: destra sull’impugnatura, sinistra sulla corda, arco abbassato/inclinato
-a riposo; faretra sulla schiena.
-Animazione: [stato, direzioni, pose, frame e tempi del contratto condiviso].
-Terreni: [materiali, bordi/angoli compatibili, seamless X e Y, transizioni].
-UI: [moduli e stati, spazio per testo reale, nessuna scritta incorporata].
-Output: [trasparenza, celle/atlante e metadati richiesti].
-```
+- **Entrano:** i fogli finali in `src/assets/`, il manifest generato che il gioco legge, il credito in `src/features/presentation/art-credits.ts`, i test e una nota breve di provenienza nel `LEGGIMI.md` della cartella dell'asset (strumento, modalità, mosse, licenza degli output).
+- **Non entrano:** prompt completi, candidati, immagini intermedie, anteprime, script che pilotano programmi esterni, chiavi, percorsi personali.
+- Dopo l'integrazione: `npm run verify`, controllo nel browser ed elenco di ciò che l'utente deve ancora provare giocando.
 
-Omettere i campi non pertinenti. Il brief non è una chiamata API: usare solo i parametri effettivamente supportati dal tool. Non inserire chiavi, percorsi personali o vecchie tavole di stile.
-
-## Uso dell'MCP e limiti verificati
-
-Prima di produrre un lotto consultare `search_help(tool="...")` per il tool scelto e controllare saldo, costi e capacità attuali. Riutilizzare id e immagini canoniche approvate. La scrittura di questa direttiva non autorizza generazioni, consumi o integrazione di un lotto non richiesto; una richiesta successiva di produzione autorizza il lavoro nel suo ambito e nel budget concordato.
-
-Al 10 novembre 2026, l'help MCP PixelLab indica:
-
-- `create_character` supporta otto direzioni e immagini di riferimento; per le animazioni controllare quelle disponibili con `get_character` prima di usare `animate_character`.
-- `create_topdown_tileset` accetta tile 64×64 in modalità `pro`, che richiede un piano compatibile. La modalità standard non copre 64×64: non sostituire il formato con tile più piccoli ingranditi. Il tool crea transizioni Wang tra terreni; mantenere i riferimenti dei tile base per collegare set successivi.
-- PixelLab non garantisce layer di equipaggiamento registrati, metadati degli agganci o correttezza delle mani. `transfer_outfit` e `edit_animation` non costituiscono da soli un sistema modulare. Richiedere e verificare parti separabili con gli strumenti PixelLab; se il risultato non soddisfa il contratto, segnalarlo prima di integrare, senza appiattire tutte le combinazioni o passare a un altro generatore.
-
-Queste capacità vanno ricontrollate quando si esegue il lavoro. Un limite del piano o del tool non modifica il canone.
-
-## Consegna e accettazione
-
-Generare e mostrare candidati in una cartella di lavoro esterna al repository. Integrare solo gli asset approvati esplicitamente. Nel progetto entrano asset finali locali, manifest e crediti; prompt completi, prove e intermedi rimangono fuori. Il brief comune di questo documento e la skill sono istruzioni condivise, non scarti di produzione.
-
-Il manifest registra provenienza PixelLab e id, versione del canone, cella 64×64, palette, direzioni, frame/tempi/loop, pivot/agganci e ordine dei layer; per tile include adiacenze e transizioni. Annotare lo stato di approvazione senza spacciare un controllo automatico per prova giocata. Non attribuire agli output una licenza di terzi: riportare la provenienza e i termini effettivi del servizio nei crediti.
-
-Prima della consegna verificare dimensioni, trasparenza, colori, assenza di tagli o salti del pivot, copertura delle otto direzioni e delle animazioni. Per gli indossabili controllare ciascun pezzo sui corpi compatibili, in tutte le pose; provare combinazioni con armi e secondaria, oltre alla rimozione dei singoli layer. Per le mappe verificare ripetizione e transizioni; per la UI stati e leggibilità con i font esistenti. Dopo l'integrazione eseguire `npm run verify` e il controllo nel browser. La resa e la prova giocata finale restano da confermare dal proprietario.
+Stato attuale: i tre corpi sono in `src/assets/characters/hero-pixellab-64/` ([provenienza](../src/assets/characters/hero-pixellab-64/LEGGIMI.md)); li disegnano `src/features/presentation/pixellab-hero.ts` (fogli, direzioni, mano dell'arma, arma rotante) e `hero-tint.ts` (cambio colore da equipaggiamento).

@@ -1,13 +1,7 @@
-import { PixelPainter } from './pixel-painter';
-import { bodyAnchors, bodyWidth, drawAdventurer, drawArms, drawHands, drawHeroine, type CharacterMotion } from './adventurer-body';
-import { drawWearable, drawWearableBack } from './wearable-draw';
-import type { CharacterAppearance, BodyType } from '../character/appearance';
 import type { EquipmentSlot } from '../items/equipment-slot';
-import { shadowCharacterPixels } from './shadow-character';
-import { SHADOW_ANIMATION } from './shadow-motion';
 
 export interface WearableArt { readonly slot: EquipmentSlot; readonly shape: string; readonly color: string; readonly light: string }
-/** Registro storico dei ritratti; il corpo C e le icone condividono SHADOW_EQUIPMENT. */
+/** Forme e colori degli oggetti indossati nei ritratti illustrati; i corpi in gioco e le icone usano SHADOW_EQUIPMENT. */
 export const WEARABLES: Readonly<Record<string, WearableArt>> = {
   ossuary_lantern:{slot:'secondary_hand',shape:'lantern',color:'#778d76',light:'#d5edba'},
   grave_boots:{slot:'boots',shape:'grave',color:'#706e64',light:'#ded7b8'},
@@ -36,60 +30,3 @@ export const WEARABLES: Readonly<Record<string, WearableArt>> = {
   bog_boots: {slot:'boots',shape:'bog',color:'#646343',light:'#c0d475'},
 };
 export interface CharacterPixels { readonly width: number; readonly height: number; readonly pixels: readonly (readonly string[])[] }
-type Resolution = 'game' | 'portrait';
-const cache = new Map<string, CharacterPixels>();
-// Quattro equipaggiamenti × dodici frame × (idle, cammino e quattro attacchi), più le anteprime.
-export const CHARACTER_ART = { gameWidth: 64, gameHeight: 64, feetX:32, feetY:53, portraitWidth: 128, portraitHeight: 128, cacheLimit: 512 } as const;
-
-/** Sprite di gioco C modulare; il ramo portrait conserva i disegni storici. */
-export function characterPixels(appearance: CharacterAppearance, resolution: Resolution, pose = 0, casting = false, motion?: CharacterMotion): CharacterPixels {
-  const animation = motion ?? {state: casting ? 'cast' : pose ? 'walk' : 'idle', frame: pose};
-  const frames=resolution==='game'?SHADOW_ANIMATION.frames:8;
-  const direction=resolution==='game'&&animation.state==='walk'?(animation.walkDirection??1):1;
-  const frame = ((Math.floor(animation.frame)*direction % frames) + frames) % frames;
-  const slots = ['armor','boots','secondary_hand','primary_hand'] as const;
-  // I corpi precedenti hanno cinque viste; l'Arciere maschio PixelLab ne ha otto autonome.
-  const view=resolution==='game'?animation.view:undefined;
-  const key = JSON.stringify([appearance.body,appearance.characterClass,resolution,animation.state,animation.attackSlot,frame,view,animation.direction,slots.map(slot=> {
-    const item=appearance.equipment[slot];return item ? [item.familyId,item.rarity] : null;
-  })]);
-  const cached = cache.get(key); if(cached) return cached;
-  if(resolution==='game'){
-    const result=shadowCharacterPixels(appearance,{...animation,frame});
-    if(cache.size>=CHARACTER_ART.cacheLimit)cache.delete(cache.keys().next().value!);
-    cache.set(key,result);return result;
-  }
-  const painter = new PixelPainter(64,64,resolution==='portrait'?2:1,12,4);
-  const anchors = bodyAnchors({...animation,frame},appearance.body);
-  const fitted=(draw:(layer:PixelPainter)=>void):void=>{
-    const layer=new PixelPainter(40,56,painter.scale);draw(layer);
-    painter.fit(layer,y=>bodyWidth(appearance.body,y-anchors.bob));
-  };
-  for(const slot of ['secondary_hand','primary_hand'] as const) {
-    const item=appearance.equipment[slot],art=item?WEARABLES[item.familyId]:undefined;
-    if(art?.slot===slot) drawWearable(painter,appearance,slot,art,anchors,'back');
-  }
-  fitted(layer=>drawWearableBack(layer,appearance,WEARABLES,anchors));
-  drawArms(painter,anchors);
-  // La base femminile ha già le sue proporzioni; l'equipaggiamento resta adattato con `fitted`.
-  if(appearance.body==='female') drawHeroine(painter,anchors);
-  else fitted(layer=>drawAdventurer(layer,anchors));
-  for(const slot of ['armor','boots'] as const) {
-    const item=appearance.equipment[slot],art=item?WEARABLES[item.familyId]:undefined;
-    if(art?.slot===slot) fitted(layer=>drawWearable(layer,appearance,slot,art,anchors));
-  }
-  for(const slot of ['secondary_hand','primary_hand'] as const) {
-    const item=appearance.equipment[slot];const art=item ? WEARABLES[item.familyId] : undefined;
-    if(art?.slot===slot) drawWearable(painter,appearance,slot,art,anchors);
-  }
-  drawHands(painter,anchors);
-  const width=resolution==='portrait'?CHARACTER_ART.portraitWidth:CHARACTER_ART.gameWidth;
-  const height=resolution==='portrait'?CHARACTER_ART.portraitHeight:CHARACTER_ART.gameHeight;
-  const pixels=resolution==='portrait' ? painter.pixels : Array.from({length:height},(_,y)=>Array.from({length:width},(_,x)=>painter.pixels[Math.floor((y+.5)*64/height)]![Math.floor((x+.5)*64/width)]!));
-  const result={width,height,pixels};
-  if(cache.size>=CHARACTER_ART.cacheLimit) cache.delete(cache.keys().next().value!);
-  cache.set(key,result);return result;
-}
-
-export const DEFAULT_APPEARANCE: CharacterAppearance = {body:'male',equipment:{}};
-export const BODY_LABELS: Readonly<Record<BodyType,string>> = {male:'Maschio',female:'Femmina'};

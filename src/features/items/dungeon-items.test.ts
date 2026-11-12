@@ -11,7 +11,6 @@ import type { DangerZoneSpec } from '../combat/danger-zone';
 import { DUNGEON_PORTRAIT_IDS,dungeonItemPortrait } from '../presentation/dungeon-item-portraits';
 import { ITEM_SPRITES } from '../presentation/item-sprites';
 import { SKILL_ICONS } from '../presentation/skill-icons';
-import { characterPixels } from '../presentation/character-art';
 import { PROJECTILE_LOOKS } from '../presentation/visuals';
 
 function harness(id:string){
@@ -54,13 +53,11 @@ describe('otto nuovi kit dungeon',()=>{
     for(const body of ['male','female'] as const){
       const signatures=new Set<string>();
       for(const id of DUNGEON_PORTRAIT_IDS){
-        const family=familyById(id)!,item={uid:'test',familyId:id,rarity:'rare' as const};
+        const item={uid:'test',familyId:id,rarity:'rare' as const};
         expect(ITEM_SPRITES[id]).toBeDefined();expect(SKILL_ICONS[id]).toBeDefined();
         const art=dungeonItemPortrait(item,body)!;expect(art).not.toBeNull();
         expect(art.crop[2]).toBeGreaterThan(0);expect(art.crop[3]).toBeGreaterThan(0);
         signatures.add(art.texture.url);
-        const base=characterPixels({body,equipment:{}},'game');
-        expect(characterPixels({body,equipment:{[family.slot]:item}},'game').pixels).not.toEqual(base.pixels);
       }
       expect(signatures.size).toBe(8);
     }

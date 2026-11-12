@@ -14,7 +14,7 @@ import { BOSS_FX } from './boss-fx';
 import { MINION_ART } from './minion-art';
 import { MINIONS } from '../minions/minion-catalog';
 import { ActorPoses } from './poses';
-import { MAGE_CASTING, MAGE_PALETTE, MAGE_WALK, type SpriteFrame } from './sprites';
+import type { SpriteFrame } from './sprites';
 import { ARENA_THEMES } from './themes';
 import { DECOR_CLEARANCE, faceSpots, wallSpots } from './themes/decor';
 import { wallFaceHeight } from './themes/wall';
@@ -26,17 +26,6 @@ const dimensions = (frame: SpriteFrame): string => `${frame[0]!.length}x${frame.
 const symbolsOf = (frames: readonly SpriteFrame[]) => new Set(frames.flatMap((frame) => frame.flatMap((row) => [...row])));
 
 describe('sprite', () => {
-  it('i fotogrammi del mago sono matrici rettangolari della stessa misura e usano solo colori della tavolozza', () => {
-    const frames = [...MAGE_WALK, MAGE_CASTING];
-    for (const frame of frames) {
-      expect(new Set(frame.map((row) => row.length)).size).toBe(1);
-      expect(dimensions(frame)).toBe(dimensions(frames[0]!));
-    }
-    for (const symbol of symbolsOf(frames)) {
-      if (symbol !== '.') expect(MAGE_PALETTE[symbol], `mago: ${symbol}`).toBeDefined();
-    }
-  });
-
   it('la grafica di ogni boss ha 4 fotogrammi di camminata e una posa di lancio coerenti, con la tavolozza completa', () => {
     for (const [id, art] of Object.entries(BOSS_ART)) {
       expect(art.walk, id).toHaveLength(4);
@@ -61,9 +50,7 @@ describe('sprite', () => {
     expect(art.palette(false, true).c).not.toBe(art.palette(false, false).c);
   });
 
-  it('i fotogrammi di camminata sono quattro e si alternano', () => {
-    expect(MAGE_WALK).toHaveLength(4);
-    expect(MAGE_WALK[0]).toBe(MAGE_WALK[2]);
+  it('i fotogrammi di camminata del guardiano si alternano', () => {
     expect(BOSS_ART.guardian!.walk[1]).not.toEqual(BOSS_ART.guardian!.walk[3]);
   });
 });

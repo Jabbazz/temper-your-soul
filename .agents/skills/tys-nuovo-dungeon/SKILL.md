@@ -5,7 +5,7 @@ description: Ricetta per aggiungere un dungeon a Temper your soul (mappa, boss c
 
 # Aggiungere un dungeon
 
-Prima leggi `AGENTS.md` (sezione Dungeon), `docs/game-design.md` e un dungeon esistente completo, per esempio `src/features/dungeons/swamp/`. Gli id di dungeon, boss e schemi sono **stabili**: non rinominarli dopo la pubblicazione.
+Prima leggi `AGENTS.md` (Convenzioni → Contenuti → Dungeon), `docs/game-design.md` e un dungeon esistente completo, per esempio `src/features/dungeons/swamp/`. Gli id di dungeon, boss e schemi sono **stabili**: non rinominarli dopo la pubblicazione.
 
 ## 1. Design (da proporre all'utente e a Jabbaz prima del codice)
 
@@ -19,7 +19,7 @@ Prima leggi `AGENTS.md` (sezione Dungeon), `docs/game-design.md` e un dungeon es
 
 1. `src/features/dungeons/<id>/`: `ArenaDefinition`, `BossStats`, schemi con gli attrezzi di `boss/pattern-kit.ts` (anelli, ventagli, `schedule`, cariche), `DungeonDefinition`; valori in tabelle con nome e commento "provvisorio".
 2. Registro in `dungeons.ts`; soglia in `dungeon-access.ts`; XP in `character/progression.ts`; bottino in `loot/loot-tables.ts` (voci esplicite).
-3. Rappresentazione: prima usare `tys-grafica-pixellab` e `docs/canone-grafico.md`. Produrre con PixelLab MCP tile seamless 64×64, mappe top-down ortogonali, boss e mob con frame 64×64, otto direzioni e animazioni di attacco/morte per ogni direzione; stessa palette del gioco. Integrare tema in `presentation/themes/`, allineato alle coordinate e agli ostacoli di `ArenaDefinition`, boss in `presentation/boss-art/`, aspetti in `presentation/looks/` e artwork della scheda. Non cambiare le collisioni per adattarle alla griglia delle immagini.
+3. Rappresentazione: prima usare `tys-grafica-pixellab` e `docs/canone-grafico.md`. Per la mappa produrre con PixelLab MCP tileset 32×32 seamless, nella palette del gioco. Per boss e mob il canone non fissa ancora formato, direzioni e animazioni: concordarli con il proprietario prima di produrre. Integrare il tema in `presentation/themes/`, allineato alle coordinate e agli ostacoli di `ArenaDefinition`, il boss in `presentation/boss-art/`, gli aspetti in `presentation/looks/` e l'artwork della scheda. Non cambiare le collisioni per adattarle alla griglia delle immagini.
 4. Audio: tema d'ambiente e musica in `audio/audio-catalog.ts` (`ambienceFor`/`musicFor` per il nuovo `ArenaThemeId`), suoni delle zone per materiale in `ZONE_SOUNDS`. Risorse con la skill `tys-risorse-libere`.
 5. Nuove famiglie di oggetti con la skill `tys-nuova-famiglia`.
 

@@ -1,6 +1,6 @@
 # Rifugio del menu
 
-Cortile e strutture dello sfondo del menu principale. **Generati con l'IA, da approvare:** l'eccezione del proprietario in `docs/vfx-pixellab.md` copre solo effetti e icone, non questi sfondi.
+Cortile e strutture dello sfondo del menu principale. **Generati con l'IA, da approvare:** l'eccezione del proprietario in `docs/vfx-pixellab.md` (documento rimosso, nella storia Git) copre solo effetti e icone, non questi sfondi.
 
 ## Provenienza
 

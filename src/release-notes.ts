@@ -159,6 +159,18 @@ const INTEGER_DAMAGE_PREVIEW: ReleaseNotes = {
 
 export const RELEASES: readonly ReleaseNotes[] = [
   {
+    version:'0.20.0',date:'2026-11-12',
+    changes:[
+      'Attacco in movimento per Guerriero, Arciere e Mago: attaccando o usando una skill mentre ci si sposta le gambe continuano il passo invece di restare ferme. Animazioni PixelLab in quattro direzioni; da fermi resta l’attacco precedente.',
+      'Camminando all’indietro rispetto alla mira il passo scorre al contrario in tutte e quattro le direzioni, non solo a destra e sinistra.',
+      'Rimosso il sistema di sprite precedente dei personaggi (corpi a matrici e otto viste dell’Arciere) con i suoi asset: all’avvio il corpo compare appena il foglio è caricato, senza ripiego sul disegno vecchio. Tolta dalla build una pagina di anteprima del tema.',
+      'Nuovo strumento tools/arte/prepara-fogli-eroi.mjs: rigenera fogli e manifest dei personaggi giocabili dall’esportazione PixelLab, con la mano dell’arma misurata su ogni fotogramma.',
+      'Documentazione riordinata: AGENTS.md è la fonte unica delle istruzioni e CLAUDE.md lo importa; README accorciato; canone grafico riscritto con le regole del 12 novembre e la ricetta PixelLab; skill tys-* allineate; eliminati undici documenti grafici d’archivio superati, che restano nella storia Git.',
+      'Prova giocata dell’attacco in movimento di Arciere e Mago ancora da ricevere. Nessuna variazione a regole, salvataggi, protocollo o bilanciamento.',
+    ],
+    balanceChanges:[],
+  },
+  {
     version:'0.19.0',date:'2026-11-12',
     changes:[
       'Nuovi corpi PixelLab 64×64 per Guerriero, Arciere e Mago, in partita, nel rifugio e nelle figure dei menu. Il personaggio guarda in quattro direzioni (fronte, dietro, destra, sinistra) scelte dalla posizione del mouse; nel rifugio dalla direzione di movimento.',

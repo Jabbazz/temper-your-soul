@@ -1,17 +1,20 @@
 import type { GameEvent } from '../combat/events';
-import { SHADOW_ANIMATION } from './shadow-motion';
 
 /** Secondi della sola posa visiva dopo una skill, per tutte le classi. */
 export const PLAYER_CAST_POSE = 0.3;
-/** Velocita' dell'animazione di camminata, in fotogrammi al secondo. */
-const WALK_RATE = SHADOW_ANIMATION.fps.walk;
+/** Avanzamento della fase di camminata al secondo e quanta fase vale un ciclo intero di passi (valori estetici provvisori). */
+export const PLAYER_WALK_RATE = 14;
+export const PLAYER_WALK_CYCLE_FRAMES = 12;
 
-/** Le primarie rapide completano il gesto entro la propria cadenza, senza riavviare sempre il caricamento. */
-export function playerCastFrame(remaining:number,cadence=PLAYER_CAST_POSE):number|null {
-  if(remaining<=0)return null;
-  const duration=Math.max(1/60,Math.min(PLAYER_CAST_POSE,cadence));
-  const age=Math.max(0,PLAYER_CAST_POSE-remaining);
-  return age>=duration?null:Math.min(SHADOW_ANIMATION.frames-1,Math.floor(age/duration*SHADOW_ANIMATION.frames));
+/**
+ * Avanzamento 0–1 del gesto d'attacco, null se non e' in corso. Le primarie rapide completano il gesto entro la
+ * propria cadenza, senza riavviare sempre il caricamento.
+ */
+export function playerCastProgress(remaining: number, cadence = PLAYER_CAST_POSE): number | null {
+  if (remaining <= 0) return null;
+  const duration = Math.max(1 / 60, Math.min(PLAYER_CAST_POSE, cadence));
+  const age = Math.max(0, PLAYER_CAST_POSE - remaining);
+  return age >= duration ? null : age / duration;
 }
 
 /**
@@ -54,6 +57,6 @@ export class ActorPoses {
   update(dt: number, playerMoving: boolean): void {
     this.playerCast = Math.max(0, this.playerCast - dt);
     this.bossCast = Math.max(0, this.bossCast - dt);
-    this.walkPhase = playerMoving ? this.walkPhase + dt * WALK_RATE : 0;
+    this.walkPhase = playerMoving ? this.walkPhase + dt * PLAYER_WALK_RATE : 0;
   }
 }

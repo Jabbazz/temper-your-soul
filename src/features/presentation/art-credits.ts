@@ -8,7 +8,7 @@ import { AUDIO_LICENSES } from '../audio/audio-credits';
 
 /** Licenze ammesse per la grafica (stessi nomi di quelle dell'audio, per mostrarle allo stesso modo). */
 export type ArtLicense = 'CC0-1.0' | 'CC-BY-3.0' | 'CC-BY-4.0' | 'Generato-locale' | 'Modello-IA-da-verificare' | 'PixelLab-output';
-export const CHARACTER_CREDIT_IDS = ['pixellab-archer-male', 'pixellab-heroes-64'] as const;
+export const CHARACTER_CREDIT_IDS = ['pixellab-heroes-64'] as const;
 export const VFX_CREDIT_IDS = ['menu-rifugio-ia', 'local-zimage-vfx', 'local-sdxl-meteor'] as const;
 export const ART_LICENSES = { ...AUDIO_LICENSES, 'PixelLab-output': { name: 'Generato con PixelLab', url: 'https://www.pixellab.ai/termsofservice', requiresAttribution: false }, 'Generato-locale': { name: 'Generato con IA in locale · da approvare', url: 'https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0', requiresAttribution: false }, 'Modello-IA-da-verificare': { name: 'Modello 3D generato con IA su Meshy · licenza del piano da verificare', url: 'https://www.meshy.ai/', requiresAttribution: false } };
 
@@ -29,12 +29,6 @@ export interface ArtCredit {
 
 /** Crediti per id (`<fonte>-<opera>`), consultati e scaricati il 1 novembre 2026. */
 export const ART_CREDITS: Readonly<Record<string, ArtCredit>> = {
-  'pixellab-archer-male': {
-    title: 'Arciere maschio in otto direzioni', author: 'Temper your soul · PixelLab',
-    source: 'https://www.pixellab.ai/', license: 'PixelLab-output', retrieved: '2026-11-10',
-    use: 'corpo maschile dell’Arciere in partita, HUB e anteprime dello sprite',
-    changes: 'base v3 e revisione fantasy Pixen; palette e rig di riposo, camminata e tiro nel workbench PixelLab, celle 64×64 e otto viste autonome. Equipaggiamenti separati con arco a destra e faretra sul dorso; vedi src/assets/characters/archer-male-pixellab/LEGGIMI.md',
-  },
   'pixellab-heroes-64': {
     title: 'Guerriero, Arciere e Mago 64×64 in quattro direzioni', author: 'Temper your soul · PixelLab',
     source: 'https://www.pixellab.ai/', license: 'PixelLab-output', retrieved: '2026-11-12',

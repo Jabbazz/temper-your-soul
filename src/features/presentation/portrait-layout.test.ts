@@ -3,7 +3,6 @@ import { ITEM_FAMILIES } from '../items/item-families';
 import { PORTRAIT_LAYERS } from './portrait-atlas';
 import { PORTRAIT_ATLASES, PORTRAIT_CROPS } from './portrait-layout';
 import { CLASS_POSES } from './portrait-rig';
-import { characterPixels } from './character-art';
 import { hasRearGrip, drawWearable } from './wearable-draw';
 import { WEARABLES } from './character-art';
 import { bodyAnchors } from './adventurer-body';
@@ -28,13 +27,6 @@ describe('ritratti illustrati e profondita', () => {
       if(family.slot==='armor')expect(PORTRAIT_CROPS[family.id]![1],family.id+' femminile').toBeDefined();
     }
     expect(CLASS_POSES.warrior.male.crop).not.toEqual(CLASS_POSES.warrior.female.crop);
-  });
-  it('la figura femminile e piu esile anche sotto il collo, senza contare capelli o viso', () => {
-    const male=characterPixels({body:'male',equipment:{}},'game');
-    const female=characterPixels({body:'female',equipment:{}},'game');
-    // Corpo nativo 48 con margine di 8: busto/vita nelle righe 28–39, sotto la testa.
-    const area=(pixels:typeof male.pixels)=>pixels.slice(28,40).flat().filter(Boolean).length;
-    expect(area(female.pixels)).toBeLessThan(area(male.pixels));
   });
   it('arma lunga separata in parti dietro e davanti, mentre spada e futuro scudo restano davanti', () => {
     expect(hasRearGrip('hammer')).toBe(true);expect(hasRearGrip('bow')).toBe(true);

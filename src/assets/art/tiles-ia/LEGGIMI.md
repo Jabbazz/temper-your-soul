@@ -23,4 +23,4 @@ Le rampe di terra contengono tutti i colori dei vecchi tile di terzi (tolti il 5
 
 Le immagini originali restano fuori dal progetto, nella cartella di lavoro esterna di chi le ha generate.
 
-Licenze: SDXL 1.0 OpenRAIL++-M, Pixel Art XL OpenRAIL-M. Scelta del proprietario se tenerli: vedi `docs/produzione-grafica.md`.
+Licenze: SDXL 1.0 OpenRAIL++-M, Pixel Art XL OpenRAIL-M. Scelta del proprietario se tenerli: vedi `docs/produzione-grafica.md` (documento rimosso, nella storia Git).

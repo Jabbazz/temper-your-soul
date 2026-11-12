@@ -1,7 +1,6 @@
 import { renderIllustratedPortrait } from './illustrated-portrait';
 import type { Character } from '../character/character';
 import { levelProgress } from '../character/progression';
-import type { CharacterPixels } from '../presentation/character-art';
 import { el } from './dom';
 import type { CharacterAppearance } from '../character/appearance';
 import { HERO_SHEET, heroClassOf, heroSheetFrame, heroSheetSource, heroTintedSheet } from '../presentation/pixellab-hero';
@@ -27,21 +26,6 @@ export function heroFigureSvg(appearance: CharacterAppearance): SVGSVGElement {
   return svg;
 }
 
-
-export function pixelSvg(art: CharacterPixels): SVGSVGElement {
-  const ns='http://www.w3.org/2000/svg';
-  const svg=document.createElementNS(ns,'svg');
-  svg.setAttribute('viewBox', '0 0 '+art.width+' '+art.height);
-  svg.setAttribute('aria-hidden','true');
-  svg.setAttribute('shape-rendering','crispEdges');
-  art.pixels.forEach((row,y)=>row.forEach((color,x)=>{
-    if(!color) return;
-    const r=document.createElementNS(ns,'rect');
-    r.setAttribute('x',String(x));r.setAttribute('y',String(y));
-    r.setAttribute('width','1');r.setAttribute('height','1');r.setAttribute('fill',color);svg.append(r);
-  }));
-  return svg;
-}
 export function renderCharacterPortrait(character: Character): HTMLElement {
   const root=el('div','character-portrait');
   root.setAttribute('role','group');root.setAttribute('aria-label','Ritratto illustrato del personaggio con equipaggiamento attuale');

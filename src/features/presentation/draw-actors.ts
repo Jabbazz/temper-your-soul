@@ -1,38 +1,22 @@
 import { rasterDisc } from './pixel-disc';
 import type { CharacterAppearance } from '../character/appearance';
-import { CHARACTER_ART, characterPixels, DEFAULT_APPEARANCE, type CharacterPixels } from './character-art';
-import { SHADOW_ANIMATION } from './shadow-motion';
+import { DEFAULT_APPEARANCE } from '../character/appearance';
 import { BODY_RADIUS } from '../combat/collision';
 import { Vec2 } from '../../core/vec2';
 import type { Boss } from '../boss/boss';
 import type { Minion } from '../minions/minion';
 import { bossFx } from './boss-fx';
 import { minionArt } from './minion-art';
-import { nativeSpriteViewFromAim, spriteViewFromAim } from './sprite-view';
-import { characterFeetY, characterRenderFacing } from './native-character';
-import { drawHeroSheet, HERO_SHEET } from './pixellab-hero';
+import { drawHeroSheet, HERO_FEET_OFFSET, HERO_SHEET } from './pixellab-hero';
 import type { Player } from '../player/player';
 import { bossArt, bossSheet, sheetFrame, type BossSheet } from './boss-art';
 import { sheetImage, sheetSilhouette, sheetVariant } from './boss-art/sheet-images';
-import type { ActorPoses } from './poses';
-import { playerCastFrame } from './poses';
+import { PLAYER_WALK_CYCLE_FRAMES, playerCastProgress, type ActorPoses } from './poses';
 import { drawSprite, type Palette, type SpriteFrame } from './sprites';
 import { canvasFont } from './fonts';
 
-/** Un raster per fotogramma/equipaggiamento, liberato insieme all'art dalla cache.
- * Evita migliaia di cambi di colore/fillRect per ogni giocatore e fotogramma. */
-const rasterFrames = new WeakMap<CharacterPixels, HTMLCanvasElement>();
-const previousPositions=new WeakMap<Player,{x:number;y:number;direction:1|-1}>();
-function rasterOf(art: CharacterPixels): HTMLCanvasElement {
-  let raster = rasterFrames.get(art); if (raster) return raster;
-  raster = document.createElement('canvas'); raster.width = art.width; raster.height = art.height;
-  const ctx = raster.getContext('2d')!;
-  for (let y = 0; y < art.height; y++) for (let x = 0; x < art.width; x++) {
-    const color = art.pixels[y]![x]; if (!color) continue;
-    ctx.fillStyle = color; ctx.fillRect(x, y, 1, 1);
-  }
-  rasterFrames.set(art, raster); return raster;
-}
+/** Ultima posizione disegnata di ogni giocatore: da lì si capisce se cammina in avanti o all'indietro rispetto alla mira. */
+const previousPositions = new WeakMap<Player, { x: number; y: number; direction: 1 | -1 }>();
 
 function drawFootprint(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string): void {
   ctx.fillStyle = color;
@@ -40,8 +24,8 @@ function drawFootprint(ctx: CanvasRenderingContext2D, x: number, y: number, radi
 }
 
 /**
- * Disegna corpo e strati equipaggiati, rivolti verso la mira. L'ombra c'e' sempre; il corpo solo se `visible` (lampeggia durante
- * l'invulnerabilita', deciso dal chiamante).
+ * Disegna il corpo PixelLab e l'arma, rivolti verso la mira. L'ombra c'e' sempre; il corpo solo se `visible`
+ * (lampeggia durante l'invulnerabilita', deciso dal chiamante) e appena il foglio della classe e' caricato.
  */
 export function drawPlayer(
   ctx: CanvasRenderingContext2D,
@@ -53,36 +37,24 @@ export function drawPlayer(
 ): void {
   drawFootprint(ctx, player.position.x, player.position.y, BODY_RADIUS.player, '#080b1480');
   if (!visible) return;
-  const slots = ['primary_hand','secondary_hand','armor','boots'] as const;
-  const slotIndex=player.skillBar.skills.findIndex(skill=>skill?.id===poses.playerSkillId);
-  const attackSlot=slots[slotIndex] ?? 'primary_hand',skill=player.skillBar.skillAt(slotIndex);
-  const cadence=skill?skill.cooldown/(slotIndex===0?1+player.buffValue('attackSpeed'):1):undefined;
-  const castFrame=playerCastFrame(poses.playerCast,cadence);
+  const slotIndex = player.skillBar.skills.findIndex((skill) => skill?.id === poses.playerSkillId);
+  const skill = player.skillBar.skillAt(slotIndex);
+  const cadence = skill ? skill.cooldown / (slotIndex === 0 ? 1 + player.buffValue('attackSpeed') : 1) : undefined;
+  const attack = playerCastProgress(poses.playerCast, cadence);
   // Verso e passo seguono le direzioni come appaiono sullo schermo.
-  const aimOnScreen = player.aim.sub(player.position);
-  const facing = aimOnScreen.x < 0 ? -1 : 1;
-  // Tutte le classi sono rese in otto direzioni: la mira sceglie la vista.
-  const aimView = spriteViewFromAim(aimOnScreen.x, aimOnScreen.y);
-  const previous=previousPositions.get(player),dx=previous?player.position.x - previous.x:0;
-  const walkDirection:1|-1=Math.abs(dx)>.01?(dx*facing<0?-1:1):previous?.direction??1;
-  previousPositions.set(player,{x:player.position.x,y:player.position.y,direction:walkDirection});
-  const count=SHADOW_ANIMATION.frames;
-  const motion = castFrame!==null
-    ? {state: 'cast' as const, attackSlot, frame: castFrame, view: aimView}
-    : player.moving ? {state:'walk' as const,frame:Math.floor(poses.walkPhase)%count,walkDirection, view: aimView}
-    : {state:'idle' as const,frame:Math.floor(time*SHADOW_ANIMATION.fps.idle)%count, view: aimView};
+  const aim = player.aim.sub(player.position);
+  const previous = previousPositions.get(player);
+  const along = previous ? (player.position.x - previous.x) * aim.x + (player.position.y - previous.y) * aim.y : 0;
+  // Camminando all'indietro rispetto alla mira il ciclo scorre al contrario.
+  const walkDirection: 1 | -1 = Math.abs(along) > 0.01 ? (along < 0 ? -1 : 1) : previous?.direction ?? 1;
+  previousPositions.set(player, { x: player.position.x, y: player.position.y, direction: walkDirection });
+  const walkCycle = poses.walkPhase / PLAYER_WALK_CYCLE_FRAMES;
   ctx.save();
   ctx.translate(Math.round(player.position.x), Math.round(player.position.y));
-  // Corpi PixelLab 64×64: quattro direzioni dalla mira; camminando all'indietro il ciclo scorre al contrario.
-  const walkCycle = (poses.walkPhase % count) / count;
-  const drawn = motion.state === 'cast' ? drawHeroSheet(ctx, appearance, 'attack', aimOnScreen.x, aimOnScreen.y, motion.frame / count, 14)
-    : motion.state === 'walk' ? drawHeroSheet(ctx, appearance, 'walk', aimOnScreen.x, aimOnScreen.y, walkDirection < 0 ? 1 - walkCycle : walkCycle, 14)
-    : drawHeroSheet(ctx, appearance, 'idle', aimOnScreen.x, aimOnScreen.y, time / HERO_SHEET.idleSeconds, 14);
-  if (drawn) { ctx.restore(); return; }
-  ctx.scale(characterRenderFacing(appearance, facing), 1);
-  const art=characterPixels(appearance,'game',0,false,{...motion,direction:nativeSpriteViewFromAim(aimOnScreen.x,aimOnScreen.y)});
-  ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(rasterOf(art), -CHARACTER_ART.feetX, 14-characterFeetY(appearance));
+  // Attaccando mentre ci si sposta le gambe continuano il passo.
+  if (attack !== null) drawHeroSheet(ctx, appearance, player.moving ? 'attack_move' : 'attack', aim.x, aim.y, attack, HERO_FEET_OFFSET);
+  else if (player.moving) drawHeroSheet(ctx, appearance, 'walk', aim.x, aim.y, walkDirection < 0 ? 1 - walkCycle : walkCycle, HERO_FEET_OFFSET);
+  else drawHeroSheet(ctx, appearance, 'idle', aim.x, aim.y, time / HERO_SHEET.idleSeconds, HERO_FEET_OFFSET);
   ctx.restore();
 }
 

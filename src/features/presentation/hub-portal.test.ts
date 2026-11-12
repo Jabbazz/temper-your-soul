@@ -1,6 +1,4 @@
 import {describe,it,expect} from 'vitest';
-import {characterPixels} from './character-art';
-import {Character} from '../character/character';
 import {HUB_PORTAL,portalStonePixels,portalVortexPixels,portalMouthHalfWidth} from './hub-portal';
 import {hubColor} from './hub-palette';
 describe('portale e palette del rifugio',()=>{
@@ -33,10 +31,5 @@ describe('portale e palette del rifugio',()=>{
   expect(hubColor('#9f8661')).toBe('#8d293c');
   expect(hubColor('#12171cd9')).toBe('#101014d9');
   expect(hubColor('#c99a76')).toBe('#c99a76');
- });
- it('il compositore del gioco conserva classe, equipaggiamento e fotogrammi di camminata',()=>{
-  const c=Character.createStarter();c.completeCreation('Viandante','male','warrior');
-  const idle=characterPixels(c.appearance(),'game',0,false,{state:'idle',frame:0});
-  const walk=characterPixels(c.appearance(),'game',0,false,{state:'walk',frame:1});expect(walk.width).toBe(64);expect(walk.pixels).not.toEqual(idle.pixels);
  });
 });

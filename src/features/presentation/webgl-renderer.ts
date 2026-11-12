@@ -71,11 +71,6 @@ export function rendererLabel(): string {
   return 'Canvas 2D';
 }
 
-/** Vero se PixiJS non si puo' usare su questo browser: nessun altro tentativo. */
-export function pixiFailed(): boolean {
-  return state === 'failed';
-}
-
 /**
  * Disegna con PixiJS lo strato `group`, aggiornato da `build`, e lo compone nel contesto 2D al punto corrente della scena.
  * Lo stage riceve la trasformazione corrente del contesto, quindi `build` posiziona tutto in coordinate di mondo come il

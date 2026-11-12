@@ -1,11 +1,11 @@
 {
- "_generato": "File generato dal foglio di sprite esportato da PixelLab (righe, fotogrammi) e dalla misura della mano dell'arma su ogni fotogramma: non modificare a mano.",
+ "_generato": "File generato da tools/arte/prepara-fogli-eroi.mjs (righe e fotogrammi dal layout PixelLab, mano dell'arma misurata su ogni fotogramma): non modificare a mano.",
  "cell": 80,
  "pivot": [40,64],
- "sheet": [640,1040],
  "heroes": {
   "warrior": {
    "pixellabId": "bedc6ac8-a8aa-474c-89f8-9b39c465b545",
+   "sheet": [640,1360],
    "clips": {
     "attack": {
      "south": {
@@ -115,9 +115,67 @@
       ]
      }
     },
-    "walk": {
+    "attack_move": {
      "south": {
       "row": 9,
+      "frames": 8,
+      "hands": [
+       [30,49],
+       [30,23],
+       [32,30],
+       [33,37],
+       [43,50],
+       [40,51],
+       [34,50],
+       [30,49]
+      ]
+     },
+     "east": {
+      "row": 10,
+      "frames": 8,
+      "hands": [
+       [37,36],
+       [33,29],
+       [33,26],
+       [56,42],
+       [53,45],
+       [49,48],
+       [44,49],
+       [38,50]
+      ]
+     },
+     "north": {
+      "row": 11,
+      "frames": 8,
+      "hands": [
+       [56,33],
+       [54,29],
+       [51,25],
+       [51,50],
+       [51,50],
+       [51,50],
+       [51,50],
+       [51,50]
+      ]
+     },
+     "west": {
+      "row": 12,
+      "frames": 8,
+      "hands": [
+       [32,49],
+       [29,45],
+       [27,42],
+       [24,38],
+       [43,51],
+       [42,51],
+       [40,50],
+       [35,50]
+      ]
+     }
+    },
+    "walk": {
+     "south": {
+      "row": 13,
       "frames": 8,
       "hands": [
        [30,48],
@@ -131,7 +189,7 @@
       ]
      },
      "east": {
-      "row": 10,
+      "row": 14,
       "frames": 8,
       "hands": [
        [37,51],
@@ -145,7 +203,7 @@
       ]
      },
      "north": {
-      "row": 11,
+      "row": 15,
       "frames": 8,
       "hands": [
        [51,51],
@@ -159,7 +217,7 @@
       ]
      },
      "west": {
-      "row": 12,
+      "row": 16,
       "frames": 8,
       "hands": [
        [32,49],
@@ -177,6 +235,7 @@
   },
   "archer": {
    "pixellabId": "6e4b0767-6716-4668-9909-538cfb238736",
+   "sheet": [640,1360],
    "clips": {
     "walk": {
      "south": {
@@ -343,11 +402,70 @@
        [38,51]
       ]
      }
+    },
+    "attack_move": {
+     "south": {
+      "row": 13,
+      "frames": 8,
+      "hands": [
+       [53,44],
+       [52,44],
+       [52,43],
+       [53,42],
+       [54,43],
+       [54,44],
+       [53,44],
+       [52,48]
+      ]
+     },
+     "east": {
+      "row": 14,
+      "frames": 8,
+      "hands": [
+       [52,37],
+       [54,35],
+       [55,35],
+       [55,34],
+       [55,34],
+       [55,34],
+       [50,38],
+       [39,50]
+      ]
+     },
+     "north": {
+      "row": 15,
+      "frames": 8,
+      "hands": [
+       [28,49],
+       [28,49],
+       [28,49],
+       [28,49],
+       [28,49],
+       [28,49],
+       [28,49],
+       [27,49]
+      ]
+     },
+     "west": {
+      "row": 16,
+      "frames": 8,
+      "hands": [
+       [28,37],
+       [27,37],
+       [25,39],
+       [25,39],
+       [25,40],
+       [25,40],
+       [30,45],
+       [35,52]
+      ]
+     }
     }
    }
   },
   "mage": {
    "pixellabId": "ee9ff189-edd5-4794-9f9b-1f7d39fc2370",
+   "sheet": [640,1360],
    "clips": {
     "attack": {
      "south": {
@@ -465,9 +583,67 @@
       ]
      }
     },
-    "idle": {
+    "attack_move": {
      "south": {
       "row": 9,
+      "frames": 8,
+      "hands": [
+       [43,45],
+       [42,44],
+       [51,53],
+       [45,44],
+       [46,46],
+       [46,46],
+       [48,48],
+       [50,51]
+      ]
+     },
+     "east": {
+      "row": 10,
+      "frames": 8,
+      "hands": [
+       [38,51],
+       [47,42],
+       [47,40],
+       [54,37],
+       [55,38],
+       [51,39],
+       [48,36],
+       [38,51]
+      ]
+     },
+     "north": {
+      "row": 11,
+      "frames": 8,
+      "hands": [
+       [30,51],
+       [30,51],
+       [30,51],
+       [30,51],
+       [30,51],
+       [30,51],
+       [30,51],
+       [30,50]
+      ]
+     },
+     "west": {
+      "row": 12,
+      "frames": 8,
+      "hands": [
+       [35,42],
+       [29,39],
+       [33,40],
+       [26,40],
+       [25,41],
+       [28,43],
+       [32,47],
+       [36,51]
+      ]
+     }
+    },
+    "idle": {
+     "south": {
+      "row": 13,
       "frames": 6,
       "hands": [
        [51,53],
@@ -479,7 +655,7 @@
       ]
      },
      "east": {
-      "row": 10,
+      "row": 14,
       "frames": 6,
       "hands": [
        [38,51],
@@ -491,7 +667,7 @@
       ]
      },
      "north": {
-      "row": 11,
+      "row": 15,
       "frames": 6,
       "hands": [
        [30,51],
@@ -503,7 +679,7 @@
       ]
      },
      "west": {
-      "row": 12,
+      "row": 16,
       "frames": 6,
       "hands": [
        [41,51],

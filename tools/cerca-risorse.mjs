@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Cerca risorse con licenza libera tramite l'API pubblica di Openverse (https://api.openverse.org), senza chiave.
-// Filtra SOLO le licenze ammesse dal progetto (docs/prompt-di-progetto.md, sezione 5): CC0, pubblico dominio e CC BY.
+// Filtra SOLO le licenze ammesse dal progetto (docs/risorse-libere.md, «Regole su risorse e licenze»): CC0, pubblico dominio e CC BY.
 // Non scarica nulla: stampa titolo, autore, licenza, durata/dimensione e pagina della fonte, da proporre all'utente.
 //
 // Uso:

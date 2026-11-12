@@ -8,14 +8,16 @@ Rimosso il Combat report modale duplicato dagli incontri online: resta la scherm
 
 Implementate scelta dopo ogni login, creazione aggiuntiva e riapertura della raccolta dal menu; persistenza PostgreSQL compatibile con il personaggio singolo, oro comune nell’account e progressi separati. Protocollo 23. Controlli automatici, PostgreSQL in tabelle temporanee e browser isolato; prova giocata con account reale ancora da confermare.
 
-## Canone grafico PixelLab · 10 novembre 2026
+## Canone grafico PixelLab · 12 novembre 2026
 
-- [x] Definito il [canone unico](canone-grafico.md) e la skill `tys-grafica-pixellab`: top-down 2D, sprite/layer e tile 64×64, otto direzioni, equipaggiamento modulare e mani anatomiche fisse.
-- [x] Sostituiti i riferimenti grafici operativi precedenti; immagini e UI passano da PixelLab MCP. Nessun asset generato in questo incremento.
-- [ ] Produrre e approvare il primo campione canonico con palette, vista, proporzioni, luce, pivot e agganci comuni.
-- [ ] Verificare equipaggiamenti separati sui corpi compatibili, tutte le pose e otto direzioni, primaria destra/secondaria sinistra.
-- [ ] Produrre attacco e morte in otto direzioni per i nemici e tile seamless 64×64 con transizioni; verificare una stanza composta e i moduli UI.
-- [ ] Integrare per lotti approvati, con verifica automatica, controllo nel browser e prova giocata. La conformità degli asset attuali non è già verificata.
+- [x] Nuovo [canone unico](canone-grafico.md) e skill `tys-grafica-pixellab`: personaggi giocabili 64×64 in quattro direzioni, corpo a mani vuote, arma separata che ruota verso il mouse, tile 32×32 seamless.
+- [x] Corpi di Guerriero, Arciere e Mago con riposo, camminata e attacco, in partita, nel rifugio e nelle figure dei menu (v0.19.00). Verifica automatica; prova giocata dell'utente in corso.
+- [x] Cambio colore del corpo secondo armatura e stivali (tinta del pezzo, orlo per rarità, cappello del Mago, metallo/stoffa).
+- [x] Attacco in movimento di Guerriero, Arciere e Mago: generato e collegato; quello del Guerriero approvato dall'utente, prova giocata di Arciere e Mago da ricevere.
+- [x] Rimosso il sistema di sprite precedente (corpi a matrici, otto viste dell'Arciere) e i documenti grafici superati.
+- [ ] Nuovi sprite delle armi e degli altri equipaggiamenti, adattati ai corpi; mano secondaria; armi nelle figure dei menu.
+- [ ] Tileset 32×32 seamless per le mappe.
+- [ ] Regole grafiche per nemici, boss, icone, effetti e interfaccia: da decidere con il proprietario.
 
 Le sezioni precedenti datate conservano lo storico; per nuove produzioni grafiche vale soltanto il canone PixelLab.
 
@@ -49,13 +51,13 @@ Le sezioni precedenti datate conservano lo storico; per nuove produzioni grafich
 - [ ] Conferma manuale del nuovo accesso della Forgia e della misura ridotta delle scritte.
 
 - [x] HUB: appoggio dei piedi coerente con collisioni e profondità, sagome prospettiche, limite al selciato e partenze cooperative libere; protocollo 17. Etichette a risoluzione schermo e canvas senza stiramento frazionario.
-- [ ] Prova giocata lungo tutti gli edifici e la cinta, apertura dei quattro servizi, ponte sud, ghosting sul monitor dell’utente e cooperativa dopo il riavvio. [Verifiche tecniche](hub-artwork.md).
+- [ ] Prova giocata lungo tutti gli edifici e la cinta, apertura dei quattro servizi, ponte sud, ghosting sul monitor dell’utente e cooperativa dopo il riavvio. Verifiche tecniche (documento rimosso, nella storia Git).
 
 - [x] Fabbro dentro la Forgia, con due schede per creazione e migliorie; NPC e ostacolo separati rimossi. Protocollo 16.
 - [ ] Conferma manuale delle due schede, creazione/migliorie e passaggio libero nell’area del vecchio banco.
 
 - [x] Revisione locale PR #14: menu essenziale, Entra, Silkscreen globale, artwork condiviso con HUB giocabile e ingresso con zoom/materializzazione. Protocollo 15; salvataggi invariati.
-- [ ] Prova manuale del nuovo HUB: ingresso, durata dello zoom, font, ostacoli, Portale/Deposito/Forgia/Fabbro/Mercante e cooperativa dopo il riavvio. [Dettagli](hub-artwork.md).
+- [ ] Prova manuale del nuovo HUB: ingresso, durata dello zoom, font, ostacoli, Portale/Deposito/Forgia/Fabbro/Mercante e cooperativa dopo il riavvio. Dettagli (documento rimosso, nella storia Git).
 
 - [x] Camera degli incontri con offset del mouse limitato e smorzamento esponenziale a ogni fotogramma, separato dal passo fisso. Mira dalla vista decentrata; gli snapshot cooperativi ricentrano soltanto entrando in una stanza. Dieci nuovi test, verifica completa della v0.11.01: 872 test in 79 file, tipi e build.
 - [x] Controllo tecnico nel browser della camera a desktop e 390 px: limite, cursore fermo senza deriva, movimento, mira, pausa/ripresa e resize; nessuna eccezione. Non costituisce conferma giocata.
@@ -228,7 +230,7 @@ Ultima prova pubblica con rendering sospeso per un membro: vittoria condivisa, r
 
 ## Incremento motore audio e prompt di progetto (ramo `feature/lavoro-personale`, proposta)
 
-Implementati: motore audio a canali guidato dai dati (catalogo per materiale, regia pura, Web Audio con ripiego su `<audio>` per `file://`, dissolvenze, stereo e distanza, limite delle voci), impostazioni salvate a parte (`temper-your-soul:audio`), pannello **Audio** con volumi e crediti, suoni dell'interfaccia e degli esiti collegati. Registrazioni del primo lotto incluse subito dopo (vedi sotto). Aggiunti anche `docs/prompt-di-progetto.md` (visione, analisi, piano a incrementi, regole su risorse e licenze), `docs/risorse-libere.md`, le skill di progetto in `.claude/skills/` e `tools/cerca-risorse.mjs` (ricerca su Openverse con sole licenze ammesse).
+Implementati: motore audio a canali guidato dai dati (catalogo per materiale, regia pura, Web Audio con ripiego su `<audio>` per `file://`, dissolvenze, stereo e distanza, limite delle voci), impostazioni salvate a parte (`temper-your-soul:audio`), pannello **Audio** con volumi e crediti, suoni dell'interfaccia e degli esiti collegati. Registrazioni del primo lotto incluse subito dopo (vedi sotto). Aggiunti anche `docs/prompt-di-progetto.md` (documento rimosso, nella storia Git) (visione, analisi, piano a incrementi, regole su risorse e licenze), `docs/risorse-libere.md`, le skill di progetto in `.claude/skills/` e `tools/cerca-risorse.mjs` (ricerca su Openverse con sole licenze ammesse).
 
 Verifiche: 400 test (17 nuovi per l'audio, ciascuno provato con una mutazione), tipi e build; prova nel browser automatica di pannello (apertura, ESC, M, cursori, salvataggio dopo il ricaricamento, 390 px), partita con audio acceso, vittoria con salita di livello e sconfitta, senza errori in console. **Prova manuale ancora da fare** (vedi sotto). Il giudizio sui suoni si potrà dare solo con le registrazioni (prossimo incremento, dopo il permesso di scaricarle).
 
@@ -372,7 +374,7 @@ Correzione del danno intero pubblicata su richiesta dell’utente. Restano apert
 
 ## Grafica e chiarezza: fasi 1–8 dello studio (ramo `feature/grafica-fasi-2`, proposta in pull request)
 
-Il compito e il diario sono in `docs/compito-grafica.md`, le regole nuove da confermare in `docs/game-design.md`.
+Il compito e il diario sono in `docs/compito-grafica.md` (documento rimosso, nella storia Git), le regole nuove da confermare in `docs/game-design.md`.
 
 - [x] Fasi 1–4: luce, muri a tre quarti, minimappa e mappa della discesa, stanze con massicci, grate e atmosfera.
 - [x] Fase 5: pozzi, ponti e ripari distruttibili in otto stanze nuove, campo di flusso per i servitori (proposta di regole).
@@ -385,7 +387,7 @@ Il compito e il diario sono in `docs/compito-grafica.md`, le regole nuove da con
 
 ### Incremento locale: VFX di classe con PixelLab
 
-Atlanti locali, particelle WebGL con fallback e icone secondo budget autorizzato. Copertura e verifiche in [vfx-pixellab.md](vfx-pixellab.md); approvazione manuale di leggibilità e prestazioni ancora da fare. Revisione di mob, boss e personaggi rimandata.
+Atlanti locali, particelle WebGL con fallback e icone secondo budget autorizzato. Copertura e verifiche in (documento rimosso, nella storia Git); approvazione manuale di leggibilità e prestazioni ancora da fare. Revisione di mob, boss e personaggi rimandata.
 
 ### Incremento locale 0.5.1 · classi, boss e impostazioni
 
@@ -489,32 +491,32 @@ Implementati atlanti raster nel codice per sedici effetti delle tre classi, part
 
 Test automatici su instradamento con sprite pronti, materia/sangue dopo danno, scadenze e capacità, morti/resurrezioni, buff e stati remoti mobili, equivalenza 30/144 FPS, sagome e palette raster. Mutazione del percorso di emissione rilevata e ripristinata. Ispezionati fotogrammi delle sedici animazioni; controllo nel browser impedito da timeout localhost e arresto Computer Use per URL non verificabile. Nessuna prova giocata dichiarata.
 
-Prossimo passo: aprire `/vfx-preview.html` con Vite, poi provare primarie e tre skill di ogni classe nei quattro dungeon, buff in movimento, sangue/schegge, uccisioni in massa e party da quattro. Confermare intensità Hi-bit, lettura degli attacchi nemici, prima emissione e fluidità su schermi piccoli. [Dettagli e tarature provvisorie](vfx-pixellab.md#revisione-hi-bit--incremento-locale-3-novembre-2026). Nessun commit/push.
+Prossimo passo: aprire `/vfx-preview.html` con Vite, poi provare primarie e tre skill di ogni classe nei quattro dungeon, buff in movimento, sangue/schegge, uccisioni in massa e party da quattro. Confermare intensità Hi-bit, lettura degli attacchi nemici, prima emissione e fluidità su schermi piccoli. Dettagli e tarature provvisorie (documento rimosso, nella storia Git). Nessun commit/push.
 
 ### XP visibili e HUB rosso · incremento locale 3 novembre 2026
 
 Implementati `+N XP` dal premio effettivo di mob/luogotenenti, filtro del destinatario in party e Silkscreen con contorno. Portale gotico Hi-bit rosso, vortice/braci/rune a 32 fotogrammi; palette dell’HUB spostata su carbone/grigi/cremisi/fuoco. Ricompense, collisioni, servizi, salvataggi e schema del protocollo invariati; nessun credito di generazione.
 
-Verifica completa: 821 test in 72 file, tipi e build. Mutazioni del premio XP e dell’animazione rilevate e ripristinate. Controllo con Edge headless a desktop e 390 px, font caricato, fotogrammi animati distinti e nessuna eccezione JS. Prossima prova dell’utente: etichette con sciami/party, intensità e leggibilità del portale e delle postazioni, passaggio davanti/dietro. [Dettagli](hub-rosso-xp.md). Nessuna conferma giocata, commit o push.
+Verifica completa: 821 test in 72 file, tipi e build. Mutazioni del premio XP e dell’animazione rilevate e ripristinate. Controllo con Edge headless a desktop e 390 px, font caricato, fotogrammi animati distinti e nessuna eccezione JS. Prossima prova dell’utente: etichette con sciami/party, intensità e leggibilità del portale e delle postazioni, passaggio davanti/dietro. Dettagli (documento rimosso, nella storia Git). Nessuna conferma giocata, commit o push.
 
 ### Ricompense, lupo e scelta del personaggio · 3 novembre 2026
 
 XP spostati sopra lo sprite del giocatore, che viene seguito durante il movimento. Oro senza prossimità: uscita progressiva dal corpo, attrazione dopo 0,5 s e volo di 0,4 s verso il destinatario; quote e probabilità invariate. Corretto il lupo inattivo senza marchio: acquisizione autonoma e raggio distinto dal salto. Protocollo 14, riavvio server e ricarica client richiesti.
 
-Su autorizzazione esplicita del proprietario, tre coppie maschile/femminile isolate in `/sprite-prototypes.html`, ciascuna con tre classi, scala reale e pose animate. Nessuna modifica al compositore dei personaggi assegnato all’altro referente, nessuna generazione. Prossimo passo: scelta A/B/C, poi coordinamento e integrazione; prova giocata di lupo, oro e XP ancora necessaria. Verifica automatica: 828 test in 74 file, tipi e build; controlli tecnici nel browser e tre mutazioni rilevate/ripristinate. [Dettagli](ricompense-lupo-prototipi.md). Nessun commit/push.
+Su autorizzazione esplicita del proprietario, tre coppie maschile/femminile isolate in `/sprite-prototypes.html`, ciascuna con tre classi, scala reale e pose animate. Nessuna modifica al compositore dei personaggi assegnato all’altro referente, nessuna generazione. Prossimo passo: scelta A/B/C, poi coordinamento e integrazione; prova giocata di lupo, oro e XP ancora necessaria. Verifica automatica: 828 test in 74 file, tipi e build; controlli tecnici nel browser e tre mutazioni rilevate/ripristinate. Dettagli (documento rimosso, nella storia Git). Nessun commit/push.
 
 ### Revisione delle animazioni dei prototipi · 3 novembre 2026
 
 Dopo il feedback sui micromovimenti: falcate e ginocchia articolate, braccia contrapposte, busto inclinato, mantelli con ritardo e attacchi distinti per classe con preparazione/slancio/recupero. Dodici frame in margine 64×64 attorno al corpo su griglia 48 pixel; cammino iniziale, pausa sul frame corrente e cursore dei fotogrammi nella pagina di confronto. Nessuna modifica allo sprite attivo o alle regole.
 
-831 test, tipi e build; controlli tecnici nel browser su pose, pausa e viewport 390 px; regressioni di falcata e rotazione rilevate e ripristinate. Resta la valutazione visiva dell’utente sul ritmo e la scelta A/B/C, entrambe le versioni, prima dell’integrazione. [Dettagli](ricompense-lupo-prototipi.md#animazioni-più-ampie--revisione-successiva-3-novembre-2026). Nessun commit/push.
+831 test, tipi e build; controlli tecnici nel browser su pose, pausa e viewport 390 px; regressioni di falcata e rotazione rilevate e ripristinate. Resta la valutazione visiva dell’utente sul ritmo e la scelta A/B/C, entrambe le versioni, prima dell’integrazione. Dettagli (documento rimosso, nella storia Git). Nessun commit/push.
 
 
 ### Integrazione C ed equipaggiamento · 3 novembre 2026
 
 Scelta esplicita ricevuta: terza proposta Cacciatore d’ombre, maschile/femminile. Integrata nel compositore usato da HUB e incontri; corrette le fasi della camminata e l’arretramento rispetto alla mira. Ridisegnati i 25 oggetti indossati e le icone 32×32, con presa/gesto condivisi per slot e classe e parti che seguono le articolazioni. `/character-animation.html` mostra gli oggetti di produzione, con cambio slot, direzione, rarità e cursore dei frame. Ritratti e regole invariati.
 
-Verifiche e prova tecnica del browser in [sprite-c-equipaggiamento.md](sprite-c-equipaggiamento.md). Prossimo passo: prova giocata dell’utente della camminata, degli attacchi e del cambio dei quattro slot su entrambe le versioni, anche in cooperativa. Nessun commit/push.
+Verifiche e prova tecnica del browser in (documento rimosso, nella storia Git). Prossimo passo: prova giocata dell’utente della camminata, degli attacchi e del cambio dei quattro slot su entrambe le versioni, anche in cooperativa. Nessun commit/push.
 
 
 ### Release v0.10.00 · integrazione autorizzata in main, 3 novembre 2026
@@ -526,7 +528,7 @@ Su richiesta esplicita dell’utente, l’incremento raccoglie tutti i lavori lo
 
 Su feedback dell’utente, particelle casuali tolte soltanto al lancio e nella scia degli attacchi base; effetti su danno, morti, buff e altre abilità conservati. Animazioni Hi-bit proprie per fendente, freccia/onda del tiro e quattro elementi del Mago. Premi XP/oro a 16 px nello stesso Silkscreen, con riga libera rispetto ai testi già saliti. AGENTS.md e CLAUDE.md allineati alla direzione grafica obbligatoria.
 
-Sviluppo nella worktree `codex/vfx-attacchi-hi-bit`, riallineata alle PR #12 e #13; integrazione diretta in main autorizzata dall’utente come v0.11.00, con lavoro della camera preservato nella sua worktree. 862 test in 78 file e build/tipi; controllo tecnico browser e mutazioni rilevate/ripristinate. [Specifica](attacchi-base-hi-bit.md). Prossimo passo: prova giocata dell’utente di effetti, premi e cooperativa.
+Sviluppo nella worktree `codex/vfx-attacchi-hi-bit`, riallineata alle PR #12 e #13; integrazione diretta in main autorizzata dall’utente come v0.11.00, con lavoro della camera preservato nella sua worktree. 862 test in 78 file e build/tipi; controllo tecnico browser e mutazioni rilevate/ripristinate. Specifica (documento rimosso, nella storia Git). Prossimo passo: prova giocata dell’utente di effetti, premi e cooperativa.
 
 ## Dungeon in vista ortogonale · 9 novembre 2026
 
