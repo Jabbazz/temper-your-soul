@@ -53,8 +53,7 @@ import { MainMenu, type MenuCharacter } from './features/ui/main-menu';
 import { connectionLabel, type MenuActionId } from './features/ui/menu-model';
 import { MenuScene } from './features/presentation/menu-scene';
 import { CLASS_LABELS } from './features/character/character-class';
-import { pixelSvg } from './features/ui/character-portrait';
-import { characterPixels } from './features/presentation/character-art';
+import { heroFigureSvg } from './features/ui/character-portrait';
 import { AdminMenu } from './features/ui/admin-menu';
 import { RARITY_STATS } from './features/items/rarity';
 import { ADMIN_TOOLS_ENABLED, grantClassItems, unlockBestiary } from './features/admin/admin-tools';
@@ -407,7 +406,7 @@ export class Game {
     const character = this.character;
     const progress = levelProgress(character.totalXp);
     const summary: MenuCharacter | null = character.created
-      ? { name: character.name!, className: CLASS_LABELS[character.characterClass!], level: progress.level, gold: this.roster.gold, gearScore: character.gearScore, levelProgress: progress.current / progress.required, figure: pixelSvg(characterPixels(character.appearance(), 'game')) }
+      ? { name: character.name!, className: CLASS_LABELS[character.characterClass!], level: progress.level, gold: this.roster.gold, gearScore: character.gearScore, levelProgress: progress.current / progress.required, figure: heroFigureSvg(character.appearance()) }
       : null;
     this.menu.render(summary, { characterName: summary?.name ?? null, incomplete: this.draft === null && !character.created,authenticated:Boolean(accountToken())||this.gate.isOffline });
   }

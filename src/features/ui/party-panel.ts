@@ -3,9 +3,8 @@ import {deserializeCharacter} from '../character/save-format';
 import {PartyClient} from '../network/party-client';
 import {SOCIAL_PARTY} from '../network/social-party';
 import type {BattleSnapshot,ClientMessage} from '../network/protocol';
-import {characterPixels} from '../presentation/character-art';
 import {PARTY_SPRITE} from '../presentation/party-sprite';
-import {pixelSvg} from './character-portrait';
+import {heroFigureSvg} from './character-portrait';
 import {renderPixelIcon} from './pixel-icon';
 import {el,requireElement} from './dom';
 import {applicationLoading} from './loading-indicator';
@@ -61,7 +60,7 @@ export class PartyPanel {
   for(let index=0;index<SOCIAL_PARTY.capacity;index++){
    const member=members[index],character=member?deserializeCharacter(member.character):null;
    const slot=el('div',`party-slot${member?'':' party-slot-empty'}`),art=el('span','party-member-art');
-   if(character)art.append(pixelSvg(characterPixels(character.appearance(),'game')));else art.append(el('b','party-slot-plus','+'));
+   if(character)art.append(heroFigureSvg(character.appearance()));else art.append(el('b','party-slot-plus','+'));
    slot.append(art,el('span','party-member-name',member?.name??'Libero'));slot.title=member?.name??'Posto libero';slots.append(slot);
   }
   this.root.append(slots,el('p','party-inline-note',`${members.length}/${SOCIAL_PARTY.capacity} · HUB pubblico condiviso`));

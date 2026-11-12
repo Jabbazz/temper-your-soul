@@ -159,6 +159,18 @@ const INTEGER_DAMAGE_PREVIEW: ReleaseNotes = {
 
 export const RELEASES: readonly ReleaseNotes[] = [
   {
+    version:'0.19.0',date:'2026-11-12',
+    changes:[
+      'Nuovi corpi PixelLab 64×64 per Guerriero, Arciere e Mago, in partita, nel rifugio e nelle figure dei menu. Il personaggio guarda in quattro direzioni (fronte, dietro, destra, sinistra) scelte dalla posizione del mouse; nel rifugio dalla direzione di movimento.',
+      'Tre animazioni per classe (riposo, camminata, attacco), generate da un solo movimento a scheletro per tutte le direzioni: fendente per il Guerriero, tiro a due mani per l’Arciere, mano portata in avanti per il Mago.',
+      'L’arma primaria è un livello separato impugnato nella mano del personaggio, che in combattimento ruota a 360° verso il mouse; nel rifugio e nelle anteprime è portata a riposo, senza rotazioni. Usa per ora i disegni delle armi precedenti, in attesa dei nuovi sprite.',
+      'Armatura e stivali cambiano il colore del corpo: veste, mantello o piastre prendono la tinta del pezzo indossato, l’orlo ha il colore della rarità, il cappello del Mago e le rifiniture seguono il colore d’accento, il metallo ha più contrasto della stoffa. La forma del vestito non cambia.',
+      'Non ancora disegnati sui nuovi corpi: oggetto della mano secondaria e armi nelle figure dei menu. I ritratti illustrati restano quelli precedenti. Valori estetici provvisori, da confermare giocando.',
+      'Nessuna variazione a regole, salvataggi, protocollo o bilanciamento.',
+    ],
+    balanceChanges:[],
+  },
+  {
     version:'0.18.1',date:'2026-11-11',
     changes:[
       'Modalità offline per le prove in locale: sulla schermata di accesso il pulsante «Gioca offline (prova locale)» porta al menu senza account né server. Compare solo con il gioco aperto da localhost o da file (dist/index.html), mai su un sito pubblicato.',

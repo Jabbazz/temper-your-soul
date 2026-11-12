@@ -1,4 +1,5 @@
 import { characterFeetY, characterRenderFacing } from './native-character';
+import { drawHeroSheet, HERO_SHEET } from './pixellab-hero';
 import type { CharacterAppearance } from '../character/appearance';
 import { CHARACTER_ART, characterPixels, type CharacterPixels } from './character-art';
 import { SHADOW_ANIMATION } from './shadow-motion';
@@ -6,6 +7,9 @@ import { DEFAULT_HEADING, nativeSpriteViewFromAim, spriteFacing, spriteViewFromA
 const rasters=new WeakMap<CharacterPixels,HTMLCanvasElement>();
 /** Stesse matrici, equipaggiamento e fotogrammi usati da drawPlayer in partita; la direzione sceglie una delle otto viste. */
 export function drawGameCharacter(ctx:CanvasRenderingContext2D,appearance:CharacterAppearance,x:number,y:number,time:number,moving=false,heading:ScreenHeading=DEFAULT_HEADING):void {
+ ctx.save();ctx.translate(Math.round(x),Math.round(y));
+ const drawn=drawHeroSheet(ctx,appearance,moving?'walk':'idle',heading.x,heading.y,moving?time*SHADOW_ANIMATION.fps.walk/SHADOW_ANIMATION.frames:time/HERO_SHEET.idleSeconds,14,true);
+ ctx.restore();if(drawn)return;
  const view=spriteViewFromAim(heading.x,heading.y);
  const art=characterPixels(appearance,'game',0,false,{state:moving?'walk':'idle',frame:Math.floor(time*(moving?SHADOW_ANIMATION.fps.walk:SHADOW_ANIMATION.fps.idle))%SHADOW_ANIMATION.frames,view,direction:nativeSpriteViewFromAim(heading.x,heading.y)});
  let raster=rasters.get(art);

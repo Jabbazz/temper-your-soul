@@ -1,8 +1,7 @@
 import type { CharacterRoster } from '../character/character-roster';
 import { CLASS_LABELS } from '../character/character-class';
 import { levelProgress } from '../character/progression';
-import { characterPixels } from '../presentation/character-art';
-import { pixelSvg } from './character-portrait';
+import { heroFigureSvg } from './character-portrait';
 import { el } from './dom';
 
 export function renderCharacterProfiles(roster:CharacterRoster,creating:boolean,handlers:{onNew:()=>void;onCancel:()=>void;onSelect:(id:string)=>void;onRemove?:(id:string)=>void}):HTMLElement {
@@ -12,7 +11,7 @@ export function renderCharacterProfiles(roster:CharacterRoster,creating:boolean,
   for(const profile of roster.profiles){
     const character=profile.character,row=el('div','profile-row');row.dataset.profileId=profile.id;
     const select=el('button','profile-select');select.type='button';select.setAttribute('aria-pressed',String(!creating&&profile.id===roster.activeId));
-    const figure=el('span','roster-figure');figure.append(pixelSvg(characterPixels(character.appearance(),'game')));
+    const figure=el('span','roster-figure');figure.append(heroFigureSvg(character.appearance()));
     select.append(figure,el('strong','',character.name??'Personaggio da completare'),el('small','',`${character.characterClass?CLASS_LABELS[character.characterClass]:'Classe da scegliere'} · Livello ${levelProgress(character.totalXp).level} · ${character.gearScore} GS`));
     select.addEventListener('click',()=>handlers.onSelect(profile.id));
     const remove=el('button','small-button danger profile-remove','✕');remove.type='button';remove.title='Rimuovi';remove.setAttribute('aria-label','Rimuovi '+(character.name??'personaggio da completare'));

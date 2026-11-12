@@ -10,6 +10,7 @@ import { bossFx } from './boss-fx';
 import { minionArt } from './minion-art';
 import { nativeSpriteViewFromAim, spriteViewFromAim } from './sprite-view';
 import { characterFeetY, characterRenderFacing } from './native-character';
+import { drawHeroSheet, HERO_SHEET } from './pixellab-hero';
 import type { Player } from '../player/player';
 import { bossArt, bossSheet, sheetFrame, type BossSheet } from './boss-art';
 import { sheetImage, sheetSilhouette, sheetVariant } from './boss-art/sheet-images';
@@ -72,6 +73,12 @@ export function drawPlayer(
     : {state:'idle' as const,frame:Math.floor(time*SHADOW_ANIMATION.fps.idle)%count, view: aimView};
   ctx.save();
   ctx.translate(Math.round(player.position.x), Math.round(player.position.y));
+  // Corpi PixelLab 64×64: quattro direzioni dalla mira; camminando all'indietro il ciclo scorre al contrario.
+  const walkCycle = (poses.walkPhase % count) / count;
+  const drawn = motion.state === 'cast' ? drawHeroSheet(ctx, appearance, 'attack', aimOnScreen.x, aimOnScreen.y, motion.frame / count, 14)
+    : motion.state === 'walk' ? drawHeroSheet(ctx, appearance, 'walk', aimOnScreen.x, aimOnScreen.y, walkDirection < 0 ? 1 - walkCycle : walkCycle, 14)
+    : drawHeroSheet(ctx, appearance, 'idle', aimOnScreen.x, aimOnScreen.y, time / HERO_SHEET.idleSeconds, 14);
+  if (drawn) { ctx.restore(); return; }
   ctx.scale(characterRenderFacing(appearance, facing), 1);
   const art=characterPixels(appearance,'game',0,false,{...motion,direction:nativeSpriteViewFromAim(aimOnScreen.x,aimOnScreen.y)});
   ctx.imageSmoothingEnabled=false;

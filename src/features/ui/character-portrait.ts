@@ -3,6 +3,30 @@ import type { Character } from '../character/character';
 import { levelProgress } from '../character/progression';
 import type { CharacterPixels } from '../presentation/character-art';
 import { el } from './dom';
+import type { CharacterAppearance } from '../character/appearance';
+import { HERO_SHEET, heroClassOf, heroSheetFrame, heroSheetSource, heroTintedSheet } from '../presentation/pixellab-hero';
+
+/** La figura dei menu: il corpo PixelLab 64×64 a riposo, di fronte, nei colori dell'equipaggiamento indossato. */
+export function heroFigureSvg(appearance: CharacterAppearance): SVGSVGElement {
+  const ns='http://www.w3.org/2000/svg',kind=heroClassOf(appearance),source=heroSheetSource(kind);
+  const frame=heroSheetFrame(kind,'idle','south',0),margin=(HERO_SHEET.cell-64)/2;
+  const svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('viewBox',`${frame.sx+margin} ${frame.sy+margin+1} 64 64`);
+  svg.setAttribute('aria-hidden','true');
+  const image=document.createElementNS(ns,'image');
+  image.setAttribute('href',source.url);image.setAttribute('width',String(source.width));image.setAttribute('height',String(source.height));
+  image.style.imageRendering='pixelated';
+  svg.append(image);
+  // Appena il foglio è caricato la figura passa alla versione ricolorata, se l'equipaggiamento ne ha una.
+  const sheet=new Image();
+  sheet.onload=()=>{
+    const tinted=heroTintedSheet(kind,sheet,appearance);
+    if(tinted instanceof HTMLCanvasElement)image.setAttribute('href',tinted.toDataURL());
+  };
+  sheet.src=source.url;
+  return svg;
+}
+
 
 export function pixelSvg(art: CharacterPixels): SVGSVGElement {
   const ns='http://www.w3.org/2000/svg';
