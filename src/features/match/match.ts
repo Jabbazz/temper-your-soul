@@ -7,7 +7,7 @@ import type { CharacterClass } from '../character/character-class';
 import type { Rng } from '../../core/rng';
 import { Signal } from '../../core/signal';
 import { angleDifference, TAU, Vec2 } from '../../core/vec2';
-import { blockerBetween, clampToArena, detourAround, isOutsideProjectileBounds, moveBody, pillarAt, pushOutOfPillars, sightBlocked, solidAt, type ArenaDefinition, type Solid } from '../arena/arena';
+import { blockerBetween, clampToArena, detourAround, isOutsideProjectileBounds, moveBody, pillarAt, pillarBetween, pushOutOfPillars, sightBlocked, solidAt, type ArenaDefinition, type Solid } from '../arena/arena';
 import { NAV_FIELD, NavField, NavGrid } from '../arena/nav-field';
 import { Boss } from '../boss/boss';
 import type { BossContext } from '../boss/boss-context';
@@ -173,6 +173,8 @@ export class Match {
    */
   private readonly navGrid: NavGrid | null;
   private readonly navFields = new Map<string, NavField>();
+  /** Mappe con terreno (il mondo aperto): un campo di flusso per giocatore su una finestra che lo segue. */
+  private readonly navLocal: Map<string, NavField> | null;
   private navCountdown = 0;
 
   private nextId = 1;
@@ -189,6 +191,7 @@ export class Match {
     }
     const shaped = (this.arena.solids ?? []).length + (this.arena.chasms ?? []).length > 0;
     this.navGrid = shaped ? new NavGrid(this.arena) : null;
+    this.navLocal = this.arena.terrain !== undefined ? new Map() : null;
     this.rng = options.rng;
     const members = options.members ?? [{ id: 'local', loadout: options.loadout, totalXp: options.totalXp, characterClass: options.characterClass }];
     this.viewPlayerId = members[0]!.id;
@@ -328,6 +331,7 @@ export class Match {
    * massicci, ripari o pozzi.
    */
   private refreshNav(): void {
+    if (this.navLocal !== null) { this.refreshLocalNav(this.navLocal); return; }
     const grid = this.navGrid;
     if (grid === null) return;
     if (this.navCountdown <= 0) {
@@ -349,10 +353,58 @@ export class Match {
   }
 
   /**
+   * Campi di flusso del mondo aperto: la finestra di ogni giocatore lo segue quando si allontana dal suo centro, e si
+   * aggiorna solo se c'è un servitore a terra nei dintorni che può averne bisogno.
+   */
+  private refreshLocalNav(fields: Map<string, NavField>): void {
+    if (this.navCountdown <= 0) {
+      for (const id of [...fields.keys()]) if (!this.players.has(id)) fields.delete(id);
+      for (const [id, player] of this.players) {
+        if (player.health.isDead) continue;
+        if (!this.minions.some((minion) => !minion.isDead && !minion.definition.flying && minion.position.distanceTo(player.position) < NAV_FIELD.localRange)) continue;
+        let field = fields.get(id);
+        if (field === undefined) {
+          field = new NavField(new NavGrid(this.arena, NAV_FIELD.localSize));
+          field.grid.recenter(player.position);
+          fields.set(id, field);
+        } else {
+          const middle = field.grid.middle;
+          if (Math.max(Math.abs(player.position.x - middle.x), Math.abs(player.position.y - middle.y)) > NAV_FIELD.localShift) field.grid.recenter(player.position);
+        }
+        field.update([player.position]);
+      }
+      this.navCountdown = NAV_FIELD.refreshSteps;
+    }
+    this.navCountdown--;
+  }
+
+  /** Il campo di flusso del giocatore vivo più vicino a `to` (entro 160 unità), se c'è. */
+  private fieldToward(fields: ReadonlyMap<string, NavField>, to: Vec2): NavField | undefined {
+    let field: NavField | undefined;
+    let nearest = 160;
+    for (const [id, player] of this.players) {
+      if (player.health.isDead) continue;
+      const distance = player.position.distanceTo(to);
+      if (distance < nearest) {
+        nearest = distance;
+        field = fields.get(id);
+      }
+    }
+    return field;
+  }
+
+  /**
    * Dove dirigersi a piedi verso `to`: la strada libera, il campo di flusso del giocatore a cui si va (il piu' vicino a
    * `to`, cioe' il bersaglio del servitore anche quando lo provoca il Guerriero) o l'angolo dell'ostacolo.
    */
   private route(from: Vec2, to: Vec2, bodyRadius: number): Vec2 {
+    if (this.navLocal !== null) {
+      // Nel mondo aperto si aggirano anche alberi e rocce, non solo mura e acqua.
+      if (blockerBetween(this.arena, from, to) === undefined && pillarBetween(this.arena, from, to) === undefined) return to;
+      const field = this.fieldToward(this.navLocal, to);
+      const next = field !== undefined && field.grid.contains(from) ? field.next(from) : null;
+      return next ?? detourAround(this.arena, from, to, bodyRadius);
+    }
     if (this.navGrid !== null && blockerBetween(this.arena, from, to) !== undefined) {
       let field: NavField | undefined;
       let nearest = 160;
@@ -506,6 +558,24 @@ export class Match {
     return count;
   }
 
+  /** Il giocatore di cui un servitore si accorge: il più vicino, purché entro il raggio dell'incontro (se ne ha uno). */
+  private minionTarget(point: Vec2): Player | undefined {
+    const target = this.nearestPlayer(point);
+    const radius = this.encounter?.aggroRadius;
+    return target !== undefined && radius !== undefined && target.position.distanceTo(point) > radius ? undefined : target;
+  }
+
+  /**
+   * Toglie un servitore dalla partita senza morte, effetti né premi: il mondo aperto lo fa con chi resta lontano da
+   * tutti i giocatori.
+   */
+  removeMinion(minion: Minion): void {
+    if (!this.minions.includes(minion)) return;
+    this.minions = this.minions.filter((other) => other !== minion);
+    this.tokens.delete(minion.id);
+    minion.hasToken = false;
+  }
+
   /** Fa sparire tutti i servitori, senza i loro effetti di morte (stanza liberata, boss caduto). */
   dismissMinions(): void {
     for (const minion of [...this.minions]) this.killMinion(minion, false, 'environment', false);
@@ -560,7 +630,7 @@ export class Match {
       arena: this.arena,
       rng: this.rng,
       get minions() { return self.minions; },
-      nearestPlayer: (point) => this.nearestPlayer(point),
+      nearestPlayer: (point) => this.minionTarget(point),
       route: (from, to, bodyRadius) => this.route(from, to, bodyRadius),
       spawnProjectile: (spec, position, angle, minion) => {
         if (this.minionShots.size >= MINION_LIMITS.projectiles) return false;

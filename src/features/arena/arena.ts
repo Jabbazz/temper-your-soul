@@ -30,6 +30,21 @@ export interface Bridge extends Solid {
   readonly along: 'ns' | 'ew';
 }
 
+/** Gli ostacoli di una zona della mappa, con lo stesso significato di `pillars`, `solids` e `chasms`. */
+export interface ArenaObstacles {
+  readonly pillars: readonly Pillar[];
+  readonly solids: readonly Solid[];
+  readonly chasms: readonly Solid[];
+}
+
+/**
+ * Terreno di una mappa troppo grande per elencarne gli ostacoli (il mondo aperto): li fornisce a richiesta, zona per
+ * zona. Deve restituire almeno tutto ciò che tocca il rettangolo chiesto; può restituire qualcosa in più.
+ */
+export interface ArenaTerrain {
+  obstaclesIn(minX: number, minY: number, maxX: number, maxY: number): ArenaObstacles;
+}
+
 /**
  * La mappa di un dungeon: dimensioni, punti di partenza, margini e ostacoli. Dati di sola lettura, provvisori
  * (vedi docs/game-design.md). Le coordinate sono in unita' di mondo; l'origine e' l'angolo alto a sinistra.
@@ -68,7 +83,32 @@ export interface ArenaDefinition {
    * mappa finche' resistono ai colpi (vedi `Match.covers`).
    */
   readonly covers?: readonly Solid[];
+  /** Ostacoli forniti a richiesta, in aggiunta a quelli elencati qui sopra (solo il mondo aperto). */
+  readonly terrain?: ArenaTerrain;
 }
+
+const NONE: readonly Solid[] = [];
+const LISTED = new WeakMap<ArenaDefinition, ArenaObstacles>();
+
+/** Gli ostacoli che possono toccare il rettangolo: quelli elencati nella mappa più quelli del suo terreno, se c'è. */
+export function arenaObstacles(arena: ArenaDefinition, minX: number, minY: number, maxX: number, maxY: number): ArenaObstacles {
+  if (arena.terrain === undefined) {
+    // Senza terreno la risposta è sempre la stessa: le liste della mappa (i ripari rotti escono dalla stessa lista).
+    let listed = LISTED.get(arena);
+    if (listed === undefined || listed.solids !== (arena.solids ?? NONE)) {
+      listed = { pillars: arena.pillars, solids: arena.solids ?? NONE, chasms: arena.chasms ?? NONE };
+      LISTED.set(arena, listed);
+    }
+    return listed;
+  }
+  const local = arena.terrain.obstaclesIn(minX, minY, maxX, maxY);
+  if (arena.pillars.length + (arena.solids?.length ?? 0) + (arena.chasms?.length ?? 0) === 0) return local;
+  return { pillars: [...arena.pillars, ...local.pillars], solids: [...(arena.solids ?? NONE), ...local.solids], chasms: [...(arena.chasms ?? NONE), ...local.chasms] };
+}
+
+const around = (arena: ArenaDefinition, point: Vec2, reach: number): ArenaObstacles => arenaObstacles(arena, point.x - reach, point.y - reach, point.x + reach, point.y + reach);
+const along = (arena: ArenaDefinition, from: Vec2, to: Vec2, reach = 0): ArenaObstacles =>
+  arenaObstacles(arena, Math.min(from.x, to.x) - reach, Math.min(from.y, to.y) - reach, Math.max(from.x, to.x) + reach, Math.max(from.y, to.y) + reach);
 
 /** Il punto del rettangolo piu' vicino a `point` (il punto stesso, se e' dentro). */
 function nearestOnSolid(solid: Solid, point: Vec2): Vec2 {
@@ -83,12 +123,12 @@ function touches(solid: Solid, point: Vec2, extra: number): boolean {
 
 /** Il massiccio (o riparo) che contiene il punto o che sta a meno di `extra` da esso, se c'e'. */
 export function solidAt(arena: ArenaDefinition, point: Vec2, extra = 0): Solid | undefined {
-  return arena.solids?.find((solid) => touches(solid, point, extra));
+  return around(arena, point, extra).solids.find((solid) => touches(solid, point, extra));
 }
 
 /** Il pozzo che contiene il punto o che sta a meno di `extra` da esso, se c'e'. */
 export function chasmAt(arena: ArenaDefinition, point: Vec2, extra = 0): Solid | undefined {
-  return arena.chasms?.find((chasm) => touches(chasm, point, extra));
+  return around(arena, point, extra).chasms.find((chasm) => touches(chasm, point, extra));
 }
 
 /** Cio' che ferma chi cammina (massiccio, riparo o pozzo) dentro il punto o a meno di `extra`, se c'e'. */
@@ -120,20 +160,22 @@ function segmentEntry(solid: Solid, from: Vec2, to: Vec2): number | null {
  * invece li colpiscono); anche i pozzi non sbarrano la vista.
  */
 export function solidBetween(arena: ArenaDefinition, from: Vec2, to: Vec2): Solid | undefined {
-  return arena.solids?.find((solid) => solid.cover === undefined && segmentEntry(solid, from, to) !== null);
+  return along(arena, from, to).solids.find((solid) => solid.cover === undefined && segmentEntry(solid, from, to) !== null);
 }
 
 /** Cio' che ferma chi cammina lungo il segmento (massiccio, riparo o pozzo), se c'e'. */
 export function blockerBetween(arena: ArenaDefinition, from: Vec2, to: Vec2): Solid | undefined {
-  for (const solid of arena.solids ?? []) if (segmentEntry(solid, from, to) !== null) return solid;
-  for (const chasm of arena.chasms ?? []) if (segmentEntry(chasm, from, to) !== null) return chasm;
+  const { solids, chasms } = along(arena, from, to);
+  for (const solid of solids) if (segmentEntry(solid, from, to) !== null) return solid;
+  for (const chasm of chasms) if (segmentEntry(chasm, from, to) !== null) return chasm;
   return undefined;
 }
 
 /** Cio' che ferma chi cammina lungo il segmento, dal piu' vicino a `from` al piu' lontano. */
 function blockersAlong(arena: ArenaDefinition, from: Vec2, to: Vec2): Solid[] {
   const hits: { solid: Solid; entry: number }[] = [];
-  for (const list of [arena.solids ?? [], arena.chasms ?? []]) {
+  const { solids, chasms } = along(arena, from, to);
+  for (const list of [solids, chasms]) {
     for (const solid of list) {
       const entry = segmentEntry(solid, from, to);
       if (entry !== null) hits.push({ solid, entry });
@@ -177,14 +219,14 @@ export function isOutsideProjectileBounds(arena: ArenaDefinition, point: Vec2): 
 
 /** Il pilastro che contiene il punto (con `extra` di margine), se c'e'. */
 export function pillarAt(arena: ArenaDefinition, point: Vec2, extra = 0): Pillar | undefined {
-  return arena.pillars.find((pillar) => point.distanceTo(pillar.position) < pillar.radius + extra);
+  return around(arena, point, extra).pillars.find((pillar) => point.distanceTo(pillar.position) < pillar.radius + extra);
 }
 
 /** Il pilastro che taglia il segmento da `from` a `to` (linea di vista bloccata), se c'e'. */
 export function pillarBetween(arena: ArenaDefinition, from: Vec2, to: Vec2): Pillar | undefined {
   const segment = to.sub(from);
   const lengthSquared = segment.lengthSquared();
-  return arena.pillars.find((pillar) => {
+  return along(arena, from, to).pillars.find((pillar) => {
     const offset = pillar.position.sub(from);
     const u = lengthSquared > 0 ? clamp((offset.x * segment.x + offset.y * segment.y) / lengthSquared, 0, 1) : 0;
     return from.add(segment.mul(u)).distanceTo(pillar.position) < pillar.radius;
@@ -202,9 +244,11 @@ export function sightBlocked(arena: ArenaDefinition, from: Vec2, to: Vec2): bool
  */
 export function pushOutOfPillars(arena: ArenaDefinition, point: Vec2, bodyRadius: number): Vec2 {
   let result = point;
+  // Un po' di spazio in piu' attorno al corpo: uscendo da un ostacolo ci si sposta al piu' di qualche raggio.
+  const { pillars, solids, chasms } = around(arena, point, bodyRadius * 3 + 8);
   // Piu' passate: uscire da un ostacolo puo' portare dentro un altro vicino.
   for (let pass = 0; pass < 3; pass++) {
-    for (const pillar of arena.pillars) {
+    for (const pillar of pillars) {
       const offset = result.sub(pillar.position);
       const distance = offset.length();
       const minimum = pillar.radius + bodyRadius;
@@ -212,8 +256,8 @@ export function pushOutOfPillars(arena: ArenaDefinition, point: Vec2, bodyRadius
       const direction = distance > 0 ? offset.mul(1 / distance) : new Vec2(1, 0);
       result = pillar.position.add(direction.mul(minimum));
     }
-    for (const solid of arena.solids ?? []) result = pushOutOfSolid(solid, result, bodyRadius, arena);
-    for (const chasm of arena.chasms ?? []) result = pushOutOfSolid(chasm, result, bodyRadius, arena);
+    for (const solid of solids) result = pushOutOfSolid(solid, result, bodyRadius, arena);
+    for (const chasm of chasms) result = pushOutOfSolid(chasm, result, bodyRadius, arena);
   }
   return result;
 }
@@ -226,7 +270,8 @@ export function pushOutOfPillars(arena: ArenaDefinition, point: Vec2, bodyRadius
  * terra) i pozzi fermano come i massicci.
  */
 export function sweepSolids(arena: ArenaDefinition, from: Vec2, to: Vec2, bodyRadius: number, crossChasms = true): Vec2 {
-  const blockers = crossChasms ? arena.solids ?? [] : [...(arena.solids ?? []), ...(arena.chasms ?? [])];
+  const nearby = along(arena, from, to, bodyRadius * 3 + 8);
+  const blockers = crossChasms ? nearby.solids : [...nearby.solids, ...nearby.chasms];
   const blocked = (point: Vec2): boolean => solidAt(arena, point, bodyRadius) !== undefined || (!crossChasms && chasmAt(arena, point, bodyRadius) !== undefined);
   const delta = to.sub(from);
   const length = delta.length();

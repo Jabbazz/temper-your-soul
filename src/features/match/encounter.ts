@@ -8,6 +8,11 @@ import type { Match } from './match';
  * libera la stanza e la partita prosegue finche' il gruppo non attraversa una porta.
  */
 export interface Encounter {
+  /**
+   * Entro quale distanza da un giocatore i servitori si accorgono di lui; oltre restano fermi. Senza (le stanze dei
+   * dungeon) inseguono sempre il giocatore più vicino.
+   */
+  readonly aggroRadius?: number;
   /** Chiamato una volta, quando la partita e' pronta. */
   attach(match: Match): void;
   /** Un passo dell'incontro, dopo i giocatori e il boss e prima di servitori, proiettili e zone. */

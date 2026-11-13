@@ -1,5 +1,5 @@
 import type { HubPlayer } from '../network/hub-protocol';
-import type { HubState } from '../character/hub-state';
+import { HUB_MAP, type HubState } from '../character/hub-state';
 import type { CharacterAppearance } from '../character/appearance';
 import { drawGameCharacter } from './game-character-preview';
 import { RefugeArtwork, type RefugeActor } from './refuge-artwork';
@@ -29,7 +29,7 @@ export class HubRenderer {
     c.save(); c.imageSmoothingEnabled = false; c.translate(-view.x, -view.y);
     const hero = () => {
       c.fillStyle = '#08070a99'; c.fillRect(Math.round(state.position.x - 12), Math.round(state.position.y - 3), 24, 5);
-      drawGameCharacter(c, appearance, state.position.x, state.position.y - HUB_ACTOR_FEET_OFFSET, time, state.moving, state.heading);
+      drawGameCharacter(c, appearance, state.position.x, state.position.y - HUB_ACTOR_FEET_OFFSET, time, state.moving, state.heading, HUB_MAP.speed);
     };
     const present = new Set(peers.map(peer => peer.id));
     for (const id of this.peerTracks.keys()) if (!present.has(id)) this.peerTracks.delete(id);
@@ -40,7 +40,7 @@ export class HubRenderer {
         this.peerTracks.set(peer.id, track);
         return { y: peer.y, draw: () => {
           c.fillStyle = '#08070a99'; c.fillRect(Math.round(peer.x - 12), Math.round(peer.y - 3), 24, 5);
-          drawGameCharacter(c, peer.appearance, peer.x, peer.y - HUB_ACTOR_FEET_OFFSET, time, peer.moving, track.heading);
+          drawGameCharacter(c, peer.appearance, peer.x, peer.y - HUB_ACTOR_FEET_OFFSET, time, peer.moving, track.heading, HUB_MAP.speed);
         } };
       }),
     ];

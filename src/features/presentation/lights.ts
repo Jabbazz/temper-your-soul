@@ -120,6 +120,13 @@ export class LightMap {
     for (let i = this.lights.length - 1; i >= 0; i--) if (covered(this.lights[i]!)) this.lights.splice(i, 1);
   }
 
+  /** Chiude la raccolta senza disegnare nulla: le luci raccolte si scartano (scene in piena luce). */
+  discard(): void {
+    this.collecting = false;
+    this.lights.length = 0;
+    if (active === this) active = null;
+  }
+
   /**
    * Chiude la raccolta e moltiplica la mappa sulla scena. Il contesto e' gia' traslato sul mondo: (`left`, `top`) e'
    * l'angolo della vista con la stessa traslazione. `ambient` e' il buio del tema (#rrggbb).

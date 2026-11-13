@@ -2,9 +2,17 @@ import type { GameEvent } from '../combat/events';
 
 /** Secondi della sola posa visiva dopo una skill, per tutte le classi. */
 export const PLAYER_CAST_POSE = 0.3;
-/** Avanzamento della fase di camminata al secondo e quanta fase vale un ciclo intero di passi (valori estetici provvisori). */
-export const PLAYER_WALK_RATE = 14;
+/**
+ * Camminata legata alla strada percorsa: un ciclo intero di passi ogni `PLAYER_WALK_STRIDE` unità di mondo, così i
+ * piedi tengono il ritmo della velocità reale (anche da rallentati) invece di scivolare. `PLAYER_WALK_CYCLE_FRAMES` è
+ * quanta fase vale un ciclo; `PLAYER_WALK_SPEED` la velocità presa quando nessuno la indica. Valori estetici provvisori.
+ */
+export const PLAYER_WALK_STRIDE = 72;
 export const PLAYER_WALK_CYCLE_FRAMES = 12;
+export const PLAYER_WALK_SPEED = 177;
+
+/** Avanzamento della fase di camminata al secondo per chi si muove a `speed` unità al secondo. */
+export const walkPhaseRate = (speed: number): number => (Math.max(0, speed) / PLAYER_WALK_STRIDE) * PLAYER_WALK_CYCLE_FRAMES;
 
 /**
  * Avanzamento 0–1 del gesto d'attacco, null se non e' in corso. Le primarie rapide completano il gesto entro la
@@ -54,9 +62,10 @@ export class ActorPoses {
     }
   }
 
-  update(dt: number, playerMoving: boolean): void {
+  /** `speed` è la velocità a piedi del personaggio in unità al secondo: decide il ritmo dei passi. */
+  update(dt: number, playerMoving: boolean, speed: number = PLAYER_WALK_SPEED): void {
     this.playerCast = Math.max(0, this.playerCast - dt);
     this.bossCast = Math.max(0, this.bossCast - dt);
-    this.walkPhase = playerMoving ? this.walkPhase + dt * PLAYER_WALK_RATE : 0;
+    this.walkPhase = playerMoving ? this.walkPhase + dt * walkPhaseRate(speed) : 0;
   }
 }

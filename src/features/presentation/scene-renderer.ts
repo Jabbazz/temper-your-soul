@@ -18,7 +18,7 @@ import { FEEDBACK, type Effects } from './effects';
 import { drawLight, drawVignette, LIGHT, LightMap } from './lights';
 import { moodAmbient, ROOM_MOOD, type MoodFrame } from './room-mood';
 import { minionArt } from './minion-art';
-import { ARENA_THEMES } from './themes';
+import { arenaTheme } from './themes';
 import type { ActorPoses } from './poses';
 import type { Player } from '../player/player';
 import { projectileLook } from './visuals';
@@ -86,7 +86,7 @@ function collectActorLights(ctx: CanvasRenderingContext2D, scene: Scene): void {
 export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   const { match, effects, poses, camera, clock } = scene;
   const { player, boss } = match;
-  const theme = ARENA_THEMES[match.arena.theme];
+  const theme = arenaTheme(match.arena);
 
   pixiLayer();
   meteorImpactReady();
@@ -110,9 +110,13 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   drawBloodStains(ctx, effects.combatVfx, camera);
   drawArenaPillars(ctx, match.arena, camera, clock);
   drawHazards(ctx, match.arena, match.covers, camera, clock, effects.coverFlashes);
-  collectActorLights(ctx, scene);
   const ambient = scene.mood === undefined ? theme.ambient : moodAmbient(theme.ambient, scene.mood);
-  lightMap.composite(ctx, camera, left, top, ambient);
+  // In piena luce (il mondo aperto) niente mappa di luce: nessun alone attorno a personaggi, nemici e colpi.
+  if (theme.daylight) lightMap.discard();
+  else {
+    collectActorLights(ctx, scene);
+    lightMap.composite(ctx, camera, left, top, ambient);
+  }
   scene.drawRoom?.(ctx, 'objects');
 
   if (boss !== null && boss.charge !== null) drawChargeTelegraph(ctx, boss.charge);
@@ -157,6 +161,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const impact of effects.meteorImpacts.impacts) {
     figures.push({ y: impact.y, draw: () => drawMeteorImpact(ctx, impact) });
   }
+  for (const figure of theme.figures?.(ctx, match.arena, camera, clock) ?? []) figures.push({ y: figure.y, draw: figure.draw });
   figures.sort((a, b) => a.y - b.y);
   for (const figure of figures) figure.draw();
   drawMinionDeaths(ctx, effects.combatVfx);

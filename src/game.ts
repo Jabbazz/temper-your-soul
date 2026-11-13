@@ -6,6 +6,10 @@ import { BACKPACK_SPRITE } from './features/presentation/item-sprites';
 import { GOLD_COIN_SPRITE } from './features/presentation/currency-sprites';
 import { renderPixelIcon } from './features/ui/pixel-icon';
 import { HubScreen } from './features/ui/hub-screen';
+import { WorldHud } from './features/ui/world-hud';
+import { WorldMap } from './features/world/world-map';
+import { WORLD_ARENA, worldArena } from './features/world/world-arena';
+import { WorldEncounter } from './features/world/world-mobs';
 import { playerProfile } from './features/ui/player-profile';
 import { hideItemTooltip } from './features/ui/item-slot';
 import { renderCharacterCreation } from './features/ui/character-creation';
@@ -113,6 +117,9 @@ const LOAD_NOTES: Record<LoadStatus, string> = {
 export class Game {
   private readonly input = new Input();
   private readonly hub: HubScreen;
+  /** La mappa del mondo aperto (creata alla prima visita) e i suoi strumenti di prova. */
+  private worldMap: WorldMap | null = null;
+  private readonly worldHud = new WorldHud({ travel: (point) => this.travelInWorld(point) });
   private profileDialog: HTMLDialogElement | null = null;
   private readonly camera = new Camera();
   private readonly effects = new Effects();
@@ -269,6 +276,7 @@ export class Game {
         if (opened > 0) this.persist();
         this.showToast(opened > 0 ? `Admin: ${opened} pagine del bestiario aperte.` : 'Admin: il bestiario è già tutto aperto.');
       },
+      onOpenWorld: () => this.openWorld(),
     });
     this.dungeonSelect = new DungeonSelect({
       onDescent: (dungeon, grade) => this.startDungeon(dungeon, 'descent', grade),
@@ -347,7 +355,7 @@ export class Game {
   private leaveGame(): void {
     this.party.close();this.settingsPanel.close();
     if(this.party.client.state)this.party.client.send({type:'hub_input',move:{x:0,y:0}});
-    this.hub.hide();
+    this.hub.hide();this.worldHud.hide();
     this.profileDialog?.close();
     if(this.networkBattleId){this.dismissedNetworkRun=this.networkBattleId.split(':')[0]!;this.party.client.returnToHub();}
     this.networkBattleId = '';
@@ -463,8 +471,57 @@ export class Game {
     if(!this.character.created){this.showMenu();return;}
     if(this.networkBattleId){this.dismissedNetworkRun=this.networkBattleId.split(':')[0]!;this.party.client.returnToHub();}
     this.abandonRun();this.networkBattleId='';this.networkRun=null;this.networkRoom=null;
-    this.screen='hub';this.input.releaseAll();this.clearBattleFeedback();this.overlay.hide();this.screens.show(null);
+    this.worldHud.hide();this.screen='hub';this.input.releaseAll();this.clearBattleFeedback();this.overlay.hide();this.screens.show(null);
     document.body.classList.add('in-menu');this.hub.show(this.character,this.roster,arrive,this.clock);this.updateParty();
+  }
+
+  /** Prova del mondo aperto: si cammina da soli sulla mappa, senza rete né salvataggio della posizione. */
+  private openWorld(): void {
+    if (!this.character.created) { this.showToast('Crea o scegli un personaggio prima di visitare il mondo.'); return; }
+    if (this.networkBattleId) { this.showToast('Torna nel rifugio prima di visitare il mondo.'); return; }
+    this.abandonRun();
+    this.hub.hide();
+    this.networkBattleId = ''; this.networkView = null; this.allyPoses.clear();
+    this.renderAppearance = undefined; this.allyVisuals = [];
+    this.runTally.reset('local');
+    this.descentHud.hide();
+    this.worldMap ??= new WorldMap();
+    const arena = worldArena(this.worldMap);
+    // La partita dei dungeon su una mappa senza traguardo: stesse skill, stessi colpi, nessun boss.
+    const match = new Match({
+      rng: new SeededRng(Math.floor(Math.random() * 0x100000000)),
+      dungeon: { ...DUNGEONS[0]!, id: arena.id, name: arena.name, tagline: '', description: '', arena },
+      arena, boss: null, encounter: new WorldEncounter(this.worldMap),
+      loadout: this.character.loadout(), totalXp: this.character.totalXp, characterClass: this.character.characterClass,
+    });
+    this.attach(match);
+    this.enterMatch(match);
+    this.worldHud.show(this.worldMap);
+  }
+
+  /**
+   * Premio per un nemico abbattuto nel mondo: quello della fascia in cui è caduto. Solo nella prova in locale: con un
+   * profilo del server esperienza e oro li decide il server, che il mondo ancora non conosce.
+   */
+  private rewardWorldKill(position: Vec2): void {
+    if (this.worldMap === null || this.party.client.profile) return;
+    const tile = this.worldMap.definition.tile, { reward } = this.worldMap.generator.biomeAt(Math.round(position.x / tile), Math.round(position.y / tile)).mobs;
+    this.character.totalXp += reward.xp;
+    this.roster.gold += reward.gold;
+    this.persist();
+  }
+
+  /** Vero mentre la partita in scena è il mondo aperto. */
+  private get inWorld(): boolean {
+    return this.match.arena.terrain !== undefined && (this.screen === 'playing' || this.screen === 'paused' || this.screen === 'ended');
+  }
+
+  /** Viaggio rapido di prova: il giocatore compare nel punto libero più vicino a quello chiesto. */
+  private travelInWorld(point: Vec2): void {
+    if (!this.inWorld || this.worldMap === null) return;
+    this.match.player.position = this.worldMap.freePointNear(point, WORLD_ARENA.playerMargin);
+    this.recenter();
+    this.canvas.focus();
   }
 
   private openPlayerProfile(): void {
@@ -601,6 +658,7 @@ export class Game {
   }
 
   private restartIfInGame(): void {
+    if (this.inWorld) { this.openWorld(); return; }
     if (this.screen === 'playing' || this.screen === 'paused' || this.screen === 'ended') this.startMatch();
   }
 
@@ -633,7 +691,10 @@ export class Game {
       this.tally.handle(event);
       this.runTally.handle(event);
       if (event.type === 'boss_phase_changed') this.onPhaseChanged(event.text, true);
+      if (event.type === 'minion_defeated' && !event.revives && !event.exploded && match.arena.terrain !== undefined) this.rewardWorldKill(event.position);
       if (event.type === 'match_ended') {
+        // Nel mondo aperto non c'è una schermata finale: chi cade ricompare alla partenza.
+        if (match.arena.terrain !== undefined) { this.pendingEnd = { remaining: END_DELAY.lost, show: () => this.openWorld() }; return; }
         if (this.run !== null && match === this.run.match) this.onRoomEnded(match, event.won);
         else this.onMatchEnded(match, event.won);
       }
@@ -1065,7 +1126,7 @@ export class Game {
     if (this.networkBattleId && this.screen === 'playing') { this.showMenu(); return; }
     if (this.screen === 'playing') {
       this.screen = 'paused';
-      this.overlay.showPaused(this.run !== null ? `${this.dungeon.name} · tappa ${this.run.stage + 1}` : this.dungeon.name);
+      this.overlay.showPaused(this.inWorld ? this.match.arena.name : this.run !== null ? `${this.dungeon.name} · tappa ${this.run.stage + 1}` : this.dungeon.name);
     } else if (this.screen === 'paused') {
       this.screen = 'playing';
       this.overlay.hide();
@@ -1123,8 +1184,8 @@ export class Game {
       if(this.party.client.state&&performance.now()-this.lastHubInput>NETWORK_HUB_INPUT){this.lastHubInput=performance.now();this.party.client.send({type:'hub_input',move:this.hub.inputLocked?Vec2.ZERO:move});}
     }
     if (this.screen === 'playing' || this.screen === 'ended') {
-      this.poses.update(STEP, match.player.moving);
-      for (const [id, poses] of this.allyPoses) poses.update(STEP, match.players.get(id)?.moving ?? false);
+      this.poses.update(STEP, match.player.moving, match.player.walkSpeed);
+      for (const [id, poses] of this.allyPoses) { const ally = match.players.get(id); poses.update(STEP, ally?.moving ?? false, ally?.walkSpeed); }
       this.effects.update(STEP, this.networkBattleId && this.networkView ? this.networkView.match : match, this.camera);
     }
     if (this.screen === 'playing' && this.pendingRoom === null) {
@@ -1204,6 +1265,7 @@ export class Game {
     // anche nei fotogrammi senza passi di simulazione. La scossa resta esclusa dalla mira.
     renderedMatch.player.aim = this.camera.pointerToWorld(this.input.pointer);
     this.hud.update(this.match, levelProgress(this.character.totalXp));
+    if (this.inWorld) this.worldHud.update(this.match.player.position); else this.worldHud.hide();
     document.body.classList.toggle('aiming',this.screen==='playing');
     const inRefuge=REFUGE_SCREENS.includes(this.screen);
     document.body.classList.toggle('initial-menu',inRefuge);

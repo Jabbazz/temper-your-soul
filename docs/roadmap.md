@@ -1,5 +1,23 @@
 # Roadmap
 
+## Mondo aperto a fasce · incrementi locali 1-3 · 12 novembre 2026
+
+Mappa unica molto grande, a fasce orizzontali: più si va a sud, più i nemici saranno forti; nessun requisito di livello per spostarsi. Obiettivo finale: 100 giocatori insieme su un server dedicato.
+
+- [x] Simulazione in `src/features/world/`: dati (`world-definition.ts`), regole di generazione dal seme (`world-generator.ts`), mappa a blocchi da 32×32 tile generati a richiesta con collisioni a celle (`world-map.ts`), ostacoli sparsi con appoggio a terra (`world-obstacles.ts`). Prime due fasce da 256 righe: Bosco Verde e Brughiera delle Nebbie, 1024 tile di larghezza. Strade, sentiero principale, stagni, costa e rovine; le mura sono un terreno non percorribile a tratti orizzontali e verticali che si incrociano. Nessun nemico.
+- [x] Test: riproducibilità dal seme, bordi dei blocchi, coppie di terreni ammesse, ostacoli, collisioni, sentiero percorribile, costo locale delle domande di collisione, movimento del giocatore, scelta dei tile.
+- [x] Asset PixelLab integrati in `src/assets/art/world/` su richiesta dell'utente, per vederli in gioco (rifinitura ancora aperta): 7 tileset di raccordo 32×32 in modalità pro (strada, acqua e mura su ciascuno dei due suoli, più il confine fra i suoli; le mura a parete alta, 25 tile) e 5 oggetti (quercia, cespuglio, masso, albero morto, roccia della brughiera).
+- [x] Il mondo gira con la partita dei dungeon (decisione del proprietario, 12 novembre): stessa camera lontana, stesse skill, HUD, proiettili e zone. `ArenaDefinition.terrain` fornisce gli ostacoli zona per zona: alberi e rocce valgono come pilastri (fermano corpi e colpi), le mura come massicci (fermano anche la vista), l'acqua come pozzi (ferma solo chi cammina). `worldArena` e `WorldEncounter` in `features/world/world-arena.ts`; il terreno si disegna come tema della scena (`presentation/world/`), con gli ostacoli ordinati in profondità con le figure.
+- [x] Ingresso di prova: Personaggi → Admin · sviluppo → «Mondo aperto (prova)», con viaggi rapidi a confine, brughiera e rovine. Si disegnano solo tile e ostacoli in vista; i fogli di una fascia si caricano quando ci si avvicina. Dati dei tile generati da `tools/arte/prepara-mondo.mjs`. Controllato con test e con un browser headless; prova giocata dell'utente da ricevere.
+- [x] Branchi per zona (`features/world/world-mobs.ts`, valori in `WORLD_MOBS` e in `WorldBiome.mobs`): ogni zona di 20 tile ha al più un branco deciso dal seme; nasce fuori vista quando un giocatore si avvicina, resta fermo oltre il raggio di aggressione, sparisce quando tutti si allontanano e, se sterminato, rinasce dopo un'attesa. Nemici presi dai dungeon in attesa di quelli propri: semplici nel Bosco Verde, con più mosse e più vita nella Brughiera. Premio in esperienza e oro per fascia, solo nella prova in locale.
+- [x] Aggiramento locale: nelle mappe con terreno ogni giocatore ha un campo di flusso su una finestra di 1600 unità che lo segue (`NavGrid` con finestra); i nemici a terra girano attorno a mura, acqua, alberi e rocce. Nei dungeon nulla cambia.
+- [x] Camminata legata alla strada percorsa (`PLAYER_WALK_STRIDE`, un ciclo di passi ogni 72 unità): il ritmo segue la velocità reale, anche da rallentati, in partita, nel mondo e nel rifugio.
+- [x] Luce piena nel mondo (richiesta del proprietario, 13 novembre): il tema del mondo è `daylight`, quindi la scena salta la mappa di luce e non c'è alone attorno a personaggi, nemici e colpi. Nei dungeon la luce resta com'era.
+- [ ] Casse e boss all'aperto; nemici e grafica propri del mondo; premi validati dal server.
+- [ ] Ingresso definitivo nel mondo dal gioco, posizione salvata, mappa del mondo al posto della minimappa di stanza, musica e ambiente propri (ora quelli della Palude).
+- [ ] Rete: mondo sul server con area di interesse (ogni client riceve solo chi gli sta vicino), nuovo protocollo.
+- [ ] Fasce successive, varianti del tile pieno e decorazioni, nemici e bottino per fascia.
+
 ## Riepilogo finale unico · v0.18.00
 
 Rimosso il Combat report modale duplicato dagli incontri online: resta la schermata finale con statistiche, esperienza e drop, senza cambiare premi, salvataggi o bilanciamento. Integrati nello stesso incremento il canone PixelLab, l’Arciere maschio e i personaggi multipli dell’account. Prova giocata ancora da confermare.

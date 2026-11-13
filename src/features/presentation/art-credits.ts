@@ -9,6 +9,7 @@ import { AUDIO_LICENSES } from '../audio/audio-credits';
 /** Licenze ammesse per la grafica (stessi nomi di quelle dell'audio, per mostrarle allo stesso modo). */
 export type ArtLicense = 'CC0-1.0' | 'CC-BY-3.0' | 'CC-BY-4.0' | 'Generato-locale' | 'Modello-IA-da-verificare' | 'PixelLab-output';
 export const CHARACTER_CREDIT_IDS = ['pixellab-heroes-64'] as const;
+export const WORLD_CREDIT_IDS = ['pixellab-world'] as const;
 export const VFX_CREDIT_IDS = ['menu-rifugio-ia', 'local-zimage-vfx', 'local-sdxl-meteor'] as const;
 export const ART_LICENSES = { ...AUDIO_LICENSES, 'PixelLab-output': { name: 'Generato con PixelLab', url: 'https://www.pixellab.ai/termsofservice', requiresAttribution: false }, 'Generato-locale': { name: 'Generato con IA in locale · da approvare', url: 'https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0', requiresAttribution: false }, 'Modello-IA-da-verificare': { name: 'Modello 3D generato con IA su Meshy · licenza del piano da verificare', url: 'https://www.meshy.ai/', requiresAttribution: false } };
 
@@ -34,6 +35,12 @@ export const ART_CREDITS: Readonly<Record<string, ArtCredit>> = {
     source: 'https://www.pixellab.ai/', license: 'PixelLab-output', retrieved: '2026-11-12',
     use: 'corpo dei personaggi giocabili in partita e nell’HUB',
     changes: 'base pro 64×64 e animazioni a scheletro (riposo, camminata, attacco), fogli esportati senza ritocchi; vedi src/assets/characters/hero-pixellab-64/LEGGIMI.md',
+  },
+  'pixellab-world': {
+    title: 'Terreni, mura e ostacoli del mondo aperto', author: 'Temper your soul · PixelLab',
+    source: 'https://www.pixellab.ai/', license: 'PixelLab-output', retrieved: '2026-11-12',
+    use: 'tile 32×32 e ostacoli delle prime due fasce del mondo aperto',
+    changes: 'tileset di raccordo in modalità pro e oggetti di mappa, usati senza ritocchi; vedi src/assets/art/world/LEGGIMI.md',
   },
   'menu-rifugio-ia': {
     title: 'Rifugio del menu principale', author: 'Temper your soul · generato in locale con SDXL e Pixel Art XL',

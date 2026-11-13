@@ -91,11 +91,16 @@ export class Player {
     this.mana = Math.min(this.maxMana, this.mana + this.manaRegeneration * dt);
   }
 
+  /** Velocita' a piedi in questo momento (unita' al secondo): quella della classe, ridotta mentre canalizza o e' rallentato. */
+  get walkSpeed(): number {
+    return this.stats.moveSpeed * (this.channel ? CLASS_COMBAT.channelMoveFactor : 1) * (this.slowFor > 0 ? PLAYER_STATS.slowFactor : 1);
+  }
+
   /** Si muove con la direzione `move` (lunghezza al massimo 1) restando nell'arena e fuori dai pilastri. */
   moveBy(dt: number, move: Vec2): void {
     if (this.rush !== null) { this.moving = true; return; }
     this.moving = move.x !== 0 || move.y !== 0;
-    const speed = this.stats.moveSpeed * (this.channel ? CLASS_COMBAT.channelMoveFactor : 1) * (this.slowFor > 0 ? PLAYER_STATS.slowFactor : 1);
+    const speed = this.walkSpeed;
     const moved = clampToArena(this.arena, this.position.add(move.mul(speed * dt)), this.arena.playerMargin);
     this.position = pushOutOfPillars(this.arena, moved, BODY_RADIUS.player);
   }

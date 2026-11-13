@@ -1466,6 +1466,9 @@ body.room-fading .room-fade { opacity: 1; }
 .binding-button{min-width:104px}.binding-button.capturing{outline:2px solid #dfbb77;background:#64412f}.controls-message{min-height:38px;color:#e5c69b}.controls-fixed,.settings-storage{color:#b5a99d;font-size: 8px}
 /* Piazza del rifugio: Canvas esteso a tutto il viewport, pixel interi. */
 .hub-screen{position:fixed;inset:0;z-index:25;overflow:hidden;color:var(--text)}
+.world-hud{position:fixed;left:16px;top:104px;z-index:26;display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:min(460px,calc(100vw - 32px));pointer-events:none}.world-hud.hidden{display:none}
+.world-place{margin:0;padding:6px 10px;background:#17121ccc;border:1px solid var(--relic-border);color:var(--relic-ivory);font:16px var(--relic-pixel)}
+.world-bar{display:flex;flex-wrap:wrap;gap:6px;pointer-events:auto}.world-bar .relic-button{padding:5px 10px;font-size:16px}
 .hub-screen.hidden{display:none}.hub-world{display:block;width:100%;height:100%;image-rendering:pixelated;outline:none}
 .hub-controls{position:absolute;right:16px;top:16px;display:flex;gap:8px;max-width:calc(100vw - 32px);flex-wrap:wrap}
 .hub-controls button{font-size: 16px;padding:9px 14px}.hub-controls .hub-character-button{padding:8px 12px;min-width:60px}

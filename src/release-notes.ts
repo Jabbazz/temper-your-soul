@@ -159,6 +159,19 @@ const INTEGER_DAMAGE_PREVIEW: ReleaseNotes = {
 
 export const RELEASES: readonly ReleaseNotes[] = [
   {
+    version:'0.21.0',date:'2026-11-13',
+    changes:[
+      'Mondo aperto, prima versione di prova: una mappa unica a fasce orizzontali generata da un seme, per ora con due fasce da 1024×256 tile (Bosco Verde a nord, Brughiera delle Nebbie a sud). Sentiero principale, strade, stagni, costa, alberi, rocce e rovine con mura che si incrociano. Si apre da Personaggi → Admin · sviluppo → «Mondo aperto (prova)», con viaggi rapidi a confine, brughiera e rovine.',
+      'Nel mondo vale la partita dei dungeon: stessa camera, stesse skill, stesso HUD, stessi colpi. Alberi e rocce fermano corpi e colpi come i pilastri, le mura come i massicci, l’acqua ferma solo chi cammina come i pozzi. La mappa fornisce gli ostacoli zona per zona (ArenaDefinition.terrain), così il costo non dipende dalla sua grandezza. Luce piena, senza il buio e gli aloni dei dungeon.',
+      'Branchi di nemici per zona: nascono fuori vista quando ci si avvicina, restano fermi oltre il raggio di aggressione, spariscono quando ci si allontana e rinascono 90 s dopo essere stati sterminati. Nemici presi in prestito dai dungeon: semplici nel Bosco Verde (2-4 per branco, 4 XP e 3 oro ciascuno), con più mosse e vita ×1,5 nella Brughiera (3-5 per branco, 8 XP e 6 oro). I premi valgono solo nella prova offline; con un profilo del server il mondo non dà ancora nulla.',
+      'I nemici a terra del mondo aggirano mura, acqua, alberi e rocce con una griglia di navigazione locale che segue ogni giocatore. Nei dungeon navigazione e comportamento dei servitori non cambiano.',
+      'Camminata dei personaggi legata alla strada percorsa: un ciclo di passi ogni 72 unità invece di un ritmo fisso più lento dello spostamento (alla velocità base da circa 1,2 a circa 2,5 cicli al secondo). Chi è rallentato cammina più piano di conseguenza. Vale in partita, nel mondo e nel rifugio; solo aspetto.',
+      'Grafica del mondo generata con PixelLab e integrata in src/assets/art/world/: sette tileset di raccordo 32×32 (strada, acqua e mura sui due suoli, confine fra i suoli) e cinque ostacoli. Nuovo strumento tools/arte/prepara-mondo.mjs che copia i file scaricati e genera i dati dei tile.',
+      'Limiti noti della prova: il mondo gira solo in locale, senza altri giocatori; musica e ambiente sono quelli della Palude; resta il riquadro vuoto della minimappa di stanza; il terreno pieno è un solo tile ripetuto; mancano casse e boss all’aperto. Controllato con test e browser headless, prova giocata ancora da ricevere. Salvataggi e protocollo di rete invariati.',
+    ],
+    balanceChanges:[],
+  },
+  {
     version:'0.20.0',date:'2026-11-12',
     changes:[
       'Attacco in movimento per Guerriero, Arciere e Mago: attaccando o usando una skill mentre ci si sposta le gambe continuano il passo invece di restare ferme. Animazioni PixelLab in quattro direzioni; da fermi resta l’attacco precedente.',

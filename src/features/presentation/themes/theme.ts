@@ -10,6 +10,11 @@ import type { BlockLook } from './wall';
 export interface ArenaTheme {
   /** Sfondo, pavimento, muro perimetrale e decorazioni a terra. `clock` e' il tempo reale (anima fiamme, bolle...). */
   drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void;
+  /**
+   * Ciò che sta in piedi sulla mappa e non è nei pilastri (alberi e rocce del mondo aperto): figure da ordinare in
+   * profondità con personaggi e nemici, così chi sta più a sud copre chi sta più a nord.
+   */
+  figures?(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): readonly { readonly y: number; readonly draw: () => void }[];
   /** Un pilastro (se visibile). Disegnato sopra il pavimento e sotto i personaggi. */
   drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camera, clock: number): void;
   /**
@@ -17,6 +22,11 @@ export interface ArenaTheme {
    * quindi fuori dalla mappa di luce: `ambient` e' il buio della scena, per scurirlo come il resto.
    */
   drawForeground?(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number, ambient: string): void;
+  /**
+   * Luce piena (all'aperto, di giorno): la scena non ha buio d'ambiente né aloni attorno a personaggi, nemici e colpi.
+   * Senza, vale la luce dei dungeon: buio d'ambiente rischiarato dalle fonti di luce.
+   */
+  readonly daylight?: boolean;
   /** Il buio dell'ambiente (#rrggbb) moltiplicato sul pavimento dove non arriva nessuna luce. */
   readonly ambient: string;
   /** Come si disegnano i massicci delle stanze: cima, bordo e faccia come i muri del tema. */

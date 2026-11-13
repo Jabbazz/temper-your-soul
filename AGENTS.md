@@ -57,7 +57,8 @@ src/release-notes.ts   note del changelog; la prima voce corrisponde alla versio
 src/testing.ts, src/testing-png.ts   aiuti per i test (partite con seme, intenzioni, passo fisso, lettura dei PNG)
 src/core/        vec2, rng (Rng, SeededRng, cosmeticRng), signal, input + input-bindings (azioni), camera, camera-offset, polygon
 src/features/
-  arena/         ArenaDefinition (dimensioni, partenze, margini, pilastri), clamp, pilastri, nav-field
+  arena/         ArenaDefinition (dimensioni, partenze, margini, pilastri; `terrain` per ostacoli forniti a richiesta), clamp,
+                 pilastri, nav-field
   combat/        health, team, collision (HIT_RADIUS), projectile, danger-zone, events (GameEvent), contact-attacks, status-effects/
   skills/        skill-definition (SkillDefinition, SkillEffect, Loadout), mage-skills, skill-bar, skill-effects, mana (SPELL_MANA)
   classes/       statistiche e skill di classe; una cartella per classe (warrior/, archer/, mage/)
@@ -66,6 +67,9 @@ src/features/
   minions/       servitori: definizioni, catalogo, comportamenti
   dungeons/      dungeon-definition, crypt.ts, dungeons.ts (registro DUNGEONS), dungeon-access (soglie GS), swamp/, forge/, glacier/;
                  dungeons.test.ts valida OGNI dungeon registrato
+  world/         mondo aperto a fasce: world-definition (WORLD, fasce, terreni), world-generator (regole dal seme), world-map
+                 (blocchi a richiesta, ostacoli per zona), world-obstacles, world-arena (il mondo come mappa di una
+                 partita: stesse regole dei dungeon), world-mobs (branchi per zona attorno ai giocatori)
   run/           discesa a stanze: piano, stanze e modelli, regista, vene, luogotenenti, premi dei mob, bestiario
   items/         rarity, equipment-slot, item-family + item-families (catalogo), item-classes, item-skills + dungeon-item-skills,
                  item, scaling, gear-score

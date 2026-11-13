@@ -1,12 +1,19 @@
 import { Vec2 } from '../../core/vec2';
-import type { ArenaDefinition, Solid } from './arena';
+import { arenaObstacles, type ArenaDefinition, type Solid } from './arena';
 
 /**
  * Campo di flusso per le stanze con pozzi, massicci e ripari (fase 5 dello studio grafico, proposta per Jabbaz). Valori
  * provvisori: lato delle celle, spazio libero attorno al centro di una cella perche' sia percorribile, ogni quanti passi
  * si ricalcolano le distanze.
  */
-export const NAV_FIELD = { cell: 40, clearance: 12, refreshSteps: 6 } as const;
+export const NAV_FIELD = {
+  cell: 40, clearance: 12, refreshSteps: 6,
+  /**
+   * Mappe con terreno (il mondo aperto): lato della finestra attorno a un giocatore, di quanto può allontanarsi dal
+   * centro prima che la finestra lo segua, ed entro quale distanza un nemico tiene vivo il campo.
+   */
+  localSize: 1600, localShift: 320, localRange: 900,
+} as const;
 
 /** I passi verso le otto celle vicine e il loro costo (le diagonali costano di piu'), in tre file parallele. */
 const STEP_X = [1, -1, 0, 0, 1, 1, -1, -1] as const;
@@ -23,16 +30,41 @@ function near(rect: Solid, x: number, y: number, extra: number): boolean {
 /**
  * Le celle percorribili della stanza: dentro i margini, lontane da pilastri, massicci, ripari ancora in piedi e pozzi.
  * Si ricalcola solo quando cambia un ostacolo (un riparo si rompe); i campi di flusso la condividono.
+ *
+ * Con `size` copre solo una finestra quadrata della mappa, da spostare con `recenter`: serve alle mappe troppo grandi
+ * per una griglia intera (il mondo aperto), dove ogni giocatore ha la propria.
  */
 export class NavGrid {
   readonly cols: number;
   readonly rows: number;
   readonly open: Uint8Array;
+  /** Angolo alto a sinistra della griglia nella mappa (zero se la copre tutta). */
+  private originX = 0;
+  private originY = 0;
 
-  constructor(private readonly arena: ArenaDefinition) {
-    this.cols = Math.ceil(arena.width / NAV_FIELD.cell);
-    this.rows = Math.ceil(arena.height / NAV_FIELD.cell);
+  constructor(private readonly arena: ArenaDefinition, size?: number) {
+    this.cols = Math.ceil((size ?? arena.width) / NAV_FIELD.cell);
+    this.rows = Math.ceil((size ?? arena.height) / NAV_FIELD.cell);
     this.open = new Uint8Array(this.cols * this.rows);
+    this.rebuild();
+  }
+
+  /** Il centro dell'area coperta. */
+  get middle(): Vec2 {
+    return new Vec2(this.originX + (this.cols * NAV_FIELD.cell) / 2, this.originY + (this.rows * NAV_FIELD.cell) / 2);
+  }
+
+  /** Vero se il punto cade dentro l'area coperta. */
+  contains(point: Vec2): boolean {
+    const cell = NAV_FIELD.cell;
+    return point.x >= this.originX && point.y >= this.originY && point.x < this.originX + this.cols * cell && point.y < this.originY + this.rows * cell;
+  }
+
+  /** Sposta la finestra attorno a `center` (allineata alle celle, così le celle non scivolano) e la ricalcola. */
+  recenter(center: Vec2): void {
+    const cell = NAV_FIELD.cell;
+    this.originX = Math.round((center.x - (this.cols * cell) / 2) / cell) * cell;
+    this.originY = Math.round((center.y - (this.rows * cell) / 2) / cell) * cell;
     this.rebuild();
   }
 
@@ -42,13 +74,14 @@ export class NavGrid {
     const margin = arena.playerMargin;
     const clearance = NAV_FIELD.clearance;
     const cell = NAV_FIELD.cell;
+    const { pillars, solids, chasms } = arenaObstacles(arena, this.originX - clearance, this.originY - clearance, this.originX + this.cols * cell + clearance, this.originY + this.rows * cell + clearance);
     for (let index = 0; index < this.open.length; index++) {
-      const x = (index % this.cols) * cell + cell / 2;
-      const y = Math.floor(index / this.cols) * cell + cell / 2;
+      const x = this.originX + (index % this.cols) * cell + cell / 2;
+      const y = this.originY + Math.floor(index / this.cols) * cell + cell / 2;
       let free = x >= margin && x <= arena.width - margin && y >= margin && y <= arena.height - margin;
-      if (free) for (const pillar of arena.pillars) if (Math.hypot(x - pillar.position.x, y - pillar.position.y) < pillar.radius + clearance) free = false;
-      if (free) for (const solid of arena.solids ?? []) if (near(solid, x, y, clearance)) free = false;
-      if (free) for (const chasm of arena.chasms ?? []) if (near(chasm, x, y, clearance)) free = false;
+      if (free) for (const pillar of pillars) if (Math.hypot(x - pillar.position.x, y - pillar.position.y) < pillar.radius + clearance) { free = false; break; }
+      if (free) for (const solid of solids) if (near(solid, x, y, clearance)) { free = false; break; }
+      if (free) for (const chasm of chasms) if (near(chasm, x, y, clearance)) { free = false; break; }
       this.open[index] = free ? 1 : 0;
     }
   }
@@ -56,14 +89,14 @@ export class NavGrid {
   /** Il centro della cella. */
   center(index: number): Vec2 {
     const cell = NAV_FIELD.cell;
-    return new Vec2((index % this.cols) * cell + cell / 2, Math.floor(index / this.cols) * cell + cell / 2);
+    return new Vec2(this.originX + (index % this.cols) * cell + cell / 2, this.originY + Math.floor(index / this.cols) * cell + cell / 2);
   }
 
   /** La cella che contiene il punto (i punti fuori dalla stanza vanno nella cella di bordo). */
   cellOf(point: Vec2): number {
     const cell = NAV_FIELD.cell;
-    const cx = Math.min(this.cols - 1, Math.max(0, Math.floor(point.x / cell)));
-    const cy = Math.min(this.rows - 1, Math.max(0, Math.floor(point.y / cell)));
+    const cx = Math.min(this.cols - 1, Math.max(0, Math.floor((point.x - this.originX) / cell)));
+    const cy = Math.min(this.rows - 1, Math.max(0, Math.floor((point.y - this.originY) / cell)));
     return cy * this.cols + cx;
   }
 

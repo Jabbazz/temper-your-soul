@@ -3,7 +3,7 @@ import type { ArenaDefinition, Pillar } from '../arena/arena';
 import { rasterDisc } from './pixel-disc';
 import { fillSurface } from './themes/scenery';
 import type { ArenaTheme } from './themes/theme';
-import { ARENA_THEMES } from './themes';
+import { arenaTheme } from './themes';
 import { drawSolidBlock } from './themes/wall';
 
 /**
@@ -11,7 +11,7 @@ import { drawSolidBlock } from './themes/wall';
  * stanno fra i massicci finche' resistono, si disegnano a parte con pozzi e ponti (`drawHazards`).
  */
 export function drawArena(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
-  const theme = ARENA_THEMES[arena.theme];
+  const theme = arenaTheme(arena);
   theme.drawFloor(ctx, arena, camera, clock);
   for (const solid of arena.solids ?? []) if (solid.cover === undefined) drawSolidBlock(ctx, solid, camera, theme.block);
 }
@@ -51,7 +51,7 @@ function drawPillarSprite(ctx: CanvasRenderingContext2D, theme: ArenaTheme, pill
 
 /** Materiale e ornamento classico del tema entro il suo ingombro circolare. */
 export function drawArenaPillars(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void {
-  const theme = ARENA_THEMES[arena.theme];
+  const theme = arenaTheme(arena);
   for (const pillar of arena.pillars) {
     const { position, radius } = pillar;
     if (!camera.isVisible(position, radius + 160)) continue;

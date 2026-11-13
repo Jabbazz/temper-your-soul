@@ -331,9 +331,21 @@ describe('pose', () => {
   it('la camminata avanza solo mentre ci si muove e si azzera da fermi', () => {
     const poses = new ActorPoses();
     poses.update(1, true);
-    expect(poses.walkPhase).toBeCloseTo(14, 10);
+    // Un ciclo di passi (12 di fase) ogni 72 unità percorse: a 177 unità al secondo sono 29,5 di fase.
+    expect(poses.walkPhase).toBeCloseTo(29.5, 10);
     poses.update(0.1, false);
     expect(poses.walkPhase).toBe(0);
+  });
+
+  it('il ritmo dei passi segue la velocità: chi è rallentato cammina più piano, senza scivolare', () => {
+    const fast = new ActorPoses(), slow = new ActorPoses();
+    fast.update(1, true, 144);
+    slow.update(1, true, 72);
+    expect(fast.walkPhase).toBeCloseTo(24, 10);
+    expect(slow.walkPhase).toBeCloseTo(12, 10);
+    // Stessa strada, stessi passi: due secondi alla velocità dimezzata valgono un secondo a quella piena.
+    slow.update(1, true, 72);
+    expect(slow.walkPhase).toBeCloseTo(fast.walkPhase, 10);
   });
 
   it('reset azzera tutto', () => {
