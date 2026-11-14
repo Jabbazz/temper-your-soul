@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Vec2 } from '../../core/vec2';
 import { BODY_RADIUS } from '../combat/collision';
 import { TERRAIN_PAIRS, TERRAIN_WALKABLE, WORLD, WORLD_TERRAINS, type WorldTerrain } from './world-definition';
+import { WORLD_DECOR } from './world-decor';
 import { WorldMap, type WorldChunk } from './world-map';
 import { WORLD_OBSTACLE_KINDS, obstacleTouchesCircle, type WorldObstacle } from './world-obstacles';
 
@@ -18,10 +19,21 @@ const terrainOf = (chunk: WorldChunk, i: number, j: number): WorldTerrain => WOR
 const pairAllowed = (a: WorldTerrain, b: WorldTerrain): boolean => TERRAIN_PAIRS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
 
 describe('mondo aperto: generazione', () => {
-  it('ha due fasce da 256 righe e blocchi da 32 tile', () => {
+  it('ha sei fasce da 256 righe e blocchi da 32 tile, sempre più dure verso sud fino all\'Abisso', () => {
+    expect(WORLD.biomes.map(biome => biome.id)).toEqual(['greenwood', 'mistmoor', 'rotmarsh', 'frostreach', 'ashlands', 'abyss']);
+    expect(WORLD.biomes.map(biome => biome.rows)).toEqual([256, 256, 256, 256, 256, 256]);
     expect(world.width).toBe(1024 * 32);
-    expect(world.height).toBe(512 * 32);
-    expect([world.chunkColumns, world.chunkRows]).toEqual([32, 16]);
+    expect(world.height).toBe(1536 * 32);
+    expect([world.chunkColumns, world.chunkRows]).toEqual([32, 48]);
+    // Nell'Abisso al posto dell'acqua c'è la lava, che ferma chi cammina come l'acqua.
+    const abyss = WORLD.biomes[5]!;
+    expect(abyss.liquid).toBe('lava');
+    expect(world.terrainAt(32, (5 * 256 + 128) * 32)).toBe('lava');
+    WORLD.biomes.forEach((biome, index) => {
+      expect(biome.tier).toBe(index);
+      if (index > 0) expect(biome.mobs.healthScale).toBeGreaterThan(WORLD.biomes[index - 1]!.mobs.healthScale);
+    });
+    expect(new Set(WORLD.biomes.map(biome => biome.ground)).size).toBe(WORLD.biomes.length);
   });
 
   it('è riproducibile dal seme, in qualunque ordine si generino i blocchi', () => {
@@ -52,7 +64,10 @@ describe('mondo aperto: generazione', () => {
   });
 
   it('ogni tile accosta solo terreni che hanno un tileset di raccordo', () => {
-    const borderRows = { from: 256 - WORLD.borderWobble - 1, to: 256 + WORLD.borderWobble };
+    const nearBorder = (ty: number): boolean => {
+      const border = Math.round(ty / 256) * 256;
+      return border > 0 && border < world.generator.heightTiles && ty >= border - WORLD.borderWobble - 1 && ty <= border + WORLD.borderWobble;
+    };
     let triples = 0;
     for (const chunk of sampled) for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const corners = new Set([terrainOf(chunk, i, j), terrainOf(chunk, i + 1, j), terrainOf(chunk, i, j + 1), terrainOf(chunk, i + 1, j + 1)]);
@@ -61,11 +76,11 @@ describe('mondo aperto: generazione', () => {
       if (corners.size > 2) {
         // Tre terreni si incontrano solo dove una strada o la costa attraversano il confine tra le fasce.
         const ty = chunk.cy * N + j;
-        expect(ty >= borderRows.from && ty <= borderRows.to, `tre terreni nel tile ${chunk.cx * N + i},${ty}`).toBe(true);
+        expect(nearBorder(ty), `tre terreni nel tile ${chunk.cx * N + i},${ty}`).toBe(true);
         triples++;
       }
     }
-    expect(triples).toBeLessThan(40);
+    expect(triples).toBeLessThan(40 * (WORLD.biomes.length - 1));
   });
 
   it('il sentiero principale è percorribile dalla radura di partenza fino a sud', () => {
@@ -77,6 +92,27 @@ describe('mondo aperto: generazione', () => {
       expect(world.blocked(point, RADIUS), `sentiero bloccato alla riga ${vy}`).toBe(false);
     }
   });
+
+  it('le strade sono dritte, di larghezza costante e girano solo a gomito', () => {
+    const { generator } = world, { mainPath, roads, spawn } = WORLD;
+    // Il sentiero principale: centro intero e fisso dentro ogni tratto, larghezza piena su ogni riga.
+    let changes = 0;
+    for (let vy = spawn.row + 1; vy < generator.heightTiles; vy++) {
+      const center = generator.mainPathCenter(vy);
+      expect(Number.isInteger(center)).toBe(true);
+      if (center !== generator.mainPathCenter(vy - 1)) {
+        changes++;
+        expect((vy - spawn.row) % mainPath.stretch, `il sentiero cambia colonna fuori da un gomito, riga ${vy}`).toBe(0);
+      }
+      for (let dx = -mainPath.halfWidth; dx <= mainPath.halfWidth; dx++) expect(generator.isRoad(center + dx, vy)).toBe(true);
+    }
+    expect(changes).toBeGreaterThan(2);
+    // Le strade secondarie: ogni colonna è strada per tutta l'altezza con la stessa larghezza.
+    const column = Math.round(roads.columns[0]! * generator.widthTiles);
+    for (let vy = 0; vy <= generator.heightTiles; vy += 7) {
+      for (let dx = -roads.halfWidth; dx <= roads.halfWidth; dx++) expect(generator.isRoad(column + dx, vy)).toBe(true);
+    }
+  });
 });
 
 describe('mondo aperto: ostacoli', () => {
@@ -84,22 +120,74 @@ describe('mondo aperto: ostacoli', () => {
     expect(allObstacles.length).toBeGreaterThan(1000);
     const kinds = new Set(allObstacles.map(obstacle => obstacle.kind));
     expect(kinds).toEqual(new Set(Object.keys(WORLD_OBSTACLE_KINDS)));
+    const decorBiome: Readonly<Record<string, string>> = {
+      fence: WORLD_DECOR.fences.biome, knight_statue: WORLD_DECOR.statues.biome,
+      gravestone: WORLD_DECOR.cemeteries.biome, grave_cross: WORLD_DECOR.cemeteries.biome, angel_statue: WORLD_DECOR.cemeteries.biome,
+    };
     for (const obstacle of allObstacles) {
       const terrain = world.terrainAt(obstacle.x, obstacle.y);
-      expect(terrain === 'grass' || terrain === 'moor', `${obstacle.kind} su ${terrain}`).toBe(true);
       const biome = world.generator.biomeAt(Math.round(obstacle.x / 32), Math.round(obstacle.y / 32));
-      expect(biome.obstacles.kinds.some(entry => entry.kind === obstacle.kind), `${obstacle.kind} in ${biome.id}`).toBe(true);
+      expect(WORLD.biomes.some(other => other.ground === terrain), `${obstacle.kind} su ${terrain}`).toBe(true);
+      // Gli sparsi sono quelli della fascia; gli arredi stanno nella fascia delle loro regole.
+      const allowed = biome.obstacles.kinds.some(entry => entry.kind === obstacle.kind) || decorBiome[obstacle.kind] === biome.id;
+      expect(allowed, `${obstacle.kind} in ${biome.id}`).toBe(true);
     }
   });
 
-  it('due ostacoli sparsi lasciano sempre passare un personaggio', () => {
+  it('due ostacoli lasciano sempre passare un personaggio (tranne i tratti di una stessa staccionata)', () => {
+    /** Distanza fra i due appoggi: cerchi e rettangoli. */
+    const gapBetween = (a: WorldObstacle, b: WorldObstacle): number => {
+      const box = (o: WorldObstacle): { hw: number; hh: number } => {
+        const shape = WORLD_OBSTACLE_KINDS[o.kind].shape;
+        return shape.type === 'circle' ? { hw: shape.radius, hh: shape.radius } : { hw: shape.halfWidth, hh: shape.halfHeight };
+      };
+      const sa = box(a), sb = box(b);
+      const dx = Math.max(0, Math.abs(a.x - b.x) - sa.hw - sb.hw), dy = Math.max(0, Math.abs(a.y - b.y) - sa.hh - sb.hh);
+      return Math.hypot(dx, dy);
+    };
     for (const chunk of sampled) {
-      const scattered = chunk.obstacles;
-      for (let a = 0; a < scattered.length; a++) for (let b = a + 1; b < scattered.length; b++) {
-        const first = scattered[a]!, second = scattered[b]!, gap = Math.hypot(first.x - second.x, first.y - second.y) - 28;
-        expect(gap, `${first.kind} e ${second.kind} troppo vicini`).toBeGreaterThan(RADIUS * 2);
+      const all = chunk.obstacles;
+      for (let a = 0; a < all.length; a++) for (let b = a + 1; b < all.length; b++) {
+        const first = all[a]!, second = all[b]!;
+        if (first.kind === 'fence' && second.kind === 'fence') continue;
+        expect(gapBetween(first, second), `${first.kind} e ${second.kind} troppo vicini`).toBeGreaterThan(RADIUS * 2);
       }
     }
+  });
+
+  it('le decorazioni a terra stanno sul suolo pieno della loro fascia e non bloccano', () => {
+    const decals = sampled.flatMap(chunk => chunk.decals);
+    expect(decals.length).toBeGreaterThan(500);
+    for (const decal of decals) {
+      const vx = Math.round(decal.x / 32), vy = Math.round(decal.y / 32), biome = world.generator.biomeAt(vx, vy);
+      expect(world.vertexTerrain(vx, vy)).toBe(biome.ground);
+      expect(biome.obstacles.decals.kinds.some(entry => entry.kind === decal.kind), `${decal.kind} in ${biome.id}`).toBe(true);
+    }
+    // Una decorazione non ferma nessuno: il suo punto è libero quanto il prato attorno.
+    const free = decals.find(decal => !world.blocked(new Vec2(decal.x, decal.y + 40), RADIUS) && !world.blocked(new Vec2(decal.x, decal.y), RADIUS));
+    expect(free).toBeDefined();
+  });
+
+  it('gli arredi seguono le loro regole: staccionate lungo le strade, statue agli incroci, cimiteri in file', () => {
+    const decor = allObstacles.filter(obstacle => !['oak', 'bush', 'boulder', 'dead_tree', 'moor_rock'].includes(obstacle.kind));
+    const count = (kind: string): number => decor.filter(obstacle => obstacle.kind === kind).length;
+    expect(count('fence')).toBeGreaterThan(20);
+    expect(count('knight_statue')).toBeGreaterThan(0);
+    expect(count('angel_statue')).toBeGreaterThan(0);
+    expect(count('gravestone') + count('grave_cross')).toBeGreaterThan(count('angel_statue') * 5);
+    for (const fence of decor.filter(obstacle => obstacle.kind === 'fence')) {
+      // Accanto a una strada secondaria orizzontale, sul prato.
+      const vy = fence.y / 32;
+      expect(world.generator.roadRows.some(row => Math.abs(vy - row) === WORLD.roads.halfWidth + 1 + WORLD_DECOR.fences.offset)).toBe(true);
+    }
+    // Le tombe di un cimitero stanno su file e colonne regolari.
+    for (const grave of decor.filter(obstacle => obstacle.kind === 'gravestone' || obstacle.kind === 'grave_cross')) {
+      expect((grave.x / 32) % 1).toBe(0);
+      expect(world.decor.reserved(grave.x / 32, grave.y / 32)).toBe(true);
+    }
+    // Riproducibili dal seme.
+    const again = new WorldMap().chunk(sampled[0]!.cx, sampled[0]!.cy).obstacles;
+    expect(again).toEqual(sampled[0]!.obstacles);
   });
 
   it('un blocco resta leggero e la memoria dei blocchi ha un tetto', () => {
@@ -144,13 +232,26 @@ describe('mondo aperto: collisioni', () => {
       for (const dx of [-1, 1]) if (isWall(vx + dx, vy + 1)) expect(isWall(vx + dx, vy) || isWall(vx, vy + 1), `mura in diagonale in ${vx},${vy}`).toBe(true);
     }
 
-    const wall = horizontal.find(({ vx, vy }) => !isWall(vx, vy - 1) && !isWall(vx, vy - 2))!;
-    const center = new Vec2(wall.vx * 32, wall.vy * 32);
-    expect(world.blocked(center, RADIUS)).toBe(true);
-    expect(world.blocked(new Vec2(center.x + 15, center.y - 15), 1)).toBe(true);
-    const start = new Vec2(center.x, center.y - 16 - RADIUS - 2);
-    expect(world.blocked(start, RADIUS)).toBe(false);
-    expect(world.moveBody(start, new Vec2(0, 40), RADIUS).y).toBeLessThanOrEqual(center.y - 16 - RADIUS);
+    // Un tratto orizzontale pieno, spesso due vertici (sommità e facciata), con erba sopra e sotto.
+    const wall = horizontal.find(({ vx, vy }) => !isWall(vx, vy - 1) && isWall(vx, vy + 1) && !isWall(vx, vy + 2)
+      && [-1, 1].every(dx => isWall(vx + dx, vy) && isWall(vx + dx, vy + 1) && !isWall(vx + dx, vy - 1) && !isWall(vx + dx, vy + 2)))!;
+    expect(wall).toBeDefined();
+    const x = wall.vx * 32, crest = wall.vy * 32;
+    // L'appoggio in prospettiva: sotto la sommità disegnata, fino alla base della facciata.
+    const top = crest - 16 + WORLD.walls.rise, bottom = crest + 32 + 16 + WORLD.walls.drop;
+    expect(world.blocked(new Vec2(x, (top + bottom) / 2), 1)).toBe(true);
+    expect(world.blocked(new Vec2(x, crest), RADIUS)).toBe(false);
+    expect(world.obstaclesIn(x - 1, top - 1, x + 1, bottom + 1).solids.some(solid => solid.y === top && solid.y + solid.height === bottom && solid.x <= x && solid.x + solid.width >= x)).toBe(true);
+    // Da nord si passa dietro la sommità e ci si ferma contro l'appoggio.
+    const north = new Vec2(x, crest - 16 - RADIUS - 2);
+    expect(world.blocked(north, RADIUS)).toBe(false);
+    const behind = world.moveBody(north, new Vec2(0, 80), RADIUS).y;
+    expect(behind).toBeGreaterThan(crest);
+    expect(behind).toBeLessThanOrEqual(top - RADIUS);
+    // Da sud ci si ferma contro la base della facciata.
+    const front = world.moveBody(new Vec2(x, bottom + RADIUS + 30), new Vec2(0, -80), RADIUS).y;
+    expect(front).toBeGreaterThanOrEqual(bottom + RADIUS);
+    expect(front).toBeLessThan(bottom + RADIUS + 6);
   });
 
   it('l\'acqua e i bordi della mappa non si attraversano', () => {

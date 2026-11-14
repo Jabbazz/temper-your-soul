@@ -24,7 +24,7 @@ const createWorldMatch = (): Match => new Match({
 });
 
 /** Il primo ostacolo sparso di quel tipo con spazio libero a ovest, cercato nei blocchi attorno alla partenza. */
-function findObstacle(kind: WorldObstacle['kind'], gap: number): WorldObstacle {
+function findObstacle(kind: 'oak' | 'bush' | 'boulder' | 'dead_tree' | 'moor_rock', gap: number): WorldObstacle {
   for (let cy = 0; cy < 6; cy++) for (let cx = 12; cx < 20; cx++) for (const obstacle of world.chunk(cx, cy).obstacles) {
     if (obstacle.kind !== kind) continue;
     let free = true;
@@ -34,11 +34,16 @@ function findObstacle(kind: WorldObstacle['kind'], gap: number): WorldObstacle {
   throw new Error(`nessun ${kind} adatto`);
 }
 
-/** Un vertice di mura orizzontali (sommità) con prato libero subito a nord. */
+/**
+ * Un tratto di mura orizzontali con prato libero subito a nord: il punto sul bordo nord del suo appoggio in
+ * prospettiva, appena dentro. La sommità disegnata sta più su e lì si passa.
+ */
 function findWallTop(): Vec2 {
   const isWall = (vx: number, vy: number): boolean => world.generator.terrainAtVertex(vx, vy) === 'wall';
   for (let vy = 24; vy < 200; vy += WORLD.ruins.grid) for (let vx = 690; vx < 1000; vx++) {
-    if (isWall(vx, vy) && isWall(vx - 1, vy) && isWall(vx + 1, vy) && !isWall(vx, vy - 1) && !world.blocked(new Vec2(vx * 32, vy * 32 - 60), BODY)) return new Vec2(vx * 32, vy * 32);
+    if (isWall(vx, vy) && isWall(vx - 1, vy) && isWall(vx + 1, vy) && !isWall(vx, vy - 1) && !world.blocked(new Vec2(vx * 32, vy * 32 - 60), BODY)) {
+      return new Vec2(vx * 32, vy * 32 - 16 + WORLD.walls.rise + 1);
+    }
   }
   throw new Error('nessun tratto di mura adatto');
 }
@@ -54,7 +59,7 @@ describe('mondo aperto come mappa di una partita', () => {
     expect(chasmAt(arena, wall)).toBeUndefined();
     // Le mura fermano la vista e lo scatto; un punto libero accanto non è toccato.
     expect(sightBlocked(arena, new Vec2(wall.x, wall.y - 60), new Vec2(wall.x, wall.y + 120))).toBe(true);
-    expect(sweepSolids(arena, new Vec2(wall.x, wall.y - 60), new Vec2(wall.x, wall.y + 120), BODY).y).toBeLessThanOrEqual(wall.y - 16 - BODY + 0.01);
+    expect(sweepSolids(arena, new Vec2(wall.x, wall.y - 60), new Vec2(wall.x, wall.y + 120), BODY).y).toBeLessThanOrEqual(wall.y - 1 - BODY + 0.01);
     expect(solidAt(arena, new Vec2(wall.x, wall.y - 60))).toBeUndefined();
 
     // L'acqua è un pozzo: ferma chi cammina, non la vista né i colpi.
@@ -84,8 +89,8 @@ describe('mondo aperto come mappa di una partita', () => {
     const match = createWorldMatch(), wall = findWallTop();
     match.player.position = new Vec2(wall.x, wall.y - 60);
     run(match, 2, (m) => intent(m, { move: new Vec2(0, 1) }));
-    expect(match.player.position.y).toBeLessThanOrEqual(wall.y - 16 - BODY + 0.01);
-    expect(match.player.position.y).toBeGreaterThan(wall.y - 40);
+    expect(match.player.position.y).toBeLessThanOrEqual(wall.y - 1 - BODY + 0.01);
+    expect(match.player.position.y).toBeGreaterThan(wall.y - 1 - BODY - 6);
 
     let firstLand = 0;
     while (!TERRAIN_WALKABLE[world.terrainAt(firstLand * 32, 100 * 32)]) firstLand++;

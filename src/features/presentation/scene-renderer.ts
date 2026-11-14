@@ -121,7 +121,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 
   if (boss !== null && boss.charge !== null) drawChargeTelegraph(ctx, boss.charge);
   for (const flash of effects.flashes) drawZoneFlash(ctx, flash);
-  for (const zone of match.zones) drawPendingZone(ctx, zone, match.time);
+  for (const zone of match.zones) drawPendingZone(ctx, zone, match.time, zone.team === 'enemy' ? theme.dangerColor?.(match.arena, zone.position) : undefined);
   drawTelegraphs(ctx, effects.telegraphs, match.minions);
 
   drawPersistentVfx(ctx, match, match.time);
@@ -161,7 +161,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const impact of effects.meteorImpacts.impacts) {
     figures.push({ y: impact.y, draw: () => drawMeteorImpact(ctx, impact) });
   }
-  for (const figure of theme.figures?.(ctx, match.arena, camera, clock) ?? []) figures.push({ y: figure.y, draw: figure.draw });
+  for (const figure of theme.figures?.(ctx, match.arena, camera, clock, player.position) ?? []) figures.push({ y: figure.y, draw: figure.draw });
   figures.sort((a, b) => a.y - b.y);
   for (const figure of figures) figure.draw();
   drawMinionDeaths(ctx, effects.combatVfx);

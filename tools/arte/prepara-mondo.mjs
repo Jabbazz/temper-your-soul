@@ -16,8 +16,21 @@ import { inflateSync } from 'node:zlib';
 const ASSETS = fileURLToPath(new URL('../../src/assets/art/world/', import.meta.url));
 const DATA = fileURLToPath(new URL('../../src/features/presentation/world/world-art-data.ts', import.meta.url));
 /** Ordine dei tileset nel file generato: prima i raccordi piani, poi le pareti. */
-const TILESETS = ['road-grass', 'water-grass', 'grass-moor', 'road-moor', 'water-moor', 'grass-wall', 'moor-wall'];
-const OBJECTS = ['oak', 'bush', 'boulder', 'dead_tree', 'moor_rock'];
+const TILESETS = [
+  'road-grass', 'water-grass', 'grass-moor', 'road-moor', 'water-moor',
+  'moor-bog', 'road-bog', 'water-bog', 'bog-snow', 'road-snow', 'water-snow', 'ash-snow', 'road-ash', 'water-ash',
+  'ash-abyss', 'road-abyss', 'lava-abyss', 'water-lava', 'water-abyss', 'lava-ash',
+  'grass-wall', 'moor-wall', 'bog-wall', 'snow-wall', 'ash-wall', 'abyss-wall',
+  // Varianti del suolo (solo aspetto): macchie di un secondo aspetto sul suolo pieno di ogni fascia.
+  'grass-grass_lush', 'moor-moor_heather', 'bog-bog_puddle', 'snow-snow_ice', 'ash-ash_cinder', 'abyss-abyss_vein',
+];
+const OBJECTS = [
+  'oak', 'bush', 'boulder', 'dead_tree', 'moor_rock', 'stump', 'thorn_bush', 'swamp_tree', 'reeds', 'charred_tree', 'ash_rock', 'snow_pine', 'snow_rock',
+  'birch', 'fir', 'maple', 'berry_bush', 'mossy_rocks', 'crooked_tree', 'yew', 'thorn_tree', 'bone_pile',
+  'willow', 'mangrove', 'rotten_trunk', 'giant_mushrooms', 'spruce', 'frozen_birch', 'iced_tree', 'ice_crystals', 'snowy_bush',
+  'split_charred_tree', 'petrified_tree', 'ember_tree', 'obsidian_rocks', 'obsidian_spire', 'basalt_pillar', 'burning_tree', 'lava_vent', 'skull_pile',
+  'fence', 'knight_statue', 'gravestone', 'grave_cross', 'angel_statue', 'flowers', 'tall_grass',
+];
 const STATE = { lower: 0, upper: 1, transition: 2 };
 /** Un pixel conta come disegno sopra questa opacità. */
 const OPAQUE = 40;
@@ -86,7 +99,7 @@ const objects = OBJECTS.map((kind) => {
   }
   if (right < 0) throw new Error(`${file}: immagine vuota`);
   copyFileSync(join(source, file), join(ASSETS, `${kind}.png`));
-  return { kind, width, height, anchorX: Math.round((left + right) / 2), bottom: bottom + 1 };
+  return { kind, width, height, anchorX: Math.round((left + right) / 2), bottom: bottom + 1, spread: right - left + 1 };
 });
 
 const url = (file) => `new URL('../../../assets/art/world/${file}', import.meta.url).href`;
@@ -98,8 +111,8 @@ const lines = [
   'export interface WorldTileArt { readonly x: number; readonly y: number; readonly pattern: readonly number[] }',
   '/** Un tileset di raccordo fra due terreni (id di `WORLD_TERRAINS`). */',
   'export interface WorldTilesetArt { readonly lower: string; readonly upper: string; readonly size: number; readonly url: string; readonly tiles: readonly WorldTileArt[] }',
-  '/** Il disegno di un ostacolo: `anchorX` e `bottom` sono il centro e il bordo inferiore dei pixel disegnati. */',
-  'export interface WorldObjectArt { readonly url: string; readonly width: number; readonly height: number; readonly anchorX: number; readonly bottom: number }',
+  '/** Il disegno di un ostacolo: `anchorX` e `bottom` sono il centro e il bordo inferiore dei pixel disegnati, `spread` la loro larghezza. */',
+  'export interface WorldObjectArt { readonly url: string; readonly width: number; readonly height: number; readonly anchorX: number; readonly bottom: number; readonly spread: number }',
   '',
   'export const WORLD_TILESET_ART: readonly WorldTilesetArt[] = [',
   ...tilesets.map((set) => [
@@ -110,7 +123,7 @@ const lines = [
   '];',
   '',
   'export const WORLD_OBJECT_ART: Readonly<Record<string, WorldObjectArt>> = {',
-  ...objects.map((o) => `  ${o.kind}: { url: ${url(`${o.kind}.png`)}, width: ${o.width}, height: ${o.height}, anchorX: ${o.anchorX}, bottom: ${o.bottom} },`),
+  ...objects.map((o) => `  ${o.kind}: { url: ${url(`${o.kind}.png`)}, width: ${o.width}, height: ${o.height}, anchorX: ${o.anchorX}, bottom: ${o.bottom}, spread: ${o.spread} },`),
   '};',
   '',
 ];

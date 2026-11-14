@@ -1,8 +1,23 @@
 import { Vec2 } from './vec2';
 import { CAMERA_TRACKING, updateCamera, type Camera as CameraState } from './camera-offset';
 
-/** Ingrandimento della vista: il canvas ha risoluzione interna pari alla finestra divisa per questo valore. */
+/**
+ * Ingrandimento desiderato della vista, in pixel CSS per pixel di mondo. La scala vera è intera in pixel del
+ * dispositivo (vedi `pixelPerfectView`): con una scala non intera ogni pixel dell'arte sarebbe largo a volte 1 e a
+ * volte 2 pixel dello schermo, e scorrendo la camera le texture tremolano e sembrano sbavate.
+ */
 export const ZOOM = 1.5;
+
+/**
+ * La vista a scala intera: `scale` pixel del dispositivo per ogni pixel di mondo (il valore intero più vicino a
+ * `zoom` × `dpr`), la risoluzione interna del canvas e la sua misura CSS, multiplo esatto dei pixel del dispositivo.
+ * L'avanzo della finestra (meno di `scale` pixel del dispositivo per lato) resta scoperto.
+ */
+export function pixelPerfectView(cssWidth: number, cssHeight: number, dpr: number, zoom = ZOOM): { readonly scale: number; readonly width: number; readonly height: number; readonly cssWidth: number; readonly cssHeight: number } {
+  const ratio = dpr > 0 ? dpr : 1, scale = Math.max(1, Math.round(zoom * ratio));
+  const width = Math.max(1, Math.floor((cssWidth * ratio) / scale)), height = Math.max(1, Math.floor((cssHeight * ratio) / scale));
+  return { scale, width, height, cssWidth: (width * scale) / ratio, cssHeight: (height * scale) / ratio };
+}
 
 /**
  * Camera con inseguimento smorzato e offset verso il mouse, senza limiti ai bordi. La vista è misurata in unità di mondo, cioè in pixel

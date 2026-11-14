@@ -31,48 +31,55 @@ export function drawChargeTelegraph(ctx: CanvasRenderingContext2D, charge: Charg
   ctx.restore();
 }
 
-/** Zona in attesa di scoppiare: area segnalata con il conto alla rovescia. `time` anima le tacche. */
-export function drawPendingZone(ctx: CanvasRenderingContext2D, zone: DangerZone, time: number): void {
-  const u = zone.progress;
-  const friendly = zone.team === 'player';
+/**
+ * Zona in attesa di scoppiare, il segnale classico: un anello fisso segna l'area, dentro un disco pieno cresce dal
+ * centro e quando tocca l'anello il colpo parte. Un bordo scuro attorno all'anello lo stacca da qualunque terreno.
+ * `color`, se c'è, sostituisce il colore dell'aspetto (il mondo aperto sceglie quello che contrasta con il terreno).
+ */
+export function drawPendingZone(ctx: CanvasRenderingContext2D, zone: DangerZone, _time: number, color?: string): void {
+  const u = clamp(zone.progress, 0, 1);
   const look = zoneLook(zone.team, zone.spec.visual);
+  const ring = color ?? look.ring, r = zone.radius;
   ctx.save();
   ctx.translate(zone.position.x, zone.position.y);
-  ctx.fillStyle = look.fill;
+  // Velatura dell'area, leggera.
+  ctx.globalAlpha = 0.14;
+  ctx.fillStyle = ring;
   ctx.beginPath();
-  ctx.arc(0, 0, zone.radius, 0, TAU);
+  ctx.arc(0, 0, r, 0, TAU);
   ctx.fill();
-  ctx.strokeStyle = look.ring;
+  // Il disco che cresce: più pieno quando sta per scoppiare.
+  ctx.globalAlpha = 0.28 + u * 0.22;
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(1, r * u), 0, TAU);
+  ctx.fill();
+  // Bordo scuro, poi l'anello del colore.
+  ctx.globalAlpha = 0.75;
+  ctx.strokeStyle = '#120e16';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, TAU);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = ring;
   ctx.lineWidth = 2;
-  ctx.globalAlpha = 0.8;
-  ctx.beginPath();
-  ctx.arc(0, 0, zone.radius, 0, TAU);
-  ctx.stroke();
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(0, 0, zone.radius + 4, -Math.PI / 2, -Math.PI / 2 + u * TAU);
-  ctx.stroke();
-  ctx.globalAlpha = 0.3 + u * 0.45;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(0, 0, zone.radius * (1 - u), 0, TAU);
-  ctx.stroke();
-  for (let i = 0; i < 8; i++) {
-    const a = (i * Math.PI) / 4 + (friendly ? time * 0.6 : -time * 0.3);
-    ctx.save();
-    ctx.rotate(a);
-    ctx.fillStyle = look.ring;
-    ctx.fillRect(zone.radius * 0.78, -2, 7, 4);
-    ctx.restore();
-  }
-  ctx.globalAlpha = 0.7;
-  ctx.beginPath();
-  ctx.moveTo(-7, 0);
-  ctx.lineTo(7, 0);
-  ctx.moveTo(0, -7);
-  ctx.lineTo(0, 7);
   ctx.stroke();
   ctx.restore();
+}
+
+/** Colori di pericolo fra cui scegliere quello che contrasta di più con il terreno (mondo aperto). */
+export const DANGER_COLORS = ['#ff3b2f', '#ff3fd2', '#ffd51f', '#2fd8ff'] as const;
+
+/** Il colore di pericolo più lontano dal colore del terreno (`#rrggbb`), così l'area non si confonde con il suolo. */
+export function contrastingDangerColor(ground: string): string {
+  const rgb = (hex: string): [number, number, number] => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+  const [gr, gg, gb] = rgb(ground);
+  let best: string = DANGER_COLORS[0], distance = -1;
+  for (const candidate of DANGER_COLORS) {
+    const [r, g, b] = rgb(candidate), d = Math.hypot(r - gr, g - gg, b - gb);
+    if (d > distance) { distance = d; best = candidate; }
+  }
+  return best;
 }
 
 /** Bagliore che resta per un attimo dopo lo scoppio di una zona. */

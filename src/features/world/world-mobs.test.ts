@@ -8,114 +8,162 @@ import { CRYPT } from '../dungeons/crypt';
 import type { Encounter } from '../match/encounter';
 import { Match } from '../match/match';
 import { MINIONS, SPORELING } from '../minions/minion-catalog';
+import { MINION_ROAM } from '../minions/minion-ai';
 import { MAGE_SKILLS } from '../skills/mage-skills';
 import { worldArena } from './world-arena';
 import { WORLD } from './world-definition';
 import { WorldMap } from './world-map';
-import { WORLD_MOBS, WorldEncounter, worldPack, type WorldPack } from './world-mobs';
+import { WORLD_MOBS, WorldEncounter, composeGroup } from './world-mobs';
 
 const world = new WorldMap();
 const arena = worldArena(world);
 const BODY = BODY_RADIUS.player;
-const ZONE = WORLD_MOBS.zoneTiles * WORLD.tile;
-const createMatch = (encounter: Encounter): Match => new Match({
-  rng: new SeededRng(11), dungeon: { ...CRYPT, id: arena.id, name: arena.name, arena }, arena, boss: null, encounter, loadout: MAGE_SKILLS,
+const createMatch = (encounter: Encounter, seed = 11): Match => new Match({
+  rng: new SeededRng(seed), dungeon: { ...CRYPT, id: arena.id, name: arena.name, arena }, arena, boss: null, encounter, loadout: MAGE_SKILLS,
 });
+/** Un punto del Bosco Verde lontano dalla partenza e dalle rovine. */
+const MEADOW = world.freePointNear(new Vec2(300 * WORLD.tile, 120 * WORLD.tile), BODY);
+/** Un punto lontanissimo da MEADOW, dove nessuna regione di MEADOW resta attiva. */
+const ELSEWHERE = world.freePointNear(new Vec2(300 * WORLD.tile, 420 * WORLD.tile), BODY);
 
-/** Tutti i branchi «sulla carta» della mappa. */
-const packs: WorldPack[] = [];
-for (let zoneY = 0; zoneY * ZONE < world.height; zoneY++) for (let zoneX = 0; zoneX * ZONE < world.width; zoneX++) {
-  const pack = worldPack(world, zoneX, zoneY);
-  if (pack !== null) packs.push(pack);
-}
-/** Un branco del Bosco Verde con uno Sporeling (cammina a terra), lontano dagli altri branchi quanto basta per isolarlo. */
-const lonely = packs.find((pack) => pack.biome.id === 'greenwood' && pack.members.some((member) => member.id === 'sporeling')
-  && packs.every((other) => other === pack || other.center.distanceTo(pack.center) > 500))!;
-/** Un punto libero a circa `distance` a ovest o a est del centro del branco. */
-const standAt = (pack: WorldPack, distance: number): Vec2 => world.freePointNear(pack.center.add(new Vec2(pack.center.x > world.width / 2 ? -distance : distance, 0)), BODY);
-const ofPack = (match: Match, pack: WorldPack) => match.minions.filter((minion) => minion.position.distanceTo(pack.center) < 120);
-
-describe('mondo aperto: branchi', () => {
-  it('ogni fascia ha nemici che esistono, e a sud sono più forti e più pagati', () => {
+describe('mondo aperto: nemici', () => {
+  it('ogni fascia ha nemici che esistono, a sud più forti, più fitti e più pagati', () => {
     for (const biome of WORLD.biomes) {
-      expect(biome.mobs.pool.length).toBeGreaterThan(0);
-      for (const entry of biome.mobs.pool) expect(MINIONS[entry.minion], `${biome.id}: ${entry.minion}`).toBeDefined();
+      for (const entry of [...biome.mobs.pool, ...biome.mobs.ruins]) {
+        expect(MINIONS[entry.minion], `${biome.id}: ${entry.minion}`).toBeDefined();
+        // Nel mondo nessuno vola: tutti rispettano le collisioni come il giocatore.
+        expect(MINIONS[entry.minion]!.flying ?? false, `${entry.minion} vola`).toBe(false);
+      }
+      // Il gruppo più frequente è di tre.
+      expect(biome.mobs.groupSizes.indexOf(Math.max(...biome.mobs.groupSizes))).toBe(2);
     }
     const [north, south] = WORLD.biomes;
     expect(south!.mobs.healthScale).toBeGreaterThan(north!.mobs.healthScale);
     expect(south!.mobs.reward.xp).toBeGreaterThan(north!.mobs.reward.xp);
-    expect(south!.mobs.packSize[1]).toBeGreaterThanOrEqual(north!.mobs.packSize[1]);
+    expect(south!.mobs.perRegion).toBeGreaterThanOrEqual(north!.mobs.perRegion);
   });
 
-  it('i branchi dipendono solo dal seme, stanno su terreno libero e lasciano tranquilla la partenza', () => {
-    expect(packs.length).toBeGreaterThan(200);
-    expect(new Set(packs.map((pack) => pack.biome.id))).toEqual(new Set(['greenwood', 'mistmoor']));
-    const start = new Vec2(world.width / 2, WORLD.spawn.row * WORLD.tile);
-    for (const pack of packs) {
-      expect(world.blocked(pack.center, 16), `branco ${pack.zoneX},${pack.zoneY}`).toBe(false);
-      expect(pack.center.distanceTo(start)).toBeGreaterThanOrEqual(WORLD_MOBS.safeRadius);
-      const [least, most] = pack.biome.mobs.packSize;
-      expect(pack.members.length).toBeGreaterThanOrEqual(least);
-      expect(pack.members.length).toBeLessThanOrEqual(most);
-      for (const member of pack.members) expect(pack.biome.mobs.pool.some((entry) => entry.minion === member.id)).toBe(true);
+  it('i gruppi sono vari: di solito tre, a volte da soli o in tanti, misti ma non a caso puro', () => {
+    const rng = new SeededRng(3), sizes = new Map<number, number>(), kinds = new Set<string>();
+    let mixed = 0;
+    for (let i = 0; i < 400; i++) {
+      const group = composeGroup(world, MEADOW, rng);
+      expect(group.biome.id).toBe('greenwood');
+      expect(group.ruins).toBe(false);
+      sizes.set(group.members.length, (sizes.get(group.members.length) ?? 0) + 1);
+      for (const member of group.members) {
+        expect(group.biome.mobs.pool.some((entry) => entry.minion === member.id)).toBe(true);
+        kinds.add(member.id);
+      }
+      if (new Set(group.members.map((member) => member.id)).size > 1) mixed++;
     }
-    const again = worldPack(new WorldMap(), lonely.zoneX, lonely.zoneY)!;
-    expect(again.center.equals(lonely.center)).toBe(true);
-    expect(again.members.map((member) => member.id)).toEqual(lonely.members.map((member) => member.id));
-    expect(worldPack(new WorldMap({ ...WORLD, seed: WORLD.seed + 5 }), lonely.zoneX, lonely.zoneY)?.center.equals(lonely.center) ?? false).toBe(false);
+    expect([...sizes.keys()].sort()).toEqual([1, 2, 3, 4, 5]);
+    expect(Math.max(...sizes.values())).toBe(sizes.get(3));
+    expect(kinds.size).toBe(WORLD.biomes[0]!.mobs.pool.length);
+    expect(mixed).toBeGreaterThan(80);
+    expect(mixed).toBeLessThan(330);
+    // Stesso seme, stessi gruppi.
+    const a = new SeededRng(9), b = new SeededRng(9);
+    for (let i = 0; i < 20; i++) expect(composeGroup(world, MEADOW, a).members.map((m) => m.id)).toEqual(composeGroup(world, MEADOW, b).members.map((m) => m.id));
   });
 
-  it('un branco nasce fuori vista quando ci si avvicina e resta fermo finché non si entra nel suo raggio', () => {
+  it('fra le rovine nascono i nemici delle rovine', () => {
+    const isWall = (vx: number, vy: number): boolean => world.vertexTerrain(vx, vy) === 'wall';
+    let ruin: Vec2 | null = null;
+    for (let vy = 24; vy < 200 && ruin === null; vy++) for (let vx = 690; vx < 1000 && ruin === null; vx++) if (isWall(vx, vy) && !isWall(vx, vy + 3)) ruin = world.freePointNear(new Vec2(vx * 32, (vy + 3) * 32), 16);
+    const group = composeGroup(world, ruin!, new SeededRng(1));
+    expect(group.ruins).toBe(true);
+    for (const member of group.members) expect(group.biome.mobs.ruins.some((entry) => entry.minion === member.id)).toBe(true);
+  });
+
+  it('le regioni attorno al giocatore si popolano fuori vista, mai attorno alla partenza', () => {
     const match = createMatch(new WorldEncounter(world));
     run(match, 1);
-    // Attorno alla partenza non nasce nulla a portata di schermo.
-    for (const minion of match.minions) expect(minion.position.distanceTo(match.player.position)).toBeGreaterThan(WORLD_MOBS.minSpawnDistance - 80);
+    const start = new Vec2(world.width / 2, WORLD.spawn.row * WORLD.tile);
+    for (const minion of match.minions) expect(minion.position.distanceTo(start)).toBeGreaterThan(WORLD_MOBS.safeRadius - WORLD_MOBS.groupSpread - 40);
 
-    match.player.position = standAt(lonely, 760);
+    match.player.position = MEADOW;
     run(match, 0.5);
-    const born = ofPack(match, lonely);
-    expect(born.map((minion) => minion.definition.id).sort()).toEqual(lonely.members.map((member) => member.id).sort());
-    for (const minion of born) expect(minion.health.max).toBe(Math.round(minion.definition.maxHealth * lonely.biome.mobs.healthScale));
-    const before = born.map((minion) => minion.position);
-    run(match, 2);
-    born.forEach((minion, index) => expect(minion.position.equals(before[index]!), `${minion.definition.id} si è mosso da lontano`).toBe(true));
-    expect(match.projectiles.length).toBe(0);
+    const born = match.minions.filter((minion) => minion.position.distanceTo(MEADOW) < WORLD_MOBS.activateRadius + 300);
+    // Più regioni, ognuna con qualche gruppo: ben più di un branco da tre.
+    expect(born.length).toBeGreaterThan(12);
+    expect(match.minions.length).toBeLessThanOrEqual(WORLD_MOBS.maxAlive);
+    for (const minion of born) {
+      expect(minion.position.distanceTo(MEADOW)).toBeGreaterThan(WORLD_MOBS.minSpawnDistance - WORLD_MOBS.groupSpread - 20);
+      expect(minion.health.max).toBe(Math.round(minion.definition.maxHealth * WORLD.biomes[0]!.mobs.healthScale));
+      expect(world.blocked(minion.position, minion.hitRadius - 1), `${minion.definition.id} nato dentro un ostacolo`).toBe(false);
+    }
+    expect(new Set(born.map((minion) => minion.definition.id)).size).toBeGreaterThan(1);
+  });
 
-    // Entrati nel raggio, chi cammina viene incontro.
-    match.player.position = standAt(lonely, 320);
-    const walker = born.find((minion) => minion.definition.id === 'sporeling')!, far = walker.position.distanceTo(match.player.position);
+  it('lontano dai giocatori i nemici girano attorno a casa, senza allontanarsi e senza sparare', () => {
+    const match = createMatch(new WorldEncounter(world));
+    match.player.position = MEADOW;
+    run(match, 0.5);
+    const walkers = match.minions.filter((minion) => minion.roam !== null && minion.speed > 0 && minion.position.distanceTo(MEADOW) > WORLD_MOBS.aggroRadius + 150);
+    expect(walkers.length).toBeGreaterThan(3);
+    const before = walkers.map((minion) => minion.position);
+    run(match, 8);
+    expect(walkers.filter((minion, index) => !minion.position.equals(before[index]!)).length).toBeGreaterThan(walkers.length / 2);
+    for (const minion of walkers) {
+      expect(minion.position.distanceTo(minion.roam!.home)).toBeLessThan(WORLD_MOBS.roamRadius + minion.speed * MINION_ROAM.speed + 2);
+      expect(world.blocked(minion.position, minion.hitRadius - 1)).toBe(false);
+    }
+    expect(match.projectiles.length).toBe(0);
+  });
+
+  it('chi entra nel raggio di un nemico a terra se lo vede venire incontro', () => {
+    const match = createMatch(new WorldEncounter(world));
+    match.player.position = MEADOW;
+    run(match, 0.5);
+    const walker = match.minions.find((minion) => minion.definition.behavior === 'chaser')!;
+    expect(walker).toBeDefined();
+    match.player.position = world.freePointNear(walker.position.add(new Vec2(WORLD_MOBS.aggroRadius - 120, 0)), BODY);
+    const far = walker.position.distanceTo(match.player.position);
     run(match, 2);
     expect(walker.position.distanceTo(match.player.position)).toBeLessThan(far - 60);
     expect(match.status).toBe('playing');
   });
 
-  it('sparisce quando tutti si allontanano e rinasce intero al ritorno', () => {
+  it('le regioni lontane si svuotano e al ritorno si ripopolano con nemici nuovi', () => {
     const match = createMatch(new WorldEncounter(world));
-    match.player.position = standAt(lonely, 760);
+    match.player.position = MEADOW;
     run(match, 0.5);
-    const first = ofPack(match, lonely).map((minion) => minion.id);
-    expect(first.length).toBe(lonely.members.length);
-    match.player.position = world.freePointNear(lonely.center.add(new Vec2(0, lonely.center.y > world.height / 2 ? -4000 : 4000)), BODY);
+    const first = new Set(match.minions.map((minion) => minion.id));
+    expect(first.size).toBeGreaterThan(0);
+    match.player.position = ELSEWHERE;
     run(match, 0.5);
-    expect(match.minions.filter((minion) => first.includes(minion.id))).toEqual([]);
-    expect(match.minions.length).toBeLessThanOrEqual(WORLD_MOBS.maxAlive);
-    match.player.position = standAt(lonely, 760);
+    expect(match.minions.filter((minion) => first.has(minion.id))).toEqual([]);
+    match.player.position = MEADOW;
     run(match, 0.5);
-    expect(ofPack(match, lonely).length).toBe(lonely.members.length);
-    expect(ofPack(match, lonely).some((minion) => first.includes(minion.id))).toBe(false);
+    const near = match.minions.filter((minion) => minion.position.distanceTo(MEADOW) < WORLD_MOBS.activateRadius);
+    expect(near.length).toBeGreaterThan(0);
+    expect(near.some((minion) => first.has(minion.id))).toBe(false);
   });
 
-  it('un branco sterminato non rinasce prima del suo tempo', () => {
+  it('chi cade viene rimpiazzato col tempo, non subito', () => {
     const encounter = new WorldEncounter(world), match = createMatch(encounter);
-    match.player.position = standAt(lonely, 760);
+    match.player.position = MEADOW;
     run(match, 0.5);
-    for (const minion of ofPack(match, lonely)) { match.removeMinion(minion); encounter.onMinionKilled(match, minion); }
+    const count = match.minions.length;
+    for (const minion of [...match.minions]) { match.removeMinion(minion); encounter.onMinionKilled(match, minion); }
     run(match, 5);
-    expect(ofPack(match, lonely)).toEqual([]);
-    run(match, WORLD_MOBS.respawnSeconds - 10);
-    expect(ofPack(match, lonely)).toEqual([]);
-    run(match, 12);
-    expect(ofPack(match, lonely).length).toBe(lonely.members.length);
+    expect(match.minions.length).toBe(0);
+    run(match, WORLD_MOBS.refillSeconds);
+    expect(match.minions.length).toBeGreaterThan(0);
+    expect(match.minions.length).toBeLessThan(count);
+  });
+
+  it('con lo stesso seme la stessa partita si ripete uguale', () => {
+    const play = (): string[] => {
+      const match = createMatch(new WorldEncounter(world), 21);
+      match.player.position = MEADOW;
+      run(match, 4);
+      return match.minions.map((minion) => `${minion.definition.id}@${minion.position.x.toFixed(2)},${minion.position.y.toFixed(2)}`);
+    };
+    const first = play();
+    expect(first.length).toBeGreaterThan(0);
+    expect(play()).toEqual(first);
   });
 });
 
@@ -134,14 +182,16 @@ describe('mondo aperto: i nemici aggirano gli ostacoli', () => {
   const QUIET: Encounter = { attach: () => undefined, step: () => undefined, onBossDefeated: () => undefined };
 
   it('la griglia di navigazione copre una finestra attorno a un punto', () => {
+    // Il centro dell'appoggio in prospettiva del tratto (sommità e facciata): da lì in su si passa dietro le mura.
+    const inside = new Vec2(wall.x, wall.y + (WORLD.walls.rise + 32 + WORLD.walls.drop) / 2);
     const grid = new NavGrid(arena, NAV_FIELD.localSize);
-    grid.recenter(wall);
+    grid.recenter(inside);
     expect(grid.cols * grid.rows).toBe((NAV_FIELD.localSize / NAV_FIELD.cell) ** 2);
-    expect(grid.middle.distanceTo(wall)).toBeLessThan(NAV_FIELD.cell);
-    expect(grid.contains(wall)).toBe(true);
-    expect(grid.contains(new Vec2(wall.x + NAV_FIELD.localSize, wall.y))).toBe(false);
-    expect(grid.open[grid.cellOf(wall)]).toBe(0);
-    expect(grid.center(grid.cellOf(wall)).distanceTo(wall)).toBeLessThan(NAV_FIELD.cell);
+    expect(grid.middle.distanceTo(inside)).toBeLessThan(NAV_FIELD.cell);
+    expect(grid.contains(inside)).toBe(true);
+    expect(grid.contains(new Vec2(inside.x + NAV_FIELD.localSize, inside.y))).toBe(false);
+    expect(grid.open[grid.cellOf(inside)]).toBe(0);
+    expect(grid.center(grid.cellOf(inside)).distanceTo(inside)).toBeLessThan(NAV_FIELD.cell);
     expect(Array.from(grid.open).filter((cell) => cell === 1).length).toBeGreaterThan(grid.open.length / 2);
   });
 

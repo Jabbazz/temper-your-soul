@@ -1,5 +1,29 @@
 # Bug e problemi rilevati
 
+## Alone e immagini non nitide scorrendo la camera (corretto il 14 novembre 2026)
+
+Segnalato dall'utente su uno schermo a 165 Hz: muovendo il personaggio o la mira le texture lasciano un alone e non restano nitide. Due cause:
+1. **Ingrandimento non intero.** Il canvas era disegnato a 1/1,5 della finestra (`ZOOM = 1.5`) e ingrandito dal CSS con `pixelated`: ogni pixel dell'arte diventava largo a volte 1 e a volte 2 pixel dello schermo, e scorrendo la camera lo schema si spostava (tremolio, bordi sbavati). Ora la scala è intera in pixel del dispositivo (`pixelPerfectView`, il valore intero più vicino a `ZOOM` × `devicePixelRatio`) e la misura CSS del canvas ne è un multiplo esatto. Effetto collaterale: con Windows al 100% la scala passa da 1,5 a 2 e il campo visivo si riduce di circa un quarto.
+2. **Simulazione a 60 Hz senza interpolazione.** Su uno schermo a 165 Hz ogni posizione restava a schermo 2 o 3 fotogrammi in modo irregolare mentre la camera scorreva a ogni fotogramma: micro-scatti e immagini doppie. Ora il disegno mostra giocatori, nemici, proiettili e boss fra l'ultimo passo e il prossimo (`RenderInterpolation`, solo in locale; online lo fa già la vista di rete), senza cambiare le posizioni della simulazione.
+
+Test sulla scala intera e sull'interpolazione; controllato in un browser senza finestra (scala 2, il gioco gira e il personaggio cammina). Confermato a mano dall'utente il 14 novembre 2026 sul suo schermo a 165 Hz, insieme al nuovo campo visivo e alle chiazze di terreno dei biomi.
+
+## Mondo aperto: mappa e minimappa ridotte a un punto (corretto il 13 novembre 2026)
+
+Segnalato dall'utente: tenendo premuto Tab la mappa del mondo non si vedeva, e prima la minimappa «mancava». Causa: la regola generale `canvas { position: absolute; inset: 0; width: 100% }` di `style.css` valeva anche per i loro canvas; la cornice si riduceva al margine e, con `overflow: hidden`, la mappa restava tagliata a pochi pixel. Corretto annullando posizione e riquadro per `.world-map-canvas` e `.world-minimap-canvas`, come già faceva la minimappa delle stanze. Controllato aprendo il gioco in un browser senza finestra (mappa 512×768, minimappa 224×224); prova dell'utente ancora da fare.
+
+## Mondo aperto: ombre invisibili sui suoli scuri (corretto il 13 novembre 2026)
+
+Segnalato dall'utente: nelle fasce nuove sembravano mancare le ombre. C'erano, ma il loro colore (verde scuro poco coprente, tarato su prato e brughiera) spariva su fango, cenere e roccia lavica. Ora l'ombra ha un colore per suolo (`WORLD_SHADOWS.byGround`), con un test che la vuole più scura del suolo in ogni fascia.
+
+## Test instabile: `server/trade-ledger.test.ts` (rilevato il 13 novembre 2026, aperto)
+
+Durante un `npx vitest run` completo il test «il registro sopravvive al riavvio e conserva la consegna dell'altro giocatore finché non conferma il salvataggio» è fallito una volta e poi è passato rilanciato da solo e nelle verifiche successive, senza modifiche al server. Probabile interferenza fra test che usano file su disco in parallelo, o con il server di sviluppo acceso. Da indagare; non corretto.
+
+## Mondo aperto: le mura fermavano troppo presto da nord (correzione locale, 13 novembre 2026)
+
+Segnalato dall'utente: avvicinandosi a un muro delle rovine da nord il personaggio si fermava molto prima del disegno. Causa: ogni vertice di mura bloccava un quadrato pieno di un tile, anche la sommità che nel disegno rappresenta l'altezza della parete; con il raggio del corpo ci si fermava circa 25 unità sopra il muro. Ora l'appoggio a terra delle mura è in prospettiva (`WorldDefinition.walls`, valori provvisori legati al disegno): da nord si passa dietro la sommità e ci si ferma contro la base, e la parete si ridisegna davanti a chi le sta dietro, trasparente attorno al giocatore. Test di collisione e di profondità; prova giocata dell'utente ancora da fare.
+
 ## Risolto · Combat report duplicato · v0.18.00
 
 Al termine degli incontri online un dialogo modale con il rapporto del party copriva il riepilogo finale già completo di statistiche e drop. Rimossi il dialogo, il relativo modulo, gli stili e i callback dedicati. Il riepilogo con le ricompense resta unico; premi, salvataggi e dati del report di rete sono conservati. Prova giocata dell’utente ancora da confermare.
@@ -143,7 +167,6 @@ Solo problemi effettivamente osservati o rilevati leggendo il codice, distinti p
 - **Raggi di collisione incoerenti (ereditati).** I proiettili usano raggio + 9 sul giocatore e + 26 sul boss; le zone raggio + 8 e + 25 (`features/combat/collision.ts`). Da unificare con la prova manuale.
 - **Valori provvisori.** Tutti i valori di gioco sono quelli del prototipo e non sono tarati (vedi `docs/game-design.md`).
 - **Camera senza limiti.** Vicino ai bordi dell'arena la camera mostra il vuoto scuro oltre il muro (come nel prototipo).
-- **Disegno del singolo senza interpolazione.** In singolo la simulazione gira a 60 Hz e il disegno usa l'ultimo stato: su schermi a frequenza maggiore il movimento puo' risultare lievemente a scatti.
 - **Differenze volute rispetto al prototipo da confermare a mano**: elenco in `docs/game-design.md` (passo fisso, tasti per posizione fisica, scossa dello schermo applicata, effetti che proseguono dopo la fine, traslazione di camera arrotondata, tocchi brevissimi non persi).
 - **`npm audit` segnala avvisi sulle dipendenze di sviluppo** (osservato). Le versioni sono fissate uguali a quelle di Ashen Realm (vite 5.4.11, vitest 2.1.8): esbuild (<= 0.24.2, il server di sviluppo risponde a richieste di qualunque sito), `@vitest/mocker` (moderata) e `tinypool` (segnalata critica, ma riguarda le opzioni dei worker dei test). npm indica come correzione disponibile vite 5.4.21 e vitest 2.1.9 (aggiornamenti di patch, fuori dall'intervallo fissato). Sono solo dipendenze di sviluppo e non finiscono nel gioco pubblicato; non e' stato aggiornato nulla. Da decidere se allineare le versioni anche in Ashen Realm.
 

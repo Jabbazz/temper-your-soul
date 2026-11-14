@@ -27,6 +27,18 @@ export interface MinionOptions {
   readonly prey?: boolean;
   /** `maxHealth` e' gia' quella finale (copie di rete): l'elite non la moltiplica di nuovo. */
   readonly exactHealth?: boolean;
+  /** Mondo aperto: senza giocatori a portata gira entro `radius` dal punto di comparsa invece di stare fermo. */
+  readonly roam?: { readonly radius: number };
+}
+
+/** Il giro a vuoto di un servitore del mondo aperto: casa, raggio, meta attuale e pausa prima della prossima. */
+export interface MinionRoam {
+  readonly home: Vec2;
+  readonly radius: number;
+  goal: Vec2 | null;
+  /** Secondi di sosta rimasti (alla meta) o di cammino concessi per arrivarci. */
+  pause: number;
+  walk: number;
 }
 
 /** Un servitore in partita: stato variabile. I dati stanno in `MinionDefinition`. */
@@ -82,6 +94,8 @@ export class Minion {
   readonly parentId: number | null;
   readonly hostile: boolean;
   readonly prey: boolean;
+  /** Solo nel mondo aperto (`MinionOptions.roam`). */
+  readonly roam: MinionRoam | null;
 
   constructor(
     readonly id: number,
@@ -101,6 +115,7 @@ export class Minion {
     this.parentId = options.parentId ?? null;
     this.hostile = options.hostile ?? true;
     this.prey = options.prey === true;
+    this.roam = options.roam === undefined ? null : { home: position, radius: options.roam.radius, goal: null, pause: 0, walk: 0 };
     // La Caccia sostituisce il comportamento nativo con fuga/evocazione: non eseguirebbe risveglio o emersione.
     if (!this.prey) {
       if (definition.dormant !== undefined) this.state = 'dormant';

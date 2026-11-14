@@ -3,6 +3,11 @@ import { Game } from './game';
 import { requireElement } from './features/ui/dom';
 import './features/ui/pixel-type.css';
 import './features/ui/dungeon-cards.css';
+import './features/ui/forged-hud.css';
+import './features/ui/forged-buttons.css';
+import './features/ui/forged-menu.css';
+import './features/ui/forged-panels.css';
+import './features/ui/forged-inventory.css';
 
 const game = new Game(requireElement<HTMLCanvasElement>('game'));
 game.start();

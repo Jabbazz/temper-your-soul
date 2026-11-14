@@ -1,0 +1,43 @@
+/*
+ * Menu principale dopo l'accesso: il personaggio dentro l'incavo di ferro con il rubino (PixelLab,
+ * src/assets/art/ui/cornice-ritratto.png, 121×127, finestra rotonda di 92×94 a 14,16). Solo qui: in partita il
+ * ritratto non c'è. Lo sprite (cella 64×64) è a 2× e ritagliato dal cerchio; la cornice sta sopra.
+ */
+/* Ritratto a sinistra su due righe; a destra identità ed esperienza, subito sotto oro e GS. Testi a 16 px. */
+#screen-menu .menu-hero.menu-hero {
+  grid-template-columns: 121px minmax(0, 1fr) !important; grid-template-rows: auto auto; align-content: center;
+  column-gap: 12px; row-gap: 6px; width: auto !important; max-width: min(440px, calc(50vw - 300px)) !important;
+}
+#screen-menu .menu-hero-figure { grid-row: 1 / span 2; }
+#screen-menu .menu-hero-identity { grid-column: 2; align-self: end; min-width: 0; }
+#screen-menu .menu-hero .menu-hero-stats { grid-column: 2 !important; grid-row: 2; align-self: start; display: flex; flex-direction: row !important; align-items: center; gap: 16px !important; margin: 0 !important; }
+#screen-menu .menu-hero-name { font-size: 24px !important; line-height: 32px !important; }
+#screen-menu .menu-hero-line { font-size: 16px !important; line-height: 24px !important; margin: 0 !important; }
+#screen-menu .menu-hero-stat { gap: 8px; }
+#screen-menu .menu-hero-stat .pixel-icon { width: 24px !important; height: 24px !important; }
+#screen-menu .menu-hero-stat b, #screen-menu .menu-hero-stat small { font: 16px/24px var(--relic-pixel) !important; color: var(--forge-text); }
+#screen-menu .menu-hero-figure {
+  position: relative; width: 121px; height: 127px; overflow: visible; background: none; box-shadow: none;
+}
+#screen-menu .menu-hero-figure::before {
+  content: ''; position: absolute; left: 14px; top: 16px; width: 92px; height: 94px; border-radius: 50%;
+  background: radial-gradient(#4a2026, #120c10 72%);
+}
+#screen-menu .menu-hero-figure svg {
+  position: absolute; left: -4px; top: 5px; width: 128px; height: 128px; margin: 0;
+  clip-path: circle(46px at 64px 58px);
+}
+#screen-menu .menu-hero-figure::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: url('../../assets/art/ui/cornice-ritratto.png') no-repeat; image-rendering: pixelated;
+}
+#screen-menu .menu-hero:hover .menu-hero-figure::after { filter: brightness(1.15); }
+
+/* Esperienza verso il prossimo livello: la stessa barra d'oro fuso dell'HUD (canale: 4 px a sinistra, 5 a destra). */
+#screen-menu .menu-hero-xp { position: relative; height: 19px; margin-top: 6px; background: none; box-shadow: none; }
+#screen-menu .menu-hero-xp::before, #screen-menu .menu-hero-xp i {
+  content: ''; position: absolute; inset: 0; box-sizing: border-box; border-style: solid; border-color: transparent;
+  border-width: 0 12px; background: none; image-rendering: pixelated;
+}
+#screen-menu .menu-hero-xp::before { border-image: url('../../assets/art/ui/barra-esp-vuota.png') 0 12 fill / 0 12px round; }
+#screen-menu .menu-hero-xp i { border-image: url('../../assets/art/ui/barra-esp-piena.png') 0 12 fill / 0 12px round; clip-path: inset(0 calc(5px + (1 - var(--fill, 0)) * (100% - 9px)) 0 0); }

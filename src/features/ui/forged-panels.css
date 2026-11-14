@@ -1,0 +1,48 @@
+/*
+ * Contenitori in ferro, lava e rubini (PixelLab, src/assets/art/ui/): pannello grande (266×246, angoli di 32 px),
+ * card (170×178, angoli di 32 px), riquadro quadrato delle icone (48×48 con stati sopra e premuto).
+ * 9-slice: gli angoli con rubino e squadra restano intatti, i bordi ripetono i rivetti (round), l'interno si allunga.
+ * Caricato dopo gli altri fogli: sostituisce sfondi, bordi e ombre dei contenitori precedenti (da qui gli !important).
+ */
+:root {
+  --forged-panel: url('../../assets/art/ui/pannello.png');
+  --forged-card: url('../../assets/art/ui/card.png');
+}
+
+/* Pannello grande: finestre, schermate, impostazioni, comandi del menu. */
+.forge-panel:not(.menu-hero), #settings-panel, .forge-screen .screen-card, #screen-menu .menu-primary {
+  border-style: solid !important; border-color: transparent !important; border-width: 0 !important; border-radius: 0 !important;
+  border-image-source: var(--forged-panel) !important;
+  border-image-slice: 32 fill !important; border-image-width: 32px !important; border-image-outset: 0 !important; border-image-repeat: round !important;
+  background: none !important; box-shadow: none !important; image-rendering: pixelated;
+}
+#settings-panel, .forge-screen .screen-card { padding: 28px !important; }
+
+/* Comandi del menu principale: un solo pannello attorno alle placche, alla loro misura a ogni grandezza di finestra.
+ * Il vecchio rettangolo nero a gradiente non c'è più. */
+.menu-ledge { display: none !important; }
+#screen-menu .menu-primary { box-sizing: border-box; width: 384px !important; padding: 22px 22px !important; gap: 4px !important; }
+@media (max-width: 760px), (max-height: 560px) { #screen-menu .menu-primary { width: 100% !important; } }
+
+/* Card: schede dei dungeon e riquadri interni della pagina dei personaggi. */
+#screen-dungeons .dungeon-card, #screen-characters .stage-panel {
+  border-style: solid !important; border-color: transparent !important; border-width: 0 !important; border-radius: 0 !important;
+  border-image-source: var(--forged-card) !important;
+  border-image-slice: 32 fill !important; border-image-width: 32px !important; border-image-outset: 0 !important; border-image-repeat: round !important;
+  background: none !important; box-shadow: none !important; image-rendering: pixelated;
+}
+#screen-dungeons .dungeon-card { padding: 20px 18px !important; }
+#screen-dungeons .dungeon-card:hover, #screen-dungeons .dungeon-card:focus-within { filter: brightness(1.12); }
+#screen-dungeons .dungeon-card.is-unavailable { filter: grayscale(.6) brightness(.85); }
+#screen-characters .stage-panel { padding: 16px 18px !important; }
+
+/* Comandi in alto a destra in partita e nel rifugio: riquadro quadrato con le icone a pixel dentro. */
+#global-controls > button {
+  width: 48px !important; height: 48px !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+  background: url('../../assets/art/ui/riquadro-icona.png') center / 48px 48px no-repeat !important; box-shadow: none !important;
+  image-rendering: pixelated; color: #f3e6cc;
+}
+#global-controls > button:hover, #global-controls > button:focus-visible { background-image: url('../../assets/art/ui/riquadro-icona-sopra.png') !important; }
+#global-controls > button:active { background-image: url('../../assets/art/ui/riquadro-icona-premuto.png') !important; background-size: auto !important; }
+#global-controls > button .pixel-icon { width: 24px !important; height: 24px !important; }
+#global-controls > button svg:not(.pixel-icon) { width: 20px; height: 20px; }

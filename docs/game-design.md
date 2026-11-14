@@ -161,7 +161,7 @@ Il porting della Fase 0 conservava regole e valori; restano queste differenze (t
 - Ambientazione e lore: nomi dei dungeon e dei boss, "Ordine della Brace", "Emberfall".
 - Raggi di collisione (oggi incoerenti di 1 tra proiettili e zone), perforazione e rimbalzo dei proiettili, pilastri distruttibili o che fermano anche le zone.
 - Camminata: passo di 72 unità per ciclo (`PLAYER_WALK_STRIDE`), da tarare a occhio; prima la camminata aveva un ritmo fisso, più lento della velocità, e i piedi scivolavano.
-- Camera: taratura giocata di offset massimo e smorzamento (ora 100 unità / 8 s⁻¹), limiti ai bordi e interpolazione del disegno in singolo (su schermi a più di 60 Hz il movimento può sembrare lievemente a scatti).
+- Camera: taratura giocata di offset massimo e smorzamento (ora 100 unità / 8 s⁻¹), limiti ai bordi. L'interpolazione del disegno in singolo e la scala intera sono attive dal 14 novembre 2026, confermate a mano a 165 Hz.
 - Grafica: campioni PixelLab da approvare, pivot/agganci, frame e tempi da fissare sui primi lotti secondo il canone; nessun nuovo asset già approvato con questa direttiva. Audio definitivo, controlli (controller, touch/mobile), piattaforme e pubblicazione restano aperti.
 
 ### Inventario a slot (2026-10-31)

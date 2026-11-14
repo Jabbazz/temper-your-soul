@@ -1469,6 +1469,19 @@ body.room-fading .room-fade { opacity: 1; }
 .world-hud{position:fixed;left:16px;top:104px;z-index:26;display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:min(460px,calc(100vw - 32px));pointer-events:none}.world-hud.hidden{display:none}
 .world-place{margin:0;padding:6px 10px;background:#17121ccc;border:1px solid var(--relic-border);color:var(--relic-ivory);font:16px var(--relic-pixel)}
 .world-bar{display:flex;flex-wrap:wrap;gap:6px;pointer-events:auto}.world-bar .relic-button{padding:5px 10px;font-size:16px}
+/* Minimappa del mondo aperto (world-minimap.ts): in basso a destra, pixel netti, bordo come i pannelli. */
+.world-minimap{position:fixed;right:16px;bottom:16px;z-index:26;padding:4px;background:#17121ccc;border:1px solid var(--relic-border);box-shadow:3px 3px 0 #070b13;pointer-events:none}
+.world-minimap.hidden,.world-minimap.collapsed,.in-menu .world-minimap{display:none}
+/* La regola generale dei canvas (assoluti, a tutta pagina) qui va annullata, o la cornice si riduce a un punto. */
+.world-minimap-canvas{position:static;inset:auto;display:block;width:224px;height:224px;image-rendering:pixelated}
+@media(max-width:600px){.world-minimap-canvas{width:128px;height:128px}}
+/* Mappa del mondo intero (world-map-view.ts): al centro, finché si tiene premuto il tasto della mappa. */
+.world-map-view{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#0b0810b0;pointer-events:none}
+.world-map-view.hidden{display:none}
+.world-map-title{margin:0;color:var(--relic-ivory);font:16px var(--relic-pixel);text-shadow:0 2px #120e16}
+.world-map-frame{position:relative;max-height:calc(100vh - 80px);overflow:hidden;padding:4px;background:#17121ce6;border:1px solid var(--relic-border);box-shadow:3px 3px 0 #070b13}
+.world-map-canvas{position:static;inset:auto;display:block;image-rendering:pixelated}
+.world-map-player{position:absolute;width:8px;height:8px;background:#fff;border:2px solid #120e16;box-sizing:content-box}
 .hub-screen.hidden{display:none}.hub-world{display:block;width:100%;height:100%;image-rendering:pixelated;outline:none}
 .hub-controls{position:absolute;right:16px;top:16px;display:flex;gap:8px;max-width:calc(100vw - 32px);flex-wrap:wrap}
 .hub-controls button{font-size: 16px;padding:9px 14px}.hub-controls .hub-character-button{padding:8px 12px;min-width:60px}

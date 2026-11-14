@@ -1,4 +1,4 @@
-import { rasterDisc } from './pixel-disc';
+import { drawPixelShadow, footShadowSize } from './pixel-shadow';
 import type { CharacterAppearance } from '../character/appearance';
 import { DEFAULT_APPEARANCE } from '../character/appearance';
 import { BODY_RADIUS } from '../combat/collision';
@@ -6,7 +6,9 @@ import { Vec2 } from '../../core/vec2';
 import type { Boss } from '../boss/boss';
 import type { Minion } from '../minions/minion';
 import { bossFx } from './boss-fx';
-import { minionArt } from './minion-art';
+import { minionArt, type MinionArt } from './minion-art';
+import { sheetFeetBelow } from './minion-art/minion-art';
+import type { MobSheet } from './minion-art/world-mob-sheets';
 import { drawHeroSheet, HERO_FEET_OFFSET, HERO_SHEET } from './pixellab-hero';
 import type { Player } from '../player/player';
 import { bossArt, bossSheet, sheetFrame, type BossSheet } from './boss-art';
@@ -18,9 +20,43 @@ import { canvasFont } from './fonts';
 /** Ultima posizione disegnata di ogni giocatore: da lì si capisce se cammina in avanti o all'indietro rispetto alla mira. */
 const previousPositions = new WeakMap<Player, { x: number; y: number; direction: 1 | -1 }>();
 
+/**
+ * Un nemico a foglio PixelLab (mondo aperto): camminata frontale quando si muove, primo fotogramma da fermo, piedi
+ * sulla posizione, specchiato quando va a sinistra; gelo e lampo del colpo dalle varianti del foglio. Falso se il
+ * servitore è a terra e sta per rialzarsi (la figura schiacciata basta, niente vita né scudi).
+ */
+function drawSheetMinion(ctx: CanvasRenderingContext2D, minion: Minion, art: MinionArt, sheet: MobSheet, time: number, flash: number, lift: number): boolean {
+  const moving = minionIsMoving(minion, time);
+  const left = minionSteps.get(minion)?.left === true;
+  if (left) minionsFacingLeft.add(minion.id); else minionsFacingLeft.delete(minion.id);
+  const image = sheetImage(sheet.url);
+  if (image === null) return minion.state !== 'reviving';
+  const frame = moving ? ((Math.floor(time * (art.fps ?? 8) + minion.id) % sheet.frames) + sheet.frames) % sheet.frames : 0;
+  const feet = Math.round(minion.position.y + sheetFeetBelow(sheet));
+  const x = Math.round(minion.position.x), dx = x - sheet.feetX, dy = Math.round(feet - sheet.feetY - lift);
+  ctx.save();
+  if (left) { ctx.translate(x * 2, 0); ctx.scale(-1, 1); }
+  if (minion.state === 'reviving') {
+    // Le ossa a terra, schiacciate: tra poco si rialzano.
+    ctx.globalAlpha = 0.6;
+    const squash = Math.round(sheet.cell * 0.35);
+    ctx.drawImage(image, 0, 0, sheet.cell, sheet.cell, dx, feet - squash + 2, sheet.cell, squash);
+    ctx.restore();
+    return false;
+  }
+  ctx.drawImage(minion.slowFor > 0 ? sheetVariant(sheet.url, image, 'frost') : image, frame * sheet.cell, 0, sheet.cell, sheet.cell, dx, dy, sheet.cell, sheet.cell);
+  if (flash > 0) {
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(sheetVariant(sheet.url, image, 'white'), frame * sheet.cell, 0, sheet.cell, sheet.cell, dx, dy, sheet.cell, sheet.cell);
+  }
+  ctx.restore();
+  return true;
+}
+
+/** L'ombra a terra di un corpo: un'ellisse in pixel art centrata sui piedi (vedi `pixel-shadow.ts`). */
 function drawFootprint(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string): void {
-  ctx.fillStyle = color;
-  rasterDisc(x, y, radius, (left, top, width) => ctx.fillRect(left, top, width, 1));
+  const { width, height } = footShadowSize(radius);
+  drawPixelShadow(ctx, x, Math.round(y + height / 2), width, height, color);
 }
 
 /**
@@ -35,7 +71,8 @@ export function drawPlayer(
   visible: boolean,
   appearance: CharacterAppearance = DEFAULT_APPEARANCE,
 ): void {
-  drawFootprint(ctx, player.position.x, player.position.y, BODY_RADIUS.player, '#080b1480');
+  // I piedi dell'eroe stanno `HERO_FEET_OFFSET` sotto il centro di collisione: lì poggia l'ombra.
+  drawFootprint(ctx, player.position.x, player.position.y + HERO_FEET_OFFSET, BODY_RADIUS.player, '#080b1480');
   if (!visible) return;
   const slotIndex = player.skillBar.skills.findIndex((skill) => skill?.id === poses.playerSkillId);
   const skill = player.skillBar.skillAt(slotIndex);
@@ -371,7 +408,9 @@ export const ELITE_COLORS: Readonly<Record<string, string>> = {
 export function drawMinion(ctx: CanvasRenderingContext2D, minion: Minion, time: number, flash: number, prey = false, rim = ''): void {
   const art = minionArt(minion.definition.visual);
   const { x, y } = minion.position;
-  const half = (art.frames[0]!.length * art.scale) / 2;
+  // Per i nemici a foglio, l'altezza della figura sopra i piedi (la barra della vita sta sopra la testa).
+  const below = art.sheet !== undefined ? sheetFeetBelow(art.sheet) : 0;
+  const half = art.sheet !== undefined ? art.sheet.feetY - art.sheet.top - below : (art.frames[0]!.length * art.scale) / 2;
   const foot = Math.round(half - 2);
   if (minion.state === 'burrowed' || minion.state === 'emerging') {
     // Un cumulo di terra che si muove; quando sta per uscire trema.
@@ -386,7 +425,7 @@ export function drawMinion(ctx: CanvasRenderingContext2D, minion: Minion, time: 
     return;
   }
   const lift = minion.state === 'airborne' ? Math.sin(Math.max(0, Math.min(1, 1 - minion.stateTimer / Math.max(0.01, minion.definition.leap?.flight ?? 0.5))) * Math.PI) * 60 : 0;
-  drawFootprint(ctx, x, y, minion.hitRadius, '#070c1670');
+  drawFootprint(ctx, x, y + below, minion.hitRadius, '#070c1670');
   if (minion.elite !== null || prey) {
     const color = prey ? '#ffd889' : ELITE_COLORS[minion.elite!.id] ?? '#ffd889';
     ctx.save();
@@ -406,6 +445,9 @@ export function drawMinion(ctx: CanvasRenderingContext2D, minion: Minion, time: 
     ctx.drawImage(glowRaster(art.glow, radius), Math.round(x - radius), Math.round(y - radius - lift));
     ctx.restore();
   }
+  if (art.sheet !== undefined) {
+    if (!drawSheetMinion(ctx, minion, art, art.sheet, time, flash, lift)) return;
+  } else {
   const moving = minionIsMoving(minion, time);
   const stands = art.walks === true && !moving;
   const count = art.frames.length;
@@ -440,6 +482,7 @@ export function drawMinion(ctx: CanvasRenderingContext2D, minion: Minion, time: 
     ctx.drawImage(minionRaster(sprite, whitePalette(art.palette), art.scale, outline), left, top);
   }
   ctx.restore();
+  }
   if (minion.shield > 0 || minion.warded) {
     ctx.save();
     ctx.strokeStyle = minion.warded ? '#ffe9a0' : '#bfefff';

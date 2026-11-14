@@ -1,4 +1,5 @@
 import { WorldMap } from '../../world/world-map';
+import { contrastingDangerColor } from '../draw-combat';
 import type { ArenaTheme } from '../themes/theme';
 import { WORLD_FALLBACK_COLORS, drawWorldFloor, worldFigures } from './world-renderer';
 
@@ -9,7 +10,8 @@ import { WORLD_FALLBACK_COLORS, drawWorldFloor, worldFigures } from './world-ren
 export const worldTheme: ArenaTheme = {
   drawFloor: (ctx, arena, camera) => { if (arena.terrain instanceof WorldMap) drawWorldFloor(ctx, arena.terrain, camera); },
   drawPillar: () => undefined,
-  figures: (ctx, arena, camera) => (arena.terrain instanceof WorldMap ? worldFigures(ctx, arena.terrain, camera) : []),
+  figures: (ctx, arena, camera, _clock, focus) => (arena.terrain instanceof WorldMap ? worldFigures(ctx, arena.terrain, camera, focus) : []),
+  dangerColor: (arena, position) => (arena.terrain instanceof WorldMap ? contrastingDangerColor(WORLD_FALLBACK_COLORS[arena.terrain.terrainAt(position.x, position.y)]) : undefined),
   daylight: true,
   // Non usato in piena luce; resta il grigio medio, neutro per la luce morbida.
   ambient: '#808080',

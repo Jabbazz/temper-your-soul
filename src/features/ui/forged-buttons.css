@@ -1,0 +1,70 @@
+/*
+ * Pulsanti in ferro, lava e rubini (PixelLab, src/assets/art/ui/pulsante*.png, 192×44): placche del menu principale e
+ * della creazione del personaggio, comandi dell'accesso, pulsanti generici delle schermate e delle finestre, schede
+ * delle impostazioni, ingresso ai dungeon. La scritta la mette il gioco.
+ * 9-slice: estremità con rubini e rivetti intatte (20 px), bordi alto/basso 14 px; si allunga solo il centro.
+ * All'altezza del disegno (44 px) il pulsante è identico all'originale. Caricato dopo gli altri fogli: sostituisce
+ * l'aspetto precedente, sparso fra più fogli di stile con selettori molto specifici (da qui gli !important).
+ * Restano fuori i comandi quadrati in alto a destra (forged-panels.css) e le piccole chiusure con la ×.
+ */
+:root {
+  --forged-button: url('../../assets/art/ui/pulsante.png');
+  --forged-button-hover: url('../../assets/art/ui/pulsante-sopra.png');
+  --forged-button-pressed: url('../../assets/art/ui/pulsante-premuto.png');
+}
+
+:is(.forge-plate, #screen-login button, .relic-button:not(#global-controls > *), .forge-screen .screen-head button:not(.dungeon-close),
+  #settings-panel .settings-tab, .overlay-buttons button, #overlay .card > button, .forge-screen .dungeon-enter) {
+  box-sizing: border-box;
+  min-height: 40px !important;
+  padding: 8px 24px !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  border-width: 0 !important;
+  border-radius: 0 !important;
+  border-image-source: var(--forged-button) !important;
+  border-image-slice: 14 20 fill !important;
+  border-image-width: 14px 20px !important;
+  border-image-outset: 0 !important;
+  border-image-repeat: stretch !important;
+  background: none !important;
+  box-shadow: none !important;
+  image-rendering: pixelated;
+  color: #f3e6cc !important;
+  font-family: var(--relic-pixel) !important;
+  text-shadow: 1px 0 0 #120c10, -1px 0 0 #120c10, 0 1px 0 #120c10, 0 -1px 0 #120c10;
+  transform: none !important;
+}
+/* Placche del menu e comandi dell'accesso: all'altezza esatta del disegno. */
+.forge-plate, #screen-login button { min-height: 44px !important; height: 44px; padding: 0 24px !important; font: 16px/16px var(--relic-pixel) !important; }
+.forge-plate .pixel-icon { width: 32px !important; height: 32px !important; }
+
+:is(.forge-plate.is-primary, .forge-plate, #screen-login button, .relic-button, .forge-screen .screen-head button, #settings-panel .settings-tab,
+  .overlay-buttons button, #overlay .card > button, .forge-screen .dungeon-enter):is(:hover, :focus-visible),
+.forge-plate.is-primary, #settings-panel .settings-tab[aria-selected=true] {
+  border-image-source: var(--forged-button-hover) !important;
+  color: #fff6e6 !important;
+  outline: none;
+}
+#global-controls > .relic-button:is(:hover, :focus-visible) { border-image-source: none !important; }
+:is(.forge-plate, #screen-login button, .relic-button, .forge-screen .screen-head button, #settings-panel .settings-tab,
+  .overlay-buttons button, #overlay .card > button, .forge-screen .dungeon-enter):active {
+  border-image-source: var(--forged-button-pressed) !important;
+}
+#global-controls > .relic-button:active { border-image-source: none !important; }
+:is(.forge-plate, .relic-button, .forge-screen .dungeon-enter):is([aria-disabled=true], :disabled),
+:is(.forge-plate, .relic-button, .forge-screen .dungeon-enter):is([aria-disabled=true], :disabled):is(:hover, :active),
+#screen-login button:disabled {
+  border-image-source: var(--forged-button) !important;
+  filter: grayscale(.85) brightness(.75);
+  color: var(--forge-disabled) !important;
+}
+/* Le placche alte (testo su due righe nella creazione) allungano anche il centro in verticale. */
+#screen-characters .forge-plate { height: auto; min-height: 44px !important; padding: 10px 24px !important; }
+/* Pulsanti stretti (schede delle impostazioni, comandi delle card dei dungeon): testo centrato su una riga, margine
+ * ridotto perché il testo stia fra le estremità con i rubini. Selettori più specifici della regola generale. */
+html body #settings-panel .settings-tab, html body #screen-dungeons .dungeon-card button:not(.loot-rate-trigger) {
+  display: flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap;
+  padding: 6px 8px !important; min-width: 0;
+}
+html body #screen-dungeons .dungeon-card .dungeon-bestiary { padding: 6px 18px !important; }

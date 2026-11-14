@@ -6,6 +6,7 @@ import { FROST_SENTINEL, GLACIER_MINIONS } from './catalog/glacier';
 import { DEN_MINIONS, OBSERVATORY_MINIONS } from './catalog/glacier-veins';
 import { SPORELING, SWAMP_MINIONS } from './catalog/swamp';
 import { COLONY_MINIONS, SUNKEN_MINIONS } from './catalog/swamp-veins';
+import { WORLD_MINIONS } from './catalog/world';
 import type { BossSummons, MinionDefinition } from './minion-definition';
 
 /*
@@ -35,11 +36,9 @@ export const DUNGEON_MINIONS: Readonly<Record<string, readonly MinionDefinition[
   Object.entries(VEIN_MINIONS).map(([dungeon, veins]) => [dungeon, [...veins.a, ...veins.b, ...veins.c]]),
 );
 
-/** Tutti i servitori, per id (la rete li ritrova cosi'). */
+/** Tutti i servitori, per id (la rete li ritrova cosi'): quelli dei dungeon e quelli del mondo aperto. */
 export const MINIONS: Readonly<Record<string, MinionDefinition>> = Object.fromEntries(
-  Object.values(DUNGEON_MINIONS)
-    .flat()
-    .map((minion) => [minion.id, minion]),
+  [...Object.values(DUNGEON_MINIONS).flat(), ...WORLD_MINIONS].map((minion) => [minion.id, minion]),
 );
 
 export const GUARDIAN_SUMMONS: BossSummons = { minion: CINDER_WISP, onRage: 3, everyAttacks: 4, wave: 2, maxAlive: 4, ringRadius: 70 };

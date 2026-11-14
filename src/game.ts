@@ -3,6 +3,7 @@ import {accountToken} from './features/network/account-session';
 import { AccountGate } from './features/ui/account-gate';
 import type { AccessStage } from './features/ui/access-model';
 import { BACKPACK_SPRITE } from './features/presentation/item-sprites';
+import { MENU_ICONS } from './features/presentation/menu-icons';
 import { GOLD_COIN_SPRITE } from './features/presentation/currency-sprites';
 import { renderPixelIcon } from './features/ui/pixel-icon';
 import { HubScreen } from './features/ui/hub-screen';
@@ -14,7 +15,8 @@ import { playerProfile } from './features/ui/player-profile';
 import { hideItemTooltip } from './features/ui/item-slot';
 import { renderCharacterCreation } from './features/ui/character-creation';
 import { PROGRESSION, levelProgress } from './features/character/progression';
-import { Camera, ZOOM } from './core/camera';
+import { Camera, pixelPerfectView } from './core/camera';
+import { RenderInterpolation } from './core/render-interpolation';
 import { Input, SKILL_ACTIONS } from './core/input';
 import { NetworkView } from './features/presentation/network-view';
 import { PerformancePanel } from './features/ui/performance-panel';
@@ -78,6 +80,8 @@ import type { AudioScreen } from './features/audio/audio-director';
 
 /** Passo fisso della simulazione: la logica gira a 60 Hz qualunque sia la frequenza di disegno. */
 const STEP = 1 / 60;
+/** Oltre questo spostamento in un passo (scatto, viaggio, comparsa) il disegno non interpola: mostra subito l'arrivo. */
+const INTERPOLATION_MAX_JUMP = 48;
 const NETWORK_HUB_INPUT=1000/30;
 /** Tempo massimo simulato in un singolo fotogramma: dopo una pausa (scheda in background) non si recupera tutto. */
 const MAX_FRAME_TIME = 0.25;
@@ -194,6 +198,8 @@ export class Game {
   private match: Match;
   private screen: Screen = 'menu';
   private accumulator = 0;
+  /** Disegno fluido fra un passo di simulazione e l'altro sugli schermi veloci. */
+  private readonly interpolation = new RenderInterpolation();
   private lastTime = 0;
   private clock = 0;
   private toastTimer: number | undefined;
@@ -307,10 +313,12 @@ export class Game {
       else if (action === 'restart') this.restartIfInGame();
       else if (action === 'toggle_audio') this.toggleAudio();
       else if (action === 'toggle_performance') this.performancePanel.toggle();
-      else if (action === 'toggle_minimap') this.minimap.toggle();
+      else if (action === 'toggle_minimap') { if (this.inWorld) this.worldHud.toggleMinimap(); else this.minimap.toggle(); }
       else if (action === 'toggle_fullscreen') void this.fullscreen.toggle();
     });
     const profileButton=document.createElement('button');profileButton.id='player-profile-button';profileButton.className='relic-button secondary';profileButton.title='Personaggio e zaino';profileButton.setAttribute('aria-label','Personaggio e zaino');profileButton.append(renderPixelIcon(BACKPACK_SPRITE));profileButton.onclick=()=>this.openPlayerProfile();requireElement('global-controls').prepend(profileButton);
+    // Comandi in alto a destra: icone a pixel dentro il riquadro di ferro (forged-panels.css), anche per le impostazioni.
+    requireElement('settings-button').replaceChildren(renderPixelIcon(MENU_ICONS.settings));
     requireElement('global-controls').insertBefore(requireElement('party-toggle'),requireElement('settings-button'));
     requireElement('global-wallet').prepend(renderPixelIcon(GOLD_COIN_SPRITE));
     // L'hub è un fratello di main: anche i controlli globali devono stare fuori dal suo stacking context.
@@ -1154,12 +1162,18 @@ export class Game {
     this.camera.follow(this.match.player.position);
   }
 
-  /** La vista e' la finestra divisa per lo zoom: il canvas ha risoluzione ridotta e il CSS lo ingrandisce a scatti. */
+  /**
+   * La vista a scala intera (`pixelPerfectView`): il canvas ha risoluzione ridotta e il CSS lo ingrandisce di un numero
+   * intero di pixel del dispositivo, così scorrendo la camera i pixel dell'arte restano tutti della stessa misura.
+   */
   private resize(): void {
     const stage = this.canvas.parentElement ?? this.canvas;
-    this.camera.setViewSize(stage.clientWidth / ZOOM, stage.clientHeight / ZOOM);
+    const view = pixelPerfectView(stage.clientWidth, stage.clientHeight, window.devicePixelRatio || 1);
+    this.camera.setViewSize(view.width, view.height);
     this.canvas.width = this.camera.width;
     this.canvas.height = this.camera.height;
+    this.canvas.style.width = `${view.cssWidth}px`;
+    this.canvas.style.height = `${view.cssHeight}px`;
     this.ctx.imageSmoothingEnabled = false;
     this.recenter();
   }
@@ -1212,6 +1226,14 @@ export class Game {
     return { run: run.view(), room: run.roomView(), next: run.nextOptions, localId: 'local' };
   }
 
+  /** I corpi che si muovono fra un passo e l'altro: giocatori, boss, nemici e proiettili. */
+  private *movingBodies(match: Match): Iterable<{ position: Vec2 }> {
+    yield* match.players.values();
+    if (match.boss !== null) yield match.boss;
+    yield* match.minions;
+    yield* match.projectiles;
+  }
+
   private frame(time: number): void {
     const frameStart = performance.now();
     this.party.client.flushSnapshot();
@@ -1230,6 +1252,8 @@ export class Game {
     view?.sample(performance.now());
     let steps = 0;
     while (this.accumulator >= STEP) {
+      // In locale si ricorda dove stava ogni corpo prima del passo, per disegnarlo fluido fra un passo e l'altro.
+      if (view === null) this.interpolation.remember(this.movingBodies(this.match));
       this.step();
       this.accumulator -= STEP;
       steps++;
@@ -1252,6 +1276,10 @@ export class Game {
         document.body.classList.remove('room-fading');
         enter();
       }
+    }
+    // Da qui al disegno i corpi stanno fra l'ultimo passo e il prossimo (solo in locale): la camera li segue fluida.
+    if (view === null && (this.screen === 'playing' || this.screen === 'ended')) {
+      this.interpolation.apply(this.movingBodies(this.match), this.accumulator / STEP, INTERPOLATION_MAX_JUMP);
     }
     this.camera.shakeOffset =
       this.screen === 'playing' || this.screen === 'ended' ? this.effects.shakeOffset() : Vec2.ZERO;
@@ -1282,10 +1310,14 @@ export class Game {
     // Minimappa della stanza (anche nel Duello) e, tenendo premuto Tab, la mappa intera della discesa.
     const inMatch = this.screen === 'playing' || this.screen === 'paused';
     this.input.inMatch = this.screen === 'playing';
-    if (inMatch) this.minimap.update(delta, renderedMatch, views?.room ?? null, this.camera, views?.localId ?? (this.networkBattleId ? this.party.client.playerId : 'local'), this.canvas);
+    // Nel mondo aperto la minimappa è quella del mondo (WorldHud), in basso a destra.
+    if (inMatch && !this.inWorld) this.minimap.update(delta, renderedMatch, views?.room ?? null, this.camera, views?.localId ?? (this.networkBattleId ? this.party.client.playerId : 'local'), this.canvas);
     else this.minimap.hide();
     if (this.input.inMatch && views !== null && this.input.isActionPressed('show_map')) this.descentMap.show(views.run);
     else this.descentMap.hide();
+    // Nel mondo aperto lo stesso tasto apre la mappa del mondo intero.
+    if (this.inWorld && this.input.inMatch && this.input.isActionPressed('show_map')) this.worldHud.showMap(this.match.player.position);
+    else this.worldHud.hideMap();
     this.audio.setListener(this.match.player.position, this.camera.width / 2);
     const audioScreen: AudioScreen = this.screen === 'login' || this.screen === 'bestiary' || this.screen === 'hub' || this.screen === 'characters' ? 'menu' : this.screen;
     this.audio.setScene({ screen: audioScreen, theme: this.match.arena.theme, enraged: this.match.boss?.isEnraged ?? false });
@@ -1310,6 +1342,7 @@ export class Game {
     };
     const sceneStart = performance.now();
     let roomMs = 0;
+    try {
     if (inRefuge) {
       this.menuScene.draw(this.clock, window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     } else renderScene(this.ctx, {
@@ -1334,6 +1367,10 @@ export class Game {
         ...(mood === undefined ? {} : { mood }),
       }),
     });
+    } finally {
+      // Le posizioni interpolate servivano solo al disegno: la simulazione riprende da quelle vere.
+      this.interpolation.restore();
+    }
     const end = performance.now();
     this.performancePanel.frame(time, end - frameStart, this.party.client, {
       steps, simulation: simulated - frameStart, interface: sceneStart - simulated, scene: end - sceneStart - roomMs, room: roomMs,

@@ -1,0 +1,41 @@
+/*
+ * HUD di gioco in ferro, lava e rubini (PixelLab, src/assets/art/ui/). Ogni barra ha tre livelli:
+ * la barra vuota (::before), il liquido = la barra piena ritagliata al valore `--fill` (0..1) dentro il canale (<i>),
+ * il testo sopra. Le due immagini coincidono fuori dal canale, quindi il taglio non lascia scalini nella cornice.
+ * Le estremità con i rivetti restano intatte (9-slice orizzontale); si allunga solo il tratto centrale.
+ * Margini del canale nella parte disegnata (sinistra/destra): vita 8/8, mana 10/10, esperienza 4/5.
+ */
+.resource-hud .resource-row { height: 40px; padding: 0; background: none; border: 0; box-shadow: none; border-radius: 0; }
+.resource-hud .xp-track { height: 19px; margin-top: 4px; background: none; border: 0; overflow: visible; }
+section.hud-player { left: calc(50% - min(260px, 47vw)); bottom: 138px; width: calc(min(260px, 47vw) - 33px); }
+
+.hud-player .bar, .mana-resource .bar, .resource-hud .xp-track { position: relative; overflow: visible; background: none; border: 0; box-shadow: none; border-radius: 0; }
+.hud-player .bar { height: 38px; }
+.mana-resource { position: relative; }
+.mana-resource .bar { height: 39px; }
+
+.hud-player .bar::before, .mana-resource .bar::before, .resource-hud .xp-track::before,
+.hud-player .bar > i, .mana-resource .bar > i, .resource-hud .xp-track > i {
+  content: ''; position: absolute; inset: 0; box-sizing: border-box; border-style: solid; border-color: transparent;
+  image-rendering: pixelated; background: none;
+}
+.hud-player .bar::before, .mana-resource .bar::before { border-width: 0 16px; }
+.resource-hud .xp-track::before, .resource-hud .xp-track > i { border-width: 0 12px; }
+.hud-player .bar > i, .mana-resource .bar > i { border-width: 0 16px; }
+/* Il valore lo scrive l'HUD in --fill: la larghezza inline del vecchio riempimento non conta più. */
+.hud-player .bar > i, .mana-resource .bar > i, .resource-hud .xp-track > i { display: block; width: auto !important; height: auto; z-index: 1; }
+
+.hud-player .bar::before { border-image: url('../../assets/art/ui/barra-vita-vuota.png') 0 16 fill / 0 16px stretch; }
+.hud-player .bar > i { border-image: url('../../assets/art/ui/barra-vita-piena.png') 0 16 fill / 0 16px stretch; clip-path: inset(0 calc(8px + (1 - var(--fill, 1)) * (100% - 16px)) 0 0); }
+.mana-resource .bar::before { border-image: url('../../assets/art/ui/barra-mana-vuota.png') 0 16 fill / 0 16px stretch; }
+.mana-resource .bar > i { border-image: url('../../assets/art/ui/barra-mana-piena.png') 0 16 fill / 0 16px stretch; clip-path: inset(0 calc(10px + (1 - var(--fill, 1)) * (100% - 20px)) 0 0); }
+.resource-hud .xp-track::before { border-image: url('../../assets/art/ui/barra-esp-vuota.png') 0 12 fill / 0 12px round; }
+.resource-hud .xp-track > i { border-image: url('../../assets/art/ui/barra-esp-piena.png') 0 12 fill / 0 12px round; clip-path: inset(0 calc(5px + (1 - var(--fill, 0)) * (100% - 9px)) 0 0); }
+
+/* Scheggia dei danni appena subiti: chiara, dentro il canale e sotto il liquido. */
+.hud-player .bar-chip { left: 8px; top: 9px; bottom: 9px; width: calc((100% - 16px) * var(--fill, 1)) !important; background: #ffd0b0; opacity: .8; }
+
+/* Numeri dentro il canale, nel carattere di default. */
+#player-text, #mana-text { position: absolute; z-index: 2; left: 0; right: 0; top: 11px; margin: 0; font: 16px/16px var(--relic-pixel); color: #fff4dc; text-align: center; text-shadow: 1px 0 0 #1a0a0c, -1px 0 0 #1a0a0c, 0 1px 0 #1a0a0c, 0 -1px 0 #1a0a0c; pointer-events: none; }
+.resource-hud .xp-track span { z-index: 2; inset: 0; font: 16px/19px var(--relic-pixel); color: #fff4dc; text-shadow: 1px 0 0 #1a0a0c, -1px 0 0 #1a0a0c, 0 1px 0 #1a0a0c, 0 -1px 0 #1a0a0c; }
+@media (max-width: 600px) { #player-text, #mana-text { top: 15px; font-size: 8px; line-height: 8px; } .resource-hud .xp-track span { font-size: 8px; } }

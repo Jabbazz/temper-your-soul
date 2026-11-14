@@ -8,6 +8,7 @@ import { GENERATED_SPRITES } from './minion-art/generated-sprites';
 import type { MinionArt } from './minion-art/minion-art';
 import { SWAMP_MINION_ART } from './minion-art/swamp';
 import { SWAMP_VEIN_ART } from './minion-art/swamp-veins';
+import { WORLD_MINION_ART } from './minion-art/world';
 
 /*
  * Grafica dei servitori: pixel art come matrici di caratteri (vedi `sprites.ts`), due fotogrammi ciascuno, disegnati
@@ -27,6 +28,7 @@ const HAND_ART: Readonly<Record<string, MinionArt>> = {
   ...SWAMP_VEIN_ART,
   ...FORGE_VEIN_ART,
   ...GLACIER_VEIN_ART,
+  ...WORLD_MINION_ART,
 };
 
 export const MINION_ART: Readonly<Record<string, MinionArt>> = Object.fromEntries(

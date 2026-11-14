@@ -55,7 +55,10 @@ export function stepMinion(minion: Minion, ctx: MinionContext, dt: number): void
     return;
   }
   const target = ctx.nearestPlayer(minion.position);
-  if (target === undefined) return;
+  if (target === undefined) {
+    roamAround(minion, ctx, dt);
+    return;
+  }
   const { definition } = minion;
   if (minion.state === 'dormant') {
     if (minion.position.distanceTo(target.position) > (definition.dormant?.wakeRadius ?? 0)) return;
@@ -117,6 +120,36 @@ export function stepMinion(minion: Minion, ctx: MinionContext, dt: number): void
 }
 
 // --- Movimento --------------------------------------------------------------------------------------------------
+
+/**
+ * Il giro a vuoto del mondo aperto: frazione della velocità, sosta alla meta (secondi, minimo e massimo) e tempo
+ * concesso per arrivarci prima di cambiare meta (se un ostacolo la rende irraggiungibile). Provvisori.
+ */
+export const MINION_ROAM = { speed: 0.4, pause: [1, 3.5], walk: 6 } as const;
+
+/**
+ * Senza giocatori a portata, chi ha una casa (`Minion.roam`) ci gira attorno a passo lento con qualche sosta, come i
+ * nemici di un mondo che vive anche senza di noi. Le mete vengono dall'`Rng` della partita: riproducibile col seme.
+ */
+function roamAround(minion: Minion, ctx: MinionContext, dt: number): void {
+  const roam = minion.roam;
+  if (roam === null || minion.speed <= 0 || minion.state !== 'idle' || minion.pending !== null) return;
+  if (roam.pause > 0) {
+    roam.pause -= dt;
+    return;
+  }
+  if (roam.goal !== null && (roam.walk <= 0 || minion.position.distanceTo(roam.goal) < 4)) {
+    roam.goal = null;
+    roam.pause = MINION_ROAM.pause[0] + ctx.rng.next() * (MINION_ROAM.pause[1] - MINION_ROAM.pause[0]);
+    return;
+  }
+  if (roam.goal === null) {
+    roam.goal = roam.home.add(Vec2.fromAngle(ctx.rng.next() * TAU, Math.sqrt(ctx.rng.next()) * roam.radius));
+    roam.walk = MINION_ROAM.walk;
+  }
+  roam.walk -= dt;
+  moveToward(minion, roam.goal, minion.speed * MINION_ROAM.speed, dt, ctx);
+}
 
 /**
  * Porta il servitore verso `point`: chi vola ignora i pilastri, gli altri ci scivolano attorno e girano attorno ai

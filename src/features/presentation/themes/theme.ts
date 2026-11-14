@@ -1,4 +1,5 @@
 import type { Camera } from '../../../core/camera';
+import type { Vec2 } from '../../../core/vec2';
 import type { ArenaDefinition, Pillar } from '../../arena/arena';
 import type { BlockLook } from './wall';
 
@@ -12,9 +13,15 @@ export interface ArenaTheme {
   drawFloor(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): void;
   /**
    * Ciò che sta in piedi sulla mappa e non è nei pilastri (alberi e rocce del mondo aperto): figure da ordinare in
-   * profondità con personaggi e nemici, così chi sta più a sud copre chi sta più a nord.
+   * profondità con personaggi e nemici, così chi sta più a sud copre chi sta più a nord. `focus` è la posizione del
+   * giocatore di questo schermo: ciò che lo copre da davanti si fa in parte trasparente attorno a lui.
    */
-  figures?(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number): readonly { readonly y: number; readonly draw: () => void }[];
+  figures?(ctx: CanvasRenderingContext2D, arena: ArenaDefinition, camera: Camera, clock: number, focus: Vec2): readonly { readonly y: number; readonly draw: () => void }[];
+  /**
+   * Il colore delle zone nemiche in quel punto, se il tema ne vuole uno diverso dall'aspetto dell'attacco: il mondo
+   * aperto sceglie quello che contrasta con il terreno sotto (un attacco bianco sulla neve non si leggerebbe).
+   */
+  dangerColor?(arena: ArenaDefinition, position: Vec2): string | undefined;
   /** Un pilastro (se visibile). Disegnato sopra il pavimento e sotto i personaggi. */
   drawPillar(ctx: CanvasRenderingContext2D, pillar: Pillar, camera: Camera, clock: number): void;
   /**

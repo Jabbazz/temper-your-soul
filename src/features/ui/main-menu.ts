@@ -117,7 +117,8 @@ export class MainMenu {
     const figure = el('div', 'menu-hero-figure');
     figure.append(character.figure);
     const xp = el('div', 'menu-hero-xp'), fill = el('i');
-    fill.style.width = `calc(${Math.round(character.levelProgress * 100)}% - 2px)`;
+    // Barra forgiata (forged-menu.css): il riempimento è un taglio dell'immagine piena guidato da --fill (0..1).
+    fill.style.setProperty('--fill', String(Math.max(0, Math.min(1, character.levelProgress))));
     xp.setAttribute('role', 'img');
     xp.setAttribute('aria-label', `Esperienza verso il livello ${character.level + 1}: ${Math.round(character.levelProgress * 100)}%`);
     xp.append(fill);

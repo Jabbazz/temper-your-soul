@@ -4,7 +4,10 @@ import { TAU, Vec2 } from '../../../core/vec2';
 import type { GameEvent } from '../../combat/events';
 import type { Match } from '../../match/match';
 import { minionRaster, minionsFacingLeft } from '../draw-actors';
+import { sheetImage, sheetVariant } from '../boss-art/sheet-images';
 import { minionArt } from '../minion-art';
+import type { MobSheet } from '../minion-art/world-mob-sheets';
+import { sheetFeetBelow } from '../minion-art/minion-art';
 import type { Palette } from '../sprites';
 import { isBasicAttackCast } from './basic-attack-visuals';
 import { drawDissolvingDeaths } from './minion-dissolve';
@@ -272,13 +275,30 @@ export interface DeathPose {
   readonly matter: ReturnType<typeof impactKind>;
 }
 
+const sheetFigures = new Map<string, HTMLCanvasElement>();
+
+/** Il primo fotogramma di un foglio, ritagliato dalla cima della figura ai piedi (bianco per il lampo); null finché non è caricato. */
+function sheetFigure(sheet: MobSheet, white: boolean): HTMLCanvasElement | null {
+  const key = `${sheet.url}|${white}`, cached = sheetFigures.get(key);
+  if (cached !== undefined) return cached;
+  const image = sheetImage(sheet.url);
+  if (image === null) return null;
+  const canvas = document.createElement('canvas'), height = sheet.feetY - sheet.top;
+  canvas.width = sheet.cell; canvas.height = height;
+  canvas.getContext('2d')!.drawImage(white ? sheetVariant(sheet.url, image, 'white') : image, 0, sheet.top, sheet.cell, height, 0, 0, sheet.cell, height);
+  sheetFigures.set(key, canvas);
+  return canvas;
+}
+
 /** Riusa la sagoma esistente: lampo, sobbalzo e inclinazione. */
 export function deathPose(death: MinionDeath): DeathPose {
   const art = minionArt(death.visual), u = 1 - death.remaining / COMBAT_VFX.deathLife;
+  // I nemici a foglio (mondo aperto) hanno i piedi sulla posizione: la figura sta sopra, a metà della sua altezza.
+  const sheet = art.sheet === undefined ? null : sheetFigure(art.sheet, u < 0.15);
   return {
-    raster: minionRaster(art.frames[0]!, u < 0.15 ? deathFlash(art.palette) : art.palette, art.scale),
+    raster: sheet ?? minionRaster(art.frames[0]!, u < 0.15 ? deathFlash(art.palette) : art.palette, art.scale),
     x: Math.round(death.x),
-    y: Math.round(death.y + u * 8),
+    y: Math.round(death.y + u * 8 + (sheet !== null && art.sheet !== undefined ? sheetFeetBelow(art.sheet) - (art.sheet.feetY - art.sheet.top) / 2 : 0)),
     rotation: death.direction * u * 0.35,
     flip: death.left ? -1 : 1,
     progress: u,

@@ -1,0 +1,35 @@
+/*
+ * Inventario e zaino in ferro, lava e rubini (stessi asset di forged-panels.css): pannello grande per la schermata,
+ * card per la scheda del personaggio, i riquadri dell'equipaggiamento e il dettaglio dell'oggetto, targa per l'identità.
+ * Gli slot degli oggetti restano quadrati col bordo del colore della rarità (`--rarity`): l'informazione non cambia,
+ * cambiano fondo e angoli. Caricato dopo gli altri fogli (da qui gli !important).
+ */
+#screen-inventory .screen-card, .profile-modal {
+  border-style: solid !important; border-color: transparent !important; border-width: 0 !important; border-radius: 0 !important;
+  border-image: url('../../assets/art/ui/pannello.png') 32 fill / 32px / 0 round !important;
+  background: none !important; box-shadow: none !important; image-rendering: pixelated;
+}
+#screen-inventory .screen-card { padding: 32px !important; }
+
+#screen-inventory .character-sheet, #screen-inventory .slot-panel, #screen-inventory .inventory-selection, .profile-modal .profile-equipment-slot {
+  border-style: solid !important; border-color: transparent !important; border-width: 0 !important; border-radius: 0 !important;
+  border-image: url('../../assets/art/ui/card.png') 32 fill / 32px / 0 round !important;
+  background: none !important; box-shadow: none !important; image-rendering: pixelated;
+}
+#screen-inventory .character-sheet { padding: 20px !important; }
+#screen-inventory .slot-panel { padding: 14px 12px 12px !important; }
+#screen-inventory .inventory-selection { padding: 18px 20px !important; }
+
+/* Identità del personaggio sulla targa (angoli 28×24). */
+#screen-inventory .character-identity {
+  border-style: solid !important; border-color: transparent !important; border-width: 0 !important; border-radius: 0 !important;
+  border-image: url('../../assets/art/ui/targa.png') 24 28 fill / 24px 28px / 0 stretch !important;
+  background: none !important; box-shadow: none !important; image-rendering: pixelated; padding: 18px 24px !important;
+}
+
+/* Slot degli oggetti: ferro scuro, angoli squadrati, bordo della rarità. */
+.item-slot { border-radius: 0 !important; background: #141016 !important; box-shadow: inset 0 0 0 2px #050406, inset 0 -6px 0 #0b080c !important; }
+.item-slot:hover, .item-slot:focus-visible { background: #2a1d1f !important; }
+.item-slot.is-selected { background: #3a2220 !important; box-shadow: inset 0 0 0 2px #ff8a3a !important; }
+.item-slot.is-incompatible { background: #0d0b0e !important; }
+#screen-inventory .slot-empty { border-radius: 0; background: #141016; box-shadow: inset 0 0 0 2px #050406; }

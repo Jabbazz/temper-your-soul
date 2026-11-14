@@ -96,17 +96,17 @@ export class Hud {
   update(match: Match, progress = {level: 1, current: 0, required: 100}): void {
     this.setText(requireElement('character-level'), String(progress.level));
     this.setText(requireElement('xp-text'), `${progress.current} / ${progress.required} XP`);
-    this.setWidth(requireElement('xp-bar'), progress.current / progress.required * 100);
+    this.setFill(requireElement('xp-bar'), progress.current / progress.required);
     this.setText(requireElement('mana-text'), `${Math.floor(match.player.mana)} / ${match.player.maxMana} MANA`);
-    this.setWidth(requireElement('mana-bar'), match.player.mana / match.player.maxMana * 100);
+    this.setFill(requireElement('mana-bar'), match.player.mana / match.player.maxMana);
     for (const element of Array.from(requireElement('skills').children)) {
       (element as HTMLElement).classList.toggle('no-mana', Number((element as HTMLElement).dataset.cost ?? 0) > match.player.mana);
     }
     const { player, boss } = match;
-    this.setWidth(this.playerBar, player.health.fraction * 100);
+    this.setFill(this.playerBar, player.health.fraction);
     this.setText(this.playerText, `${Math.ceil(player.health.current)} / ${player.health.max} PV`);
     const now = performance.now() / 1000;
-    this.setWidth(this.playerChip, this.playerChipBar.update(player.health.fraction, now) * 100);
+    this.setFill(this.playerChip, this.playerChipBar.update(player.health.fraction, now));
     // Nelle stanze senza boss (o dopo la caduta del luogotenente) la barra del boss sparisce.
     const showBoss = boss !== null && !(boss.health.isDead && match.encounter !== null);
     this.bossHud.classList.toggle('no-boss', !showBoss);
@@ -137,6 +137,14 @@ export class Hud {
     if (this.last.get(element) === text) return;
     this.last.set(element, text);
     element.textContent = text;
+  }
+
+  /** Barre forgiate (forged-hud.css): il riempimento è un taglio dell'immagine piena, guidato da --fill (0..1). */
+  private setFill(element: HTMLElement, fraction: number): void {
+    const value = String(Math.max(0, Math.min(1, fraction)));
+    if (this.last.get(element) === value) return;
+    this.last.set(element, value);
+    element.style.setProperty('--fill', value);
   }
 
   private setWidth(element: HTMLElement, percent: number): void {

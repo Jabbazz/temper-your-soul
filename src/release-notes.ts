@@ -159,6 +159,27 @@ const INTEGER_DAMAGE_PREVIEW: ReleaseNotes = {
 
 export const RELEASES: readonly ReleaseNotes[] = [
   {
+    version:'0.22.0',date:'2026-11-14',
+    changes:[
+      'Mondo aperto di prova esteso a sei fasce da 256 righe, dalla più facile alla più dura: Bosco Verde, Brughiera delle Nebbie, Palude Marcia, Distese Gelate, Lande di Cenere e infine l’Abisso, roccia lavica con la lava al posto dell’acqua. Vita dei nemici ×2 nella Palude, ×2,6 nelle Distese, ×3,2 nelle Lande e ×4,5 nell’Abisso; premi da 12 XP e 9 oro fino a 30 XP e 22 oro per nemico. Tutti valori provvisori.',
+      'Comparsa dei nemici sul modello di Realm of the Mad God: regioni di 16 tile con circa 4-6 nemici ciascuna, in gruppi di dimensione casuale (di solito 3, a volte da soli o fino a 5), misti e riproducibili col seme. Chi cade viene rimpiazzato ogni 25 s; vicino alle rovine nascono i nemici delle rovine. Quando nessuno è a portata i nemici vagano attorno a casa a passo lento; nel mondo nessun nemico vola e tutti rispettano le collisioni.',
+      'Otto nemici semplici nuovi con sprite PixelLab (goblin, goblin fromboliere, fungo ambulante, coboldo, lupo grigio, zombie, ghoul, cultista novizio) e lo Scheletro delle rovine, visti di fronte con la camminata specchiata a destra e a sinistra. Il lupo usa l’ultima versione ritoccata su PixelLab. Nuovo strumento tools/arte/prepara-nemici.mjs.',
+      'Grafica del mondo rifatta con PixelLab: alberi grandi (quattro per fascia), mura in pietra in rovina, strade dritte di lastricato con il bordo d’erba frastagliato, staccionate, statue agli incroci, cimiteri, fiori ed erba alta, contorni neri e ombre in pixel art (colorate in base al terreno, visibili anche sui suoli scuri). Si cammina dietro mura e alberi, che diventano in parte trasparenti; l’appoggio delle mura segue la prospettiva. Un secondo tileset per fascia spezza la monotonia del terreno con chiazze casuali, solo grafiche.',
+      'Minimappa del mondo in basso a destra e mappa intera tenendo premuto il tasto della mappa (Tab), con fasce, partenza, cimiteri e statue. Attacchi ad area dei nemici ridisegnati: anello fisso e disco che cresce fino al colpo, in un colore che contrasta col terreno sotto.',
+      'Immagine più nitida in movimento: ingrandimento a un numero intero di pixel dello schermo e interpolazione del disegno fra un passo e l’altro della simulazione in locale (prima su schermi a 165 Hz il movimento lasciava un alone). Con Windows al 100% la visuale passa da 1,5× a 2× e mostra circa un quarto di mappa in meno.',
+      'Nuova interfaccia in ferro scuro, lava e rubini disegnata con PixelLab: barre di vita, mana ed esperienza dell’HUD con il riempimento dentro la barra; ritratto del personaggio nel menu principale dopo l’accesso; pulsanti, pannello dei comandi del menu (al posto del rettangolo nero, della stessa misura a ogni grandezza di finestra), finestre di accesso, personaggi, dungeon e impostazioni, card dei dungeon e comandi in alto a destra con le icone a pixel. Inventario in corso: pannelli e slot sì, pulsanti ancora nel vecchio stile.',
+      'Prove giocate confermate: nitidezza in movimento, visuale e chiazze del terreno; barre e pulsanti dell’interfaccia. Da provare: il resto dell’interfaccia nuova e il mondo esteso. Salvataggi e protocollo di rete invariati.',
+    ],
+    balanceChanges:[
+      {label:'Mondo di prova · rimpiazzo dei nemici (prima: rinascita del branco sterminato)',before:90,after:25,unit:'s'},
+      {label:'Mondo di prova · nemici in vita al massimo',before:60,after:90,unit:'nemici'},
+      {label:'Mondo di prova · lato della zona di comparsa',before:20,after:16,unit:'tile'},
+      {label:'Mondo di prova · raggio di aggressione',before:460,after:420,unit:'unità'},
+      {label:'Mondo di prova · raggio di attivazione',before:900,after:1000,unit:'unità'},
+      {label:'Mondo di prova · raggio di scomparsa',before:1500,after:1600,unit:'unità'},
+    ],
+  },
+  {
     version:'0.21.0',date:'2026-11-13',
     changes:[
       'Mondo aperto, prima versione di prova: una mappa unica a fasce orizzontali generata da un seme, per ora con due fasce da 1024×256 tile (Bosco Verde a nord, Brughiera delle Nebbie a sud). Sentiero principale, strade, stagni, costa, alberi, rocce e rovine con mura che si incrociano. Si apre da Personaggi → Admin · sviluppo → «Mondo aperto (prova)», con viaggi rapidi a confine, brughiera e rovine.',

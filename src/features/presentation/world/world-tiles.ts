@@ -1,4 +1,5 @@
 import { WORLD_TERRAINS, type WorldTerrain } from '../../world/world-definition';
+import { valueNoise } from '../../world/world-noise';
 import { WORLD_TILESET_ART, type WorldTileArt } from './world-art-data';
 
 /*
@@ -9,10 +10,26 @@ import { WORLD_TILESET_ART, type WorldTileArt } from './world-art-data';
 /** Il tile scelto: indice in `WORLD_TILESET_ART` e ritaglio nel foglio. `exact` è falso se si è ripiegato su un vicino. */
 export interface WorldTilePick { readonly set: number; readonly x: number; readonly y: number; readonly exact: boolean }
 
+/**
+ * Le varianti di ogni suolo, solo disegno: macchie di un secondo aspetto sparse sul suolo pieno per rompere la
+ * monotonia (trifoglio nel bosco, erica nella brughiera, pozzanghere nella palude, ghiaccio sulla neve, braci nella
+ * cenere, vene di lava nell'Abisso). Il rumore (`scale` in vertici, `threshold`) decide dove; le regole non le vedono.
+ */
+export const WORLD_GROUND_VARIANTS = {
+  kinds: { grass: 'grass_lush', moor: 'moor_heather', bog: 'bog_puddle', snow: 'snow_ice', ash: 'ash_cinder', abyss: 'abyss_vein' } as Readonly<Partial<Record<WorldTerrain, string>>>,
+  scale: 7, threshold: 0.6,
+  /** Soglie più alte per suolo: nell'Abisso le vene accese si confonderebbero con la lava vera se fossero tante. */
+  thresholdBy: { abyss: 0.72 } as Readonly<Partial<Record<WorldTerrain, number>>>,
+} as const;
+
 const isTerrain = (id: string): id is WorldTerrain => (WORLD_TERRAINS as readonly string[]).includes(id);
-const SETS = WORLD_TILESET_ART.map((art, index) => {
+const VARIANT_IDS = new Set(Object.values(WORLD_GROUND_VARIANTS.kinds));
+/** I fogli delle varianti, per suolo: il suolo è il terreno inferiore, la variante quello superiore. */
+const VARIANT_SETS = new Map<WorldTerrain, { index: number; tiles: readonly WorldTileArt[] }>();
+const SETS = WORLD_TILESET_ART.flatMap((art, index) => {
+  if (VARIANT_IDS.has(art.upper) && isTerrain(art.lower)) { VARIANT_SETS.set(art.lower, { index, tiles: art.tiles }); return []; }
   if (!isTerrain(art.lower) || !isTerrain(art.upper)) throw new Error(`Tileset con terreni sconosciuti: ${art.lower}/${art.upper}`);
-  return { index, lower: art.lower, upper: art.upper, tiles: art.tiles, wall: art.upper === 'wall' };
+  return [{ index, lower: art.lower, upper: art.upper, tiles: art.tiles, wall: art.upper === 'wall' }];
 });
 type TileSet = typeof SETS[number];
 const GROUNDS: ReadonlySet<WorldTerrain> = new Set(SETS.filter(set => set.wall).map(set => set.lower));
@@ -68,7 +85,52 @@ export function pickWorldTile(at: (dx: number, dy: number) => WorldTerrain): Wor
   return tile === undefined ? { set: set.index, x: set.tiles[0]!.x, y: set.tiles[0]!.y, exact: false } : { set: set.index, x: tile.x, y: tile.y, exact };
 }
 
-/** I tileset che servono a disegnare un terreno: per caricarli prima che entri in vista. */
-export function tilesetsWith(terrain: WorldTerrain): readonly number[] {
-  return SETS.filter(set => set.lower === terrain || set.upper === terrain).map(set => set.index);
+/**
+ * La profondità della parete disegnata nel tile (tx, ty), per ordinarla con personaggi e nemici, o null se il tile
+ * non ha vertici di mura. In prospettiva un pixel della parete sta a terra `rise - tile/2` più in basso di dove è
+ * disegnato, ma mai oltre la base della sua colonna di mura (`drop` sotto l'ultimo vertice): chi sta più su di questo
+ * valore è dietro la parete e viene coperto. Stessi valori dell'appoggio delle collisioni (`WorldDefinition.walls`).
+ */
+export function wallTileDepth(at: (vx: number, vy: number) => WorldTerrain, tx: number, ty: number, tile: number, walls: { readonly rise: number; readonly drop: number }): number | null {
+  let depth: number | null = null;
+  for (let corner = 0; corner < 4; corner++) {
+    const vx = tx + (corner & 1), top = ty + (corner >> 1);
+    if (at(vx, top) !== 'wall') continue;
+    let bottom = top;
+    while (bottom - top < 64 && at(vx, bottom + 1) === 'wall') bottom++;
+    const value = Math.min((ty + 1) * tile + walls.rise - tile / 2, bottom * tile + tile / 2 + walls.drop);
+    depth = depth === null ? value : Math.max(depth, value);
+  }
+  return depth;
 }
+
+/** I tileset che servono a disegnare un terreno: per caricarli prima che entri in vista (compresa la sua variante). */
+export function tilesetsWith(terrain: WorldTerrain): readonly number[] {
+  const variant = VARIANT_SETS.get(terrain);
+  return [...SETS.filter(set => set.lower === terrain || set.upper === terrain).map(set => set.index), ...(variant === undefined ? [] : [variant.index])];
+}
+
+/**
+ * Il tile di un quadrato di suolo pieno `ground` con la variante sui vertici indicati (NO, NE, SO, SE), o null se il
+ * suolo non ha variante o nessun angolo la porta.
+ */
+export function pickGroundVariant(ground: WorldTerrain, corners: readonly boolean[]): WorldTilePick | null {
+  const set = VARIANT_SETS.get(ground);
+  if (set === undefined || !corners.some(Boolean)) return null;
+  const tile = set.tiles.find(candidate => CORNERS.every((i, k) => candidate.pattern[i] === (corners[k] ? 1 : 0)));
+  return tile === undefined ? null : { set: set.index, x: tile.x, y: tile.y, exact: true };
+}
+
+/**
+ * Vero se il vertice porta la variante del suo suolo: il rumore supera la soglia e attorno c'è solo quel suolo, così le
+ * macchie non toccano strade, acqua, mura o un'altra fascia (basta il raccordo suolo-variante).
+ */
+export function variantAt(at: (vx: number, vy: number) => WorldTerrain, vx: number, vy: number, seed: number): boolean {
+  const ground = at(vx, vy);
+  if (WORLD_GROUND_VARIANTS.kinds[ground] === undefined) return false;
+  const threshold = WORLD_GROUND_VARIANTS.thresholdBy[ground] ?? WORLD_GROUND_VARIANTS.threshold;
+  if (valueNoise(seed, vx / WORLD_GROUND_VARIANTS.scale, vy / WORLD_GROUND_VARIANTS.scale, VARIANT_SALT) <= threshold) return false;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (at(vx + dx, vy + dy) !== ground) return false;
+  return true;
+}
+const VARIANT_SALT = 41;

@@ -38,7 +38,9 @@ Scrivere o leggere questo documento non avvia generazioni: ogni lotto va richies
 
 ## Non ancora deciso
 
-Per nemici, boss, icone, effetti e grafica dell'interfaccia il 12 novembre non sono state fissate regole nuove: restano gli asset esistenti. Prima di produrre un lotto di questo tipo chiedere al proprietario formato, direzioni e animazioni; non riprendere le regole dei canoni precedenti.
+Per l'interfaccia il 14 novembre il proprietario ha scelto lo stile di riferimento: ferro scuro ribattuto, bordo di lava incandescente, pochi rubini rossi coerenti fra loro, grandezza naturale (un pixel del disegno = un pixel CSS), testi nel carattere di default messi dal gioco e non da PixelLab; pulsanti e barre si allungano con il 9-slice. Il ritratto del personaggio sta solo nel menu principale dopo l'accesso, non in partita né nella schermata di accesso. Prima applicazione: barre dell'HUD, ritratto del menu, pulsanti di menu e accesso (`src/assets/art/ui/LEGGIMI.md`).
+
+Per nemici, boss, icone, effetti e il resto dell'interfaccia il 12 novembre non sono state fissate regole nuove: restano gli asset esistenti. Prima di produrre un lotto di questo tipo chiedere al proprietario formato, direzioni e animazioni; non riprendere le regole dei canoni precedenti.
 
 ## Costi e ambito
 

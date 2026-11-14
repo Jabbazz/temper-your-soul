@@ -1,9 +1,8 @@
-import { TAU, clamp } from '../../core/vec2';
-import { worldHeightTiles, type WorldBiome, type WorldDefinition, type WorldTerrain } from './world-definition';
+import { clamp } from '../../core/vec2';
+import { TERRAIN_WALKABLE, worldHeightTiles, type WorldBiome, type WorldDefinition, type WorldTerrain } from './world-definition';
 import { hash01, valueNoise } from './world-noise';
 
 const SALT = { border: 1, coast: 2, pond: 3, ruin: 4, wall: 5, phase: 6, pondEdge: 7, wallRow: 8 } as const;
-const smoothstep = (t: number): number => { const c = clamp(t, 0, 1); return c * c * (3 - 2 * c); };
 
 /**
  * Regole di generazione del mondo: ogni risposta dipende solo dal seme e dalle coordinate, quindi un blocco si può
@@ -17,9 +16,9 @@ export class WorldGenerator {
   readonly heightTiles: number;
   /** Riga in cui finisce ogni fascia, esclusa. */
   private readonly biomeEnds: readonly number[];
-  private readonly roadRows: readonly number[];
-  private readonly roadColumns: readonly number[];
-  private readonly phases: readonly [number, number];
+  /** Righe e colonne (in vertici) delle strade secondarie. */
+  readonly roadRows: readonly number[];
+  readonly roadColumns: readonly number[];
   private readonly segments = new Map<number, boolean>();
 
   constructor(readonly definition: WorldDefinition) {
@@ -31,7 +30,6 @@ export class WorldGenerator {
     for (let row = definition.roads.rowOffset; row < this.heightTiles - 4; row += definition.roads.rowSpacing) rows.push(row);
     this.roadRows = rows;
     this.roadColumns = definition.roads.columns.map(fraction => Math.round(fraction * this.widthTiles));
-    this.phases = [hash01(definition.seed, 0, 0, SALT.phase) * TAU, hash01(definition.seed, 1, 0, SALT.phase) * TAU];
   }
 
   /** Indice della fascia di un vertice; il confine oscilla di qualche tile per non essere una riga dritta. */
@@ -48,23 +46,41 @@ export class WorldGenerator {
     return this.definition.biomes[this.biomeIndexAt(vx, vy)]!;
   }
 
-  /** Colonna (in tile, con decimali) del centro del sentiero principale a una data riga. */
+  /**
+   * Colonna (in tile intere) del centro del sentiero principale a una data riga: tratti dritti di `stretch` righe,
+   * ognuno spostato a lato di al più `shift` tile; il primo parte dritto dalla radura.
+   */
   mainPathCenter(vy: number): number {
-    const { mainPath, spawn } = this.definition;
-    const wave = Math.sin(TAU * vy / mainPath.wavelength + this.phases[0]) + Math.sin(TAU * vy / (mainPath.wavelength * 0.5) + this.phases[1]) / 5;
-    return this.widthTiles / 2 + smoothstep((vy - spawn.row) / 48) * mainPath.amplitude * wave;
+    const section = this.mainPathSection(vy);
+    if (section <= 0) return Math.round(this.widthTiles / 2);
+    const { mainPath, seed } = this.definition;
+    return Math.round(this.widthTiles / 2 + (hash01(seed, section, 0, SALT.phase) - 0.5) * 2 * mainPath.shift);
   }
 
-  /** Vero se il vertice è strada; con `gap` > 0, anche se dista meno di `gap` tile da una strada. */
+  private mainPathSection(vy: number): number {
+    return Math.floor((vy - this.definition.spawn.row) / this.definition.mainPath.stretch);
+  }
+
+  /**
+   * Vero se il vertice è strada; con `gap` > 0, anche se dista meno di `gap` tile da una strada. Le strade sono
+   * dritte e allineate alla griglia, di larghezza costante: il sentiero principale scende a tratti verticali uniti da
+   * gomiti orizzontali, le strade secondarie sono righe e colonne fisse che si incrociano ad angolo retto.
+   */
   isRoad(vx: number, vy: number, gap = 0): boolean {
     const { spawn, mainPath, roads } = this.definition;
     if (Math.abs(vx - this.widthTiles / 2) <= spawn.half + gap && Math.abs(vy - spawn.row) <= spawn.half + gap) return true;
-    // Il sentiero principale scende in obliquo: il margine in orizzontale copre anche quello in verticale.
-    if (vy >= spawn.row && Math.abs(vx - this.mainPathCenter(vy)) <= mainPath.halfWidth + gap * 1.8) return true;
-    const reach = roads.halfWidth + gap * 1.3;
-    for (const column of this.roadColumns) if (Math.abs(vx - (column + 3 * Math.sin(vy / 37 + column))) <= reach) return true;
+    const width = mainPath.halfWidth + gap;
+    if (vy >= spawn.row && Math.abs(vx - this.mainPathCenter(vy)) <= width) return true;
+    // Il gomito fra due tratti: una striscia orizzontale lunga quanto lo spostamento, centrata sulla riga di passaggio.
+    const bend = Math.round((vy - spawn.row) / mainPath.stretch);
+    if (bend >= 1) {
+      const row = spawn.row + bend * mainPath.stretch, before = this.mainPathCenter(row - 1), after = this.mainPathCenter(row);
+      if (Math.abs(vy - row) <= width && vx >= Math.min(before, after) - width && vx <= Math.max(before, after) + width) return true;
+    }
+    const reach = roads.halfWidth + gap;
+    for (const column of this.roadColumns) if (Math.abs(vx - column) <= reach) return true;
     if (vx < roads.edgeGap - gap || vx > this.widthTiles - roads.edgeGap + gap) return false;
-    for (const row of this.roadRows) if (Math.abs(vy - (row + 3 * Math.sin(vx / 41 + row))) <= reach) return true;
+    for (const row of this.roadRows) if (Math.abs(vy - row) <= reach) return true;
     return false;
   }
 
@@ -88,15 +104,17 @@ export class WorldGenerator {
   terrainAtVertex(vertexX: number, vertexY: number): WorldTerrain {
     const vx = clamp(vertexX, 0, this.widthTiles), vy = clamp(vertexY, 0, this.heightTiles);
     const natural = this.naturalTerrain(vx, vy);
-    return natural !== 'road' && natural !== 'water' && this.isWall(vx, vy) ? 'wall' : natural;
+    // Le mura stanno solo sul suolo: mai su strade, acqua o lava.
+    return natural !== 'road' && TERRAIN_WALKABLE[natural] && this.isWall(vx, vy) ? 'wall' : natural;
   }
 
   /** Il terreno senza le costruzioni: costa, strade, stagni e suolo della fascia. */
   private naturalTerrain(vx: number, vy: number): WorldTerrain {
-    if (this.isCoast(vx, vy)) return 'water';
+    const biome = this.biomeAt(vx, vy), liquid = biome.liquid ?? 'water';
+    if (this.isCoast(vx, vy)) return liquid;
     if (this.isRoad(vx, vy)) return 'road';
-    if (this.isPond(vx, vy)) return 'water';
-    return this.biomeAt(vx, vy).ground;
+    if (this.isPond(vx, vy)) return liquid;
+    return biome.ground;
   }
 
   /**

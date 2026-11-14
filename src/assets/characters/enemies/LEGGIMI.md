@@ -1,0 +1,8 @@
+# Nemici del mondo aperto · PixelLab
+
+Fogli della camminata dei nemici propri del mondo aperto, generati con PixelLab MCP. Licenza: output PixelLab. Regole decise dal proprietario il 13 novembre 2026: mostri semplici, visti sempre di fronte, sola camminata, specchiati dal gioco per andare a destra e a sinistra; stile coerente con gli eroi.
+
+- **Scheletro delle rovine** (`crypt_ruin_skeleton.png`, 13 novembre): `create_character` modalità `pro`, 64 px, vista `low top-down`, `style_character_id` del Guerriero (stesso stile degli eroi), corpo semplice senza armatura; camminata `animate_character` modalità `skeleton-v3`, mossa `walk`, 8 fotogrammi, sola direzione `south`. Tela 80×80 come gli eroi.
+- **Lupo grigio aggiornato** il 14 novembre: il proprietario l'ha ritoccato direttamente su PixelLab; foglio rigenerato dall'ultima esportazione del personaggio (stessa cella di 80 px, camminata verso sud di 8 fotogrammi).
+- **Goblin, goblin fromboliere, fungo ambulante, coboldo, lupo grigio** (Bosco Verde) **e zombie, ghoul, cultista novizio** (Brughiera), 13 novembre: stessa ricetta dello scheletro (`pro`, 64 px, stile del Guerriero; il lupo con `body_type` quadruped e sagoma `dog`), camminata `skeleton-v3` mossa `walk` solo verso `south` (zombie con `energy` 0,7, ghoul 1,2).
+- **Dati:** `src/features/presentation/minion-art/world-mob-sheets.ts` è generato da `node tools/arte/prepara-nemici.mjs <cartella esterna>`: una sottocartella per nemico, chiamata con il suo id d'aspetto, con lo zip «download» del personaggio estratto. Lo strumento affianca i fotogrammi in una striscia e misura piedi e cima della figura. Non modificarlo a mano.
